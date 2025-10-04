@@ -46,14 +46,14 @@ class SampleMLPMechanism(BaseMechanism):
             self.net = None
         else:
             if n_hidden == 0:
-                layers.append(nn.Linear(input_dim, node_dim, bias=False))
+                layers.append(_deterministic_linear_layer(input_dim, node_dim, generator=self.gen))
             else:
                 d = input_dim
                 act = RandomActivation(generator=self.gen)
                 for _ in range(n_hidden):
-                    layers += [nn.Linear(d, hidden_dim, bias=False), act]
+                    layers += [_deterministic_linear_layer(d, hidden_dim, generator=self.gen), act]
                     d = hidden_dim
-                layers.append(nn.Linear(d, node_dim, bias=False))
+                layers.append(_deterministic_linear_layer(d, node_dim, generator=self.gen))
             self.net = nn.Sequential(*layers)
 
         # final activation, used after adding noise (the only activation if there are no hidden layers)
@@ -68,3 +68,11 @@ class SampleMLPMechanism(BaseMechanism):
         out = out + eps
         out = self.post_activation(out)
         return out 
+    
+
+def _deterministic_linear_layer(input_dim: int, output_dim: int, generator: Optional[torch.Generator]):
+    """Return a newly initialized linear layer with the sampling of the weight controlled by `generator`."""
+    bound = 1 / input_dim**0.5
+    layer = nn.Linear(input_dim, output_dim, bias=False)
+    nn.init.uniform_(layer.weight, -bound, bound, generator=generator)
+    return layer

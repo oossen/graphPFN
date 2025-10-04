@@ -43,13 +43,9 @@ class XGBoostLayer(torch.nn.Module):
         self.output_dim = output_dim
         self.generator = generator
         
-        # Generate random training data
-        if generator is not None:
-            # Use numpy random state seeded from torch generator
-            np_seed = int(torch.randint(0, 2**31, (1,), generator=generator).item())
-            np_rng = np.random.RandomState(np_seed)
-        else:
-            np_rng = np.random.RandomState()
+        # Get numpy generator from torch generator
+        np_seed = int(torch.randint(0, 2**31, (1,), generator=generator).item())
+        np_rng = np.random.default_rng(np_seed)
         
         # Sample training inputs and targets
         X_train = np_rng.standard_normal((n_training_samples, input_dim))
@@ -206,15 +202,10 @@ class SampleXGBoostMechanism(BaseMechanism):
         - n_estimators ~ min{4, 1 + Exponential(λ=0.5)}
         - max_depth ~ min{4, 2 + Exponential(λ=0.5)}
         """
-        # Sample from exponential distribution using torch
-        if self.gen is not None:
-            exp_dist = torch.distributions.Exponential(rate=0.5)
-            exp_sample_1 = exp_dist.sample((1,)).item()
-            exp_sample_2 = exp_dist.sample((1,)).item()
-        else:
-            exp_dist = torch.distributions.Exponential(rate=0.5)
-            exp_sample_1 = exp_dist.sample((1,)).item()
-            exp_sample_2 = exp_dist.sample((1,)).item()
+        # Sample using generator
+        # (can't use exponential distribution since that doesn't support generators)
+        exp_sample_1 = torch.empty(1).exponential_(0.5, generator=self.gen).item()
+        exp_sample_2 = torch.empty(1).exponential_(0.5, generator=self.gen).item()
 
         n_estimators = min(4, int(1 + exp_sample_1))
         max_depth = min(4, int(2 + exp_sample_2))

@@ -23,33 +23,37 @@ class FixedSampler(DistributionSampler):
     def sample(self, generator: Optional[torch.Generator] = None) -> Any:
         return self.value
     
+    def sample_n(self, n: int, generator: Optional[torch.Generator] = None) -> torch.Tensor:
+        return torch.full((n,), self.value)
+    
 
 class TorchDistributionSampler(DistributionSampler):
-    """Wrapper for torch.distributions samplers."""
+    """
+    Wrapper for torch.distributions samplers.
+    The important part is adding support for the generator argument.
+    """
     
     def __init__(self, distribution: dist.Distribution):
         self.distribution = distribution
     
-    def sample(self, generator: Optional[torch.Generator] = None) -> Any:
+    def sample_n(self, n: int, generator: Optional[torch.Generator] = None) -> torch.Tensor:
         if generator is not None:
             # Use the generator for sampling
             old_generator = torch.get_rng_state()
             torch.set_rng_state(generator.get_state())
             try:
-                value = self.distribution.sample()
+                value = self.distribution.sample((n,))
             finally:
                 generator.set_state(torch.get_rng_state())
                 torch.set_rng_state(old_generator)
         else:
-            value = self.distribution.sample()
-        
-        # Convert to appropriate Python type
-        if isinstance(value, torch.Tensor):
-            if value.numel() == 1:
-                return value.item()
-            else:
-                return value.tolist()
+            value = self.distribution.sample((n,))
+
         return value
+    
+    def sample(self, generator: Optional[torch.Generator] = None) -> Any:
+        singleton_tensor = self.sample_n(1, generator)
+        return singleton_tensor.item()
     
 
 class CategoricalSampler(DistributionSampler):
@@ -66,19 +70,24 @@ class CategoricalSampler(DistributionSampler):
             uniform_probs = torch.ones(len(choices)) / len(choices)
             self.categorical = dist.Categorical(uniform_probs)
     
-    def sample(self, generator: Optional[torch.Generator] = None) -> Any:
+    def sample_n(self, n: int, generator: Optional[torch.Generator] = None) -> List[Any]:
+        """This method must return a list rather than a tensor, since there are no tensors over arbitrary types."""
         if generator is not None:
             old_generator = torch.get_rng_state()
             torch.set_rng_state(generator.get_state())
             try:
-                idx = self.categorical.sample()
+                indices = [self.categorical.sample() for _ in range(n)]
             finally:
                 generator.set_state(torch.get_rng_state())
                 torch.set_rng_state(old_generator)
         else:
-            idx = self.categorical.sample()
+            indices = [self.categorical.sample() for _ in range(n)]
         
-        return self.choices[int(idx.item())]
+        return [self.choices[int(idx.item())] for idx in indices]
+    
+    def sample(self, generator: Optional[torch.Generator] = None) -> Any:
+        singleton_list = self.sample_n(1, generator)
+        return singleton_list[0]
 
 
 class DiscreteUniformSampler(DistributionSampler):
@@ -90,19 +99,23 @@ class DiscreteUniformSampler(DistributionSampler):
         if high < low:
             raise ValueError(f"high ({high}) must be >= low ({low})")
     
-    def sample(self, generator: Optional[torch.Generator] = None) -> int:
+    def sample_n(self, n: int, generator: Optional[torch.Generator] = None) -> torch.Tensor:
         if generator is not None:
             old_generator = torch.get_rng_state()
             torch.set_rng_state(generator.get_state())
             try:
-                value = torch.randint(self.low, self.high + 1, (1,))
+                values = torch.randint(self.low, self.high + 1, (n,))
             finally:
                 generator.set_state(torch.get_rng_state())
                 torch.set_rng_state(old_generator)
         else:
-            value = torch.randint(self.low, self.high + 1, (1,))
+            values = torch.randint(self.low, self.high + 1, (n,))
         
-        return int(value.item())
+        return values
+    
+    def sample(self, generator: Optional[torch.Generator] = None) -> Any:
+        singleton_tensor = self.sample_n(1, generator)
+        return singleton_tensor.item()
     
 
 DISTRIBUTION_FACTORIES = {

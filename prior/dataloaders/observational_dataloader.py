@@ -71,13 +71,13 @@ class ObservationalDataLoader(DataLoader):
         def batch_function():
             # sample graph
             graph_params = sample_parameters(self.graph_samplers, "graph", self.generator)
-            graph_builder = GraphBuilder()
-            graph = graph_builder.sample_ER_DAG(**graph_params)
+            graph_builder = GraphBuilder(**graph_params)
+            graph = graph_builder.sample_ER_DAG(self.generator)
             
             # sample SCM
             scm_params = sample_parameters(self.scm_samplers, "scm", self.generator)
             scm_builder = SCMBuilder(graph, **scm_params)
-            scm = scm_builder.build()
+            scm = scm_builder.build(self.generator)
             
             # sample dataset parameters
             dataset_params = sample_parameters(self.dataset_samplers, "dataset", self.generator)
@@ -87,9 +87,9 @@ class ObservationalDataLoader(DataLoader):
             # sample data from SCM
             total_samples = num_train_samples + num_test_samples
             sample_shape = (self.batch_size, total_samples)
-            scm.sample_noise(sample_shape)
+            scm.sample_noise(sample_shape, generator=self.generator)
             data = scm.propagate(sample_shape)
-            X, y = select_features(data, dataset_params["dropout_prob"])
+            X, y = select_features(data, dataset_params["dropout_prob"], self.generator)
             
             # preprocessing
             preprocessing_params = sample_parameters(self.preprocessing_samplers, "preprocessing", self.generator)

@@ -4,7 +4,7 @@ from tabpfn import TabPFNRegressor
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from prior.configs.default_configs import default_graph_config, default_dataset_config, default_preprocessing_config, default_scm_config
 
-dataloader = ObservationalDataLoader(20, 10, default_graph_config, default_scm_config, default_preprocessing_config, default_dataset_config, seed=42)
+dataloader = ObservationalDataLoader(3, 10, default_graph_config, default_scm_config, default_preprocessing_config, default_dataset_config, seed=43)
 
 from nanotabpfn import NanoTabPFNRegressor
 nano_reg = NanoTabPFNRegressor()

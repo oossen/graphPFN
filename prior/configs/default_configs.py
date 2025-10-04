@@ -26,7 +26,7 @@ default_graph_config = {
     # int
     "num_nodes": { 
         "distribution": "discrete_uniform",
-        "distribution_parameters": {"low": 5, "high": 10}
+        "distribution_parameters": {"low": 8, "high": 15}
     },
     # probability that any two nodes in the causal graph are connected
     # float

@@ -66,7 +66,12 @@ class SCM:
     # ---------------------- noise preparation API ----------------------
     
     @torch.no_grad()
-    def sample_noise(self, sample_shape: Tuple[int, ...], *, nodes: Optional[List[int]] = None) -> Dict[int, Tensor]:
+    def sample_noise(self,
+                     sample_shape: Tuple[int, ...],
+                     *,
+                     generator: Optional[torch.Generator] = None,
+                     nodes: Optional[List[int]] = None
+                     ) -> Dict[int, Tensor]:
         """
         Sample & fix noise (eps) for all nodes.
         If `nodes` is provided, resample only those nodes.
@@ -76,7 +81,7 @@ class SCM:
         for v in target_nodes:
             dv = self._node_dims[v]
             dist_v = self.noise.get(v, None)
-            e_v = dist_v.sample_shape(sample_shape + (dv,))
+            e_v = dist_v.sample_shape(sample_shape + (dv,), generator=generator)
             if not isinstance(e_v, Tensor):
                 e_v = torch.as_tensor(e_v)
             views[v] = e_v

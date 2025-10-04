@@ -20,8 +20,6 @@ class SCMBuilder:
     ----------
     graph: nx.DiGraph
         The directed acyclic graph underlying this SCM.
-    seed: Optional[int] = None
-        Fixing RNG for sampling mechanisms.
     xgboost_prob : float, default 0.1
         Probability of using XGBoost mechanism for each node (0.0 = never, 1.0 = always).
         Remaining nodes will use MLP mechanisms.
@@ -59,7 +57,6 @@ class SCMBuilder:
         self,
         # the underlying graph
         graph: nx.DiGraph,
-        seed: Optional[int] = None,
         *,
         # Mechanism Type Selection
         xgboost_prob: float = 0.1,
@@ -84,7 +81,6 @@ class SCMBuilder:
     ) -> None:
         # Store all parameters
         self.graph = graph
-        self.seed = seed
         
         self.xgboost_prob = xgboost_prob
         self.node_dim = node_dim
@@ -105,7 +101,7 @@ class SCMBuilder:
         # Validate all hyperparameters
         self._validate_hyperparameters()
     
-    def build(self) -> SCM:
+    def build(self, generator: torch.Generator) -> SCM:
         """
         Build and return a configured SCM based on the provided hyperparameters.
         
@@ -115,9 +111,10 @@ class SCMBuilder:
             A fully configured Structural Causal Model ready for sampling.
         """
         # Step 1: Create mechanisms for each node
-        mechanisms = self._create_mechanisms()
+        mechanisms = self._create_mechanisms(generator)
         
         # Step 2: Create noise distributions
+        # Note that creation of the distributions is deterministic and requires no generator
         noise = self._create_noise_distribution()
         
         # Step 3: Build the SCM
@@ -125,14 +122,9 @@ class SCMBuilder:
         
         return scm
     
-    def _create_mechanisms(self) -> Dict[int, Union[SampleMLPMechanism, SampleXGBoostMechanism]]:
+    def _create_mechanisms(self, generator: Optional[torch.Generator]) -> Dict[int, Union[SampleMLPMechanism, SampleXGBoostMechanism]]:
         """Create mechanisms for each node in the DAG."""
         mechanisms = {}
-        
-        # Create generator for mechanism type sampling
-        generator = None
-        if self.seed is not None:
-            generator = torch.Generator().manual_seed(self.seed)
         
         for node in self.graph.nodes():
             # Sample whether to use XGBoost or MLP

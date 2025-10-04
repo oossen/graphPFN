@@ -5,6 +5,8 @@ import torch
 from torch import Tensor
 import torch.distributions as dist
 
+from prior.utils.hyperparameter_sampling import TorchDistributionSampler
+
 
 class MixedDist:
     """
@@ -72,10 +74,11 @@ class MixedDist:
 
         self.std2scale = std2scale
         self._components = self._init_components()  # list of instantiated torch distributions
-        self._cat = dist.Categorical(probs=self.weights)
+        cat_dist = dist.Categorical(probs=self.weights)
+        self._cat = TorchDistributionSampler(cat_dist) # wrap the distribution to support generators
 
-    def _init_components(self) -> List[dist.Distribution]:
-        comps: List[dist.Distribution] = []
+    def _init_components(self) -> List[TorchDistributionSampler]:
+        comps: List[TorchDistributionSampler] = []
         euler_gamma = 0.5772156649015329
 
         for cls in self.distributions:
@@ -86,23 +89,23 @@ class MixedDist:
                 scale = torch.tensor(self.std2scale[cls](self.std), device=self.device, dtype=self.dtype)
                 df = torch.tensor(self.student_t_df, device=self.device, dtype=self.dtype)
                 loc = torch.tensor(0.0, device=self.device, dtype=self.dtype)
-                comps.append(dist.StudentT(df=df, loc=loc, scale=scale))
+                comps.append(TorchDistributionSampler(dist.StudentT(df=df, loc=loc, scale=scale)))
 
             elif cls is dist.Gumbel:
                 scale = torch.tensor(self.std2scale[cls](self.std), device=self.device, dtype=self.dtype)
                 # set mean to zero: mean = loc + gamma*scale => loc = -gamma*scale
                 loc = -torch.tensor(euler_gamma, device=self.device, dtype=self.dtype) * scale
-                comps.append(dist.Gumbel(loc=loc, scale=scale))
+                comps.append(TorchDistributionSampler(dist.Gumbel(loc=loc, scale=scale)))
 
             elif cls is dist.Normal:
                 scale = torch.tensor(self.std2scale[cls](self.std), device=self.device, dtype=self.dtype)
                 loc = torch.tensor(0.0, device=self.device, dtype=self.dtype)
-                comps.append(dist.Normal(loc=loc, scale=scale))
+                comps.append(TorchDistributionSampler(dist.Normal(loc=loc, scale=scale)))
 
             elif cls is dist.Laplace:
                 scale = torch.tensor(self.std2scale[cls](self.std), device=self.device, dtype=self.dtype)
                 loc = torch.tensor(0.0, device=self.device, dtype=self.dtype)
-                comps.append(dist.Laplace(loc=loc, scale=scale))
+                comps.append(TorchDistributionSampler(dist.Laplace(loc=loc, scale=scale)))
 
             else:
                 raise ValueError(f"Unsupported distribution class: {cls.__name__}")
@@ -110,7 +113,7 @@ class MixedDist:
         return comps
 
     @torch.no_grad()
-    def sample_n(self, n: int) -> Tensor:
+    def sample_n(self, n: int, generator: torch.Generator) -> Tensor:
         """
         Vectorized i.i.d. sampling: draw component indices for N scalars,
         then sample from all components and select.
@@ -119,7 +122,7 @@ class MixedDist:
         if n <= 0:
             return torch.empty((0,), device=self.device, dtype=self.dtype)
 
-        idx = self._cat.sample((n,))  # (n,)
+        idx = self._cat.sample_n(n, generator=generator)  # (n,)
         out = torch.empty((n,), device=self.device, dtype=self.dtype)
 
         # Sample from each component only where needed
@@ -127,15 +130,15 @@ class MixedDist:
             mask = (idx == k)
             count = int(mask.sum().item())
             if count > 0:
-                out[mask] = comp.sample((count,)).to(self.device, self.dtype)
+                out[mask] = comp.sample_n(count, generator).to(self.device, self.dtype)
 
         return out
 
     @torch.no_grad()
-    def sample_shape(self, shape: Tuple[int, ...]) -> Tensor:
+    def sample_shape(self, shape: Tuple[int, ...], generator: torch.Generator) -> Tensor:
         """
         Fully vectorized sampling for any output shape.
         """
         N = int(math.prod(shape))
-        flat = self.sample_n(N)
+        flat = self.sample_n(N, generator=generator)
         return flat.reshape(shape)
