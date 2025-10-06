@@ -73,6 +73,11 @@ class XGBoostLayer(torch.nn.Module):
     
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass through the XGBoost layer."""
+        # Normalize input
+        mean = x.mean(dim=1, keepdim=True)
+        std = x.std(dim=1, keepdim=True) + 1e-6
+        x =  (x - mean) / std
+        
         # Convert tensor to numpy for XGBoost prediction
         x_np = x.detach().cpu().numpy()
         
@@ -230,6 +235,6 @@ class SampleXGBoostMechanism(BaseMechanism):
             eps = torch.zeros_like(out)
 
         # Apply final XGBoost transformation after adding noise
-        noisy_out = out + eps
-        final_out = self.post_xgb_layer(noisy_out)
-        return final_out
+        out = out + eps
+        out = self.post_xgb_layer(out)
+        return out

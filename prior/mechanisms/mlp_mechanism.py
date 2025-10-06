@@ -56,8 +56,10 @@ class SampleMLPMechanism(BaseMechanism):
                 layers.append(_deterministic_linear_layer(d, node_dim, generator=self.gen))
             self.net = nn.Sequential(*layers)
 
-        # final activation, used after adding noise (the only activation if there are no hidden layers)
-        self.post_activation = RandomActivation(generator=self.gen)
+        # final layer, used after adding noise (the only activation if there are no hidden layers)
+        post_linear = _deterministic_linear_layer(node_dim, node_dim, generator=self.gen)
+        post_activation = RandomActivation(generator=self.gen)
+        self.post_layer = nn.Sequential(post_linear, post_activation)
 
     def _forward(self, parents: Tensor, eps: Tensor) -> Tensor:
         if self.net is None:
@@ -66,7 +68,7 @@ class SampleMLPMechanism(BaseMechanism):
         else:
             out = self.net(parents)      
         out = out + eps
-        out = self.post_activation(out)
+        out = self.post_layer(out)
         return out 
     
 

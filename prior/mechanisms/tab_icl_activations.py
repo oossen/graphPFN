@@ -161,7 +161,9 @@ class StdRandomScaleFactory:
         self.individual = individual
 
     def __call__(self, generator: Optional[torch.Generator]=None):
-        return nn.Sequential(StdScaleLayer(), RandomScaleLayer(individual=self.individual, generator=generator), self.act_class(generator=generator))
+        # is deactivating random scaling a good idea?
+        # return nn.Sequential(StdScaleLayer(), RandomScaleLayer(individual=self.individual, generator=generator), self.act_class(generator=generator))
+        return nn.Sequential(StdScaleLayer(), self.act_class(generator=generator))
 
 
 def get_activations(random: bool = True, scale: bool = True):
@@ -189,7 +191,6 @@ def get_activations(random: bool = True, scale: bool = True):
         nn.Softplus,
         nn.ReLU6,
         nn.Hardtanh,
-        SignActivation,
         RBFActivation,
         ExpActivation,
         SqrtAbsActivation,
