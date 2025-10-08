@@ -22,7 +22,6 @@ class Preprocessor:
         remove_outliers: bool = True,
         outlier_quantile: float = 0.95,
         eps: float = 1e-8,
-        y_clip_quantile: Optional[float] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ):
@@ -41,8 +40,6 @@ class Preprocessor:
             Upper quantile (q). We winsorize using (1-q, q). Example: 0.95 → clamp to [p5, p95].
         eps : float
             Small numerical constant for divisions / logs.
-        y_clip_quantile : float (optional)
-            Optional winsorization for Y.
         device/dtype: Optional overrides for output tensors.
         """
         assert 0 < outlier_quantile <= 1.0, "outlier_quantile must be in (0, 1]."
@@ -53,7 +50,6 @@ class Preprocessor:
         self.remove_outliers = remove_outliers
         self.outlier_quantile = outlier_quantile
         self.eps = eps
-        self.y_clip_quantile = y_clip_quantile
 
         self.device = device
         self.dtype = dtype
@@ -68,17 +64,12 @@ class Preprocessor:
         
         # feature processing
         if self.remove_outliers:
-            q = float(self.outlier_quantile)
-            if not (0.5 < q <= 1.0):
+            upper_q = float(self.outlier_quantile)
+            if not (0.5 < upper_q <= 1.0):
                 raise ValueError("outlier_quantile should be in (0.5, 1.0].")
-            lower_q = 1.0 - q
-            # torch.quantile supports q as tensor
-            qs = torch.tensor([lower_q, q], device=X.device, dtype=X.dtype)
-            # Compute per (B, F)
-            # shape: [B, 2, F]
-            Q = torch.quantile(X.transpose(1, 2), qs, dim=-1, keepdim=False).transpose(0, 1)
-            self.lo_x = Q[:, 0, :].unsqueeze(1)  # [B,1,F]
-            self.hi_x = Q[:, 1, :].unsqueeze(1)  # [B,1,F]
+            lower_q = 1.0 - upper_q
+            self.lo_x = torch.quantile(X, lower_q, dim=1, keepdim=True)
+            self.hi_x = torch.quantile(X, upper_q, dim=1, keepdim=True)
             X = X.clamp(min=self.lo_x, max=self.hi_x)
         
         if self.yeo_johnson:
@@ -98,15 +89,14 @@ class Preprocessor:
             X = 2.0 * (X - self.min_x) / self.rng_x - 1.0
         
         # target processing
-        if self.y_clip_quantile is not None:
-            q = float(self.y_clip_quantile)
-            if not (0.5 < q <= 1.0):
+        if self.remove_outliers:
+            upper_q = float(self.outlier_quantile)
+            if not (0.5 < upper_q <= 1.0):
                 raise ValueError("y_clip_quantile should be in (0.5, 1.0].")
-            qs = torch.tensor([1.0 - q, q], device=Y.device, dtype=Y.dtype)
-            Q = torch.quantile(Y, qs, dim=1, keepdim=True)  # [B,2,1] effectively
-            self.lo_y = Q[:, 0:1, :]
-            self.hi_y = Q[:, 1:2, :]
-            Y = Y.clamp(min=self.lo_y.squeeze(-1), max=self.hi_y.squeeze(-1))
+            lower_q = 1.0 - upper_q
+            self.lo_y = torch.quantile(Y, lower_q, dim=1, keepdim=True)
+            self.hi_y = torch.quantile(Y, upper_q, dim=1, keepdim=True)
+            Y = Y.clamp(min=self.lo_y, max=self.hi_y)
 
         if self.negative_one_one_scaling:
             self.min_y = Y.amin(dim=1, keepdim=True)
@@ -137,8 +127,8 @@ class Preprocessor:
             X = 2.0 * (X - self.min_x) / self.rng_x - 1.0
         
         # target processing
-        if self.y_clip_quantile is not None:
-            Y = Y.clamp(min=self.lo_y.squeeze(-1), max=self.hi_y.squeeze(-1))
+        if self.remove_outliers:
+            Y = Y.clamp(min=self.lo_y, max=self.hi_y)
 
         if self.negative_one_one_scaling:
             Y = 2.0 * (Y - self.min_y) / self.rng_y - 1.0

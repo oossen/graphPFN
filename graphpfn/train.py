@@ -3,16 +3,15 @@ from torch import nn
 import time
 from torch.utils.data import DataLoader
 from typing import Dict, Optional
-from graphpfn.priors import PriorDataLoader
 from pfns.bar_distribution import FullSupportBarDistribution
 import schedulefree
 
+from graphpfn.model import GraphPFNModel
 from nanotabpfn.callbacks import Callback
-from nanotabpfn.model import NanoTabPFNModel
 from nanotabpfn.utils import get_default_device
 
 
-def train(model: NanoTabPFNModel, prior: PriorDataLoader, criterion: nn.CrossEntropyLoss | FullSupportBarDistribution,
+def train(model: GraphPFNModel, prior: DataLoader, criterion: nn.CrossEntropyLoss | FullSupportBarDistribution,
           epochs: int, accumulate_gradients: int = 1, lr: float = 1e-4, device: Optional[str] = None,
           callbacks: list[Callback]=[], ckpt: Optional[Dict] = None):
     """
@@ -41,7 +40,7 @@ def train(model: NanoTabPFNModel, prior: PriorDataLoader, criterion: nn.CrossEnt
         optimizer.load_state_dict(ckpt['optimizer'])
     classification_task = isinstance(criterion, nn.CrossEntropyLoss)
 
-    assert prior.num_steps % accumulate_gradients == 0, 'num_steps must be divisible by accumulate_gradients'
+    assert len(prior) % accumulate_gradients == 0, 'num_steps must be divisible by accumulate_gradients'
 
     try:
         for epoch in range(ckpt['epoch'] + 1 if ckpt else 1, epochs + 1):
@@ -55,7 +54,7 @@ def train(model: NanoTabPFNModel, prior: PriorDataLoader, criterion: nn.CrossEnt
                         full_data['y'][:, :single_eval_pos].to(device))
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
                     continue
-                targets = full_data['target_y'].to(device)
+                targets = full_data['y'].to(device)
 
                 output = model(data, single_eval_pos=single_eval_pos)
                 targets = targets[:, single_eval_pos:]

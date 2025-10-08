@@ -1,4 +1,4 @@
-default_dataset_config = {
+dataset_config = {
     # number of train samples per dataset
     # int
     "number_train_samples_per_dataset": {
@@ -19,7 +19,7 @@ default_dataset_config = {
 }
 
 
-default_graph_config = {
+graph_config = {
     # number of nodes in the causal graph
     # each node may contain several features
     # one of these will become the target, the others (if not dropped) features of the generated data
@@ -36,11 +36,11 @@ default_graph_config = {
 }
 
 
-default_preprocessing_config = {
+preprocessing_config = {
     # whether to scale features to [-1, 1] range
     # bool
     "negative_one_one_scaling": {  # whether to scale features to [-1, 1] range
-        "value": True
+        "value": False
     },
     # whether to standardize features (zero mean, unit variance)
     # bool
@@ -65,7 +65,7 @@ default_preprocessing_config = {
 }
 
 
-default_scm_config = {    
+scm_config = {    
     # probability of using XGBoost mechanism as opposed to MLP mechanism
     # float
     "xgboost_prob": {

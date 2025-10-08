@@ -1,18 +1,18 @@
 from sklearn.metrics import r2_score
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
 from tabpfn import TabPFNRegressor
 
 import matplotlib.pyplot as plt
 
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from prior.configs.default_configs import default_graph_config, default_dataset_config, default_preprocessing_config, default_scm_config
+from prior.configs.default_configs import graph_config, scm_config, preprocessing_config, dataset_config
 
-dataloader = ObservationalDataLoader(100, 1, default_graph_config, default_scm_config, default_preprocessing_config, default_dataset_config, seed=44)
+dataloader = ObservationalDataLoader(100, 1, graph_config, scm_config, preprocessing_config, dataset_config, seed=44)
 
 from nanotabpfn import NanoTabPFNRegressor
 nano_tabpfn = NanoTabPFNRegressor()
 tabpfn = TabPFNRegressor()
-tree = DecisionTreeRegressor()
+tree = RandomForestRegressor()
 
 nano_tabpfn_scores = []
 tabpfn_scores = []
@@ -33,9 +33,9 @@ for data in dataloader:
     pred = tabpfn.predict(X_test)
     tabpfn_scores.append(r2_score(y_test, pred))
     
-    tree.fit(X_train, y_train)
+    tree.fit(X_train, y_train.ravel())
     pred = tree.predict(X_test)
-    tree_scores.append(r2_score(y_test, pred))
+    tree_scores.append(r2_score(y_test.ravel(), pred))
     
 # Plotting
 fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharey=False)

@@ -1,6 +1,7 @@
 from typing import Any, Dict, Iterator
 import torch
 from torch.utils.data import DataLoader
+import networkx as nx
 
 from prior.causal_graph.graph_builder import GraphBuilder
 from prior.preprocessing.preprocessing import Preprocessor
@@ -102,7 +103,7 @@ class ObservationalDataLoader(DataLoader):
             full_data['x'] = X
             full_data['y'] = y.unsqueeze(-1)
             full_data['single_eval_pos'] = num_train_samples
-            full_data['target_y'] = full_data['y'][:, :num_train_samples, :]
+            full_data['adjacency_matrix'] = nx.to_numpy_array(graph)
             return full_data
             
         return iter(batch_function() for _ in range(self.num_steps))

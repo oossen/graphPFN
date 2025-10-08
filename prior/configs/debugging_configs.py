@@ -1,0 +1,29 @@
+"""
+These are like the default configs, but all relevant parameters are chosen much smaller,
+so that things like the training loop can be debugged easily even locally.
+"""
+
+import prior.configs.default_configs as defaults
+
+dataset_config = defaults.dataset_config
+dataset_config["number_train_samples_per_dataset"] = {
+        "distribution": "discrete_uniform",
+        "distribution_parameters": {"low": 10, "high": 20}
+    }
+dataset_config["number_test_samples_per_dataset"] = {"value": 3}
+
+
+graph_config = defaults.graph_config
+graph_config["num_nodes"] = { 
+        "distribution": "discrete_uniform",
+        "distribution_parameters": {"low": 5, "high": 10}
+    }
+
+
+preprocessing_config = defaults.preprocessing_config
+
+
+scm_config = defaults.scm_config
+
+
+

@@ -57,7 +57,7 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
                         full_data['y'][:, :single_eval_pos].to(device))
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
                     continue
-                targets = full_data['target_y'].to(device)
+                targets = full_data['y'].to(device)
 
                 output = model(data, single_eval_pos=single_eval_pos)
                 targets = targets[:, single_eval_pos:]
