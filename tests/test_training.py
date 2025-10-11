@@ -1,3 +1,4 @@
+from functools import partial
 from typing import List
 from graphpfn.utils import make_bar_distribution
 
@@ -6,7 +7,7 @@ from nanotabpfn.model import NanoTabPFNModel
 from nanotabpfn.train import train
 
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from prior.configs.debugging_configs import graph_config, scm_config, preprocessing_config, dataset_config
+from prior.configs.debugging_configs import prior_config, preprocessing_config
 
 num_buckets = 100
 model = NanoTabPFNModel(
@@ -17,10 +18,14 @@ model = NanoTabPFNModel(
     num_outputs=num_buckets,
 )
 
-prior = ObservationalDataLoader(5, 10, graph_config, scm_config, preprocessing_config, dataset_config, seed=42)
+prior = ObservationalDataLoader(5, 10, prior_config, preprocessing_config, seed=42)
 
-bar_dist_prior = ObservationalDataLoader(1000, 1, graph_config, scm_config, preprocessing_config, dataset_config, seed=42)
-dist = make_bar_distribution(bar_dist_prior, n_buckets=num_buckets, n_samples=10000)
+prior_factory = partial(ObservationalDataLoader,
+                        batch_size=10,
+                        prior_config=prior_config,
+                        preprocessing_config=preprocessing_config,
+                        seed=42)
+dist = make_bar_distribution(prior_factory, n_buckets=num_buckets, n_samples=1000)
 
 callbacks: List[Callback] = [ConsoleLoggerCallback()]
 

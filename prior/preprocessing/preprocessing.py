@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Tuple
 import torch
 from torch import Tensor
 
@@ -12,18 +12,17 @@ class Preprocessor:
     and fits the preprocessing pipeline to them.
     
     *Processing* takes in tensors of the same shape and applies the previously-fitted pipeline.
+    
+    Additionally, there is a *unprocessing* operation that reverts the preprocessor's transformation as much as possible.
     """
 
     def __init__(
         self,
         negative_one_one_scaling: bool = True,
         standardize: bool = False,
-        yeo_johnson: bool = False,
         remove_outliers: bool = True,
         outlier_quantile: float = 0.95,
         eps: float = 1e-8,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
     ):
         """
         Parameters
@@ -32,27 +31,20 @@ class Preprocessor:
             Whether to scale features and targets to [-1, 1].
         standardize : bool
             Whether to standardize features (zero mean, unit variance).
-        yeo_johnson : bool
-            Whether to apply Yeo-Johnson transform to features before standardization.
         remove_outliers : bool
             Whether to winsorize features based on quantiles.
         outlier_quantile : float
             Upper quantile (q). We winsorize using (1-q, q). Example: 0.95 → clamp to [p5, p95].
         eps : float
             Small numerical constant for divisions / logs.
-        device/dtype: Optional overrides for output tensors.
         """
         assert 0 < outlier_quantile <= 1.0, "outlier_quantile must be in (0, 1]."
 
         self.negative_one_one_scaling = negative_one_one_scaling
         self.standardize = standardize
-        self.yeo_johnson = yeo_johnson
         self.remove_outliers = remove_outliers
         self.outlier_quantile = outlier_quantile
         self.eps = eps
-
-        self.device = device
-        self.dtype = dtype
 
     # ------------------------ public API ------------------------
 
@@ -71,10 +63,6 @@ class Preprocessor:
             self.lo_x = torch.quantile(X, lower_q, dim=1, keepdim=True)
             self.hi_x = torch.quantile(X, upper_q, dim=1, keepdim=True)
             X = X.clamp(min=self.lo_x, max=self.hi_x)
-        
-        if self.yeo_johnson:
-            self.lambdas = self._fit_yeo_johnson_lambdas(X)
-            X = self._apply_yeo_johnson(X, self.lambdas)
         
         if self.standardize:
             self.mean_x = X.mean(dim=1, keepdim=True) # [B,1,F]
@@ -97,6 +85,11 @@ class Preprocessor:
             self.lo_y = torch.quantile(Y, lower_q, dim=1, keepdim=True)
             self.hi_y = torch.quantile(Y, upper_q, dim=1, keepdim=True)
             Y = Y.clamp(min=self.lo_y, max=self.hi_y)
+            
+        if self.standardize:
+            self.mean_y = Y.mean(dim=1, keepdim=True) # [B,1]
+            self.std_y = Y.std(dim=1, keepdim=True).clamp_min(self.eps)
+            Y = (Y - self.mean_y) / self.std_y
 
         if self.negative_one_one_scaling:
             self.min_y = Y.amin(dim=1, keepdim=True)
@@ -117,9 +110,6 @@ class Preprocessor:
         if self.remove_outliers:
             X = X.clamp(min=self.lo_x, max=self.hi_x)
         
-        if self.yeo_johnson:
-            X = self._apply_yeo_johnson(X, self.lambdas)
-        
         if self.standardize:
             X = (X - self.mean_x) / self.std_x
             
@@ -129,21 +119,36 @@ class Preprocessor:
         # target processing
         if self.remove_outliers:
             Y = Y.clamp(min=self.lo_y, max=self.hi_y)
+            
+        if self.standardize:
+            Y = (Y - self.mean_y) / self.std_y
 
         if self.negative_one_one_scaling:
             Y = 2.0 * (Y - self.min_y) / self.rng_y - 1.0
 
-        # Cast/device if requested
-        if self.dtype is not None:
-            X = X.to(self.dtype)
-            Y = Y.to(self.dtype)
-        if self.device is not None:
-            X = X.to(self.device)
-            Y = Y.to(self.device)
-
         return X, Y
-
-    # ------------------------ helpers: validation ------------------------
+    
+    def process_x(self, X: Tensor) -> Tensor:
+        if self.remove_outliers:
+            X = X.clamp(min=self.lo_x, max=self.hi_x)
+        
+        if self.standardize:
+            X = (X - self.mean_x) / self.std_x
+            
+        if self.negative_one_one_scaling:
+            X = 2.0 * (X - self.min_x) / self.rng_x - 1.0
+            
+        return X
+    
+    def unprocess_y(self, Y: Tensor) -> Tensor:
+        """Undo standardization and scaling."""
+        if self.negative_one_one_scaling:
+            Y = (Y + 1.0) * self.rng_y / 2.0 + self.min_y
+        
+        if self.standardize:
+            Y = self.std_y * Y + self.mean_y
+        
+        return Y        
 
     def _validate_inputs(self, X: Tensor, Y: Tensor) -> None:
         if X.dim() != 3:
@@ -152,85 +157,3 @@ class Preprocessor:
             raise ValueError(f"Y must have shape [B, N], got {tuple(Y.shape)}.")
         if X.shape[0] != Y.shape[0] or X.shape[1] != Y.shape[1]:
             raise ValueError(f"Batch size / sample count mismatch between X{tuple(X.shape)} and Y{tuple(Y.shape)}.")
-
-    # ------------------------ helpers: Yeo-Johnson ------------------------
-
-    @staticmethod
-    def _yeo_johnson_transform(x: Tensor, lam: Tensor, eps: float) -> Tensor:
-        """
-        Compute Yeo-Johnsom transform of x and lam.
-        The two inputs must be broadcastable.
-        
-        For example, in applying the fitted transform, we have x of shape [B, N, F] and lam of shape [B, 1, F].
-        During fitting (when several lambdas are evaluated), we have x of shape [B, N, 1, F] and lam of shape [1, 1, E, 1].
-        (E is the number of values for lambda being evaluated.)
-        """
-        # piecewise
-        pos = x >= 0
-        lam_near0 = torch.abs(lam) < 1e-6
-
-        # For x >= 0:
-        # lam != 0: ((x + 1)^lam - 1) / lam
-        # lam == 0: log(x + 1)
-        out_pos = torch.where(
-            lam_near0, torch.log1p(x.clamp_min(0.0) + 0.0), ((x + 1.0).clamp_min(eps) ** lam - 1.0) / (lam + 0.0)
-        )
-
-        # For x < 0:
-        # lam != 2: - ((-x + 1)^(2 - lam) - 1) / (2 - lam)
-        # lam == 2: -log(-x + 1)
-        two_minus_lam = 2.0 - lam
-        near2 = torch.abs(two_minus_lam) < 1e-6
-        xm = (-x).clamp_min(0.0) + 1.0
-        out_neg = torch.where(
-            near2, -torch.log(xm.clamp_min(eps)), -((xm.clamp_min(eps) ** two_minus_lam - 1.0) / two_minus_lam)
-        )
-
-        return torch.where(pos, out_pos, out_neg)
-
-    def _fit_yeo_johnson_lambdas(self, X: Tensor) -> Tensor:
-        """
-        Fit per-batch, per-feature lambda by grid-search MLE under normality:
-        maximizes Gaussian log-likelihood of transformed data (up to constants)
-        using the Jacobian term of YJ (sum log|dT/dx|). This is a pragmatic, stable approach.
-
-        Returns:
-            lambdas: [B, F]
-        """
-        # Lambda grid
-        grid = torch.linspace(-2.0, 2.0, steps=41, device=X.device, dtype=X.dtype)  # 0.1 step
-        # Prepare broadcast shapes
-        x = X.unsqueeze(2)  # [B, N, 1, F]
-        lam = grid.view(1, 1, -1, 1)  # [1,1,L,1] -> broadcast to [B,N,L,F]
-
-        # Transform
-        xt = self._yeo_johnson_transform(x, lam, self.eps)  # [B, N, L, F]
-
-        # Gaussian MLE log-likelihood (per (B,L,F)): -N/2 * log(var) + Jacobian term
-        # Compute mean/var across N
-        mean = xt.mean(dim=1, keepdim=True)
-        """Changed keepdim to False"""
-        var = xt.var(dim=1, unbiased=False, keepdim=False).clamp_min(self.eps)
-        ll_gauss = -0.5 * (xt - mean).pow(2).sum(dim=1) / var  # [B, L, F] up to constants
-        ll_gauss += -0.5 * torch.log(var.squeeze(1)) * xt.shape[1]        # add -N/2 log(var)
-
-        # Add Jacobian log|dT/dx|
-        # For Yeo-Johnson, the derivative:
-        # x>=0: (x+1)^(lam-1)
-        # x<0:  (1-x)^(1-lam)
-        """In this block, changed Xtr for xt"""
-        pos = X >= 0
-        jac_pos = ((xt+ 1.0).clamp_min(self.eps)) ** (lam - 1.0)  # [B,N,L,F]
-        jac_neg = ((1.0 - xt).clamp_min(self.eps)) ** (1.0 - lam)
-        log_jac = torch.where(pos.unsqueeze(2), torch.log(jac_pos.clamp_min(self.eps)), torch.log(jac_neg.clamp_min(self.eps)))
-        ll = ll_gauss + log_jac.sum(dim=1)  # [B, L, F]
-
-        # Choose best lambda per (B,F)
-        idx = torch.argmax(ll, dim=1)  # [B, F] index into grid
-        lambdas = grid[idx]            # [B, F]
-        return lambdas
-
-    def _apply_yeo_johnson(self, X: Tensor, lambdas: Tensor) -> Tensor:
-        # reshape lambdas to [B,1,F] for broadcasting across samples
-        lam = lambdas.unsqueeze(1)
-        return self._yeo_johnson_transform(X, lam, self.eps)

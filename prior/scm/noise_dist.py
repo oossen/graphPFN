@@ -89,7 +89,7 @@ class MixedDist:
                 scale = torch.tensor(self.std2scale[cls](self.std), device=self.device, dtype=self.dtype)
                 df = torch.tensor(self.student_t_df, device=self.device, dtype=self.dtype)
                 loc = torch.tensor(0.0, device=self.device, dtype=self.dtype)
-                comps.append(TorchDistributionSampler(dist.StudentT(df=df, loc=loc, scale=scale)))
+                comps.append(TorchDistributionSampler(dist.StudentT(df=df, loc=loc.item(), scale=scale.item())))
 
             elif cls is dist.Gumbel:
                 scale = torch.tensor(self.std2scale[cls](self.std), device=self.device, dtype=self.dtype)

@@ -9,9 +9,10 @@ import schedulefree
 from graphpfn.model import GraphPFNModel
 from nanotabpfn.callbacks import Callback
 from nanotabpfn.utils import get_default_device
+from nanotabpfn.model import NanoTabPFNModel
 
 
-def train(model: GraphPFNModel, prior: DataLoader, criterion: nn.CrossEntropyLoss | FullSupportBarDistribution,
+def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyLoss | FullSupportBarDistribution,
           epochs: int, accumulate_gradients: int = 1, lr: float = 1e-4, device: Optional[str] = None,
           callbacks: list[Callback]=[], ckpt: Optional[Dict] = None):
     """

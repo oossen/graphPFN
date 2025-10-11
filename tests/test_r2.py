@@ -5,9 +5,9 @@ from tabpfn import TabPFNRegressor
 import matplotlib.pyplot as plt
 
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from prior.configs.default_configs import graph_config, scm_config, preprocessing_config, dataset_config
+from prior.configs.default_configs import prior_config, preprocessing_config
 
-dataloader = ObservationalDataLoader(100, 1, graph_config, scm_config, preprocessing_config, dataset_config, seed=44)
+dataloader = ObservationalDataLoader(100, 1, prior_config, preprocessing_config, seed=44)
 
 from nanotabpfn import NanoTabPFNRegressor
 nano_tabpfn = NanoTabPFNRegressor()

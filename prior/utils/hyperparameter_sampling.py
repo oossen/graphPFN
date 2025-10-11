@@ -195,8 +195,8 @@ def build_samplers(config: Dict[str, Any],
     
 
 def sample_parameters(samplers: Dict[str, Any],
-                      config_name: str,
-                      generator: torch.Generator,
+                      config_name: Optional[str]=None,
+                      generator: Optional[torch.Generator]=None,
                       expected_types: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Sample parameters from samplers with type validation."""
     sampled_params = {}

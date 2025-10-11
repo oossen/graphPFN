@@ -4,11 +4,11 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn import MultiheadAttention, Linear, LayerNorm
 
-from nanotabpfn.model import Decoder, FeatureEncoder, TargetEncoder
+from nanotabpfn.model import Decoder, FeatureEncoder, TargetEncoder, NanoTabPFNModel
 from nanotabpfn.utils import get_default_device
 
 
-class GraphPFNModel(nn.Module):
+class GraphPFNModel(NanoTabPFNModel):
     def __init__(self,
                  embedding_size: int,
                  num_attention_heads: int,
@@ -17,7 +17,7 @@ class GraphPFNModel(nn.Module):
                  num_layers: int,
                  num_outputs: int):
         """ Initializes the feature/target encoder, transformer stack and decoder """
-        super().__init__()
+        nn.Module.__init__(self)
         self.num_outputs = num_outputs
         self.feature_encoder = FeatureEncoder(embedding_size)
         self.target_encoder = TargetEncoder(embedding_size)

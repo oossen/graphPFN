@@ -1,3 +1,4 @@
+from typing import Callable, Type
 from pfns.bar_distribution import FullSupportBarDistribution
 from pfns.bar_distribution import get_bucket_limits
 from nanotabpfn.utils import get_default_device
@@ -5,7 +6,8 @@ from nanotabpfn.utils import get_default_device
 import torch
 from torch.utils.data import DataLoader
 
-def make_bar_distribution(prior: DataLoader,
+
+def make_bar_distribution(prior_factory: Callable[[int], DataLoader],
                           n_buckets: int = 100,
                           n_samples: int = 10000
                           ) -> FullSupportBarDistribution:
@@ -13,19 +15,14 @@ def make_bar_distribution(prior: DataLoader,
     Construct a full support bar/Riemann distribution.
     Sample `n_samples` many data tables from `prior` and
     choose `n_buckets` many buckets to each contain the same number of targets.
+    
+    The argument `prior_factory` takes one int argument (number of samples) and returns a dataloader.
     """
     sampled_ys = []
-    n_sampled = 0
-    prior_iter = iter(prior)
-    while n_sampled < n_samples:
-        try:
-            data = next(prior_iter)
-        except StopIteration:
-            raise IndexError("Not enough data in this dataloader!")
+    prior = iter(prior_factory(n_samples))
+    for data in prior:
         y = data['y']
-        b, n, _ = y.shape
-        n_sampled += b * n
-        for col in y:
+        for col in y: # only one iteration if batch_size==1
             sampled_ys.append(col.unsqueeze(-1))
     ys_tensor = torch.concat(sampled_ys)
     
