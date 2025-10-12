@@ -8,15 +8,15 @@ import prior.configs.default_configs as defaults
 dataset_config = defaults.prior_config["dataset_config"]
 dataset_config["number_train_samples_per_dataset"] = {
         "distribution": "discrete_uniform",
-        "distribution_parameters": {"low": 10, "high": 20}
+        "distribution_parameters": {"low": 50, "high": 100}
     }
-dataset_config["number_test_samples_per_dataset"] = {"value": 3}
+dataset_config["number_test_samples_per_dataset"] = {"value": 10}
 
 
 graph_config = defaults.prior_config["graph_config"]
 graph_config["num_nodes"] = { 
         "distribution": "discrete_uniform",
-        "distribution_parameters": {"low": 5, "high": 10}
+        "distribution_parameters": {"low": 3, "high": 5}
     }
 
 scm_config = defaults.prior_config["scm_config"]

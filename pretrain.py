@@ -80,11 +80,38 @@ class EvaluationLoggerCallback(ConsoleLoggerCallback):
         for dataset_name, (y_true, y_pred, _) in predictions.items():
             scores.append(r2_score(y_true, y_pred))
         avg_score = sum(scores) / len(scores)
-        print(f'epoch {epoch:5d} | time {epoch_time:5.2f}s | mean loss {loss:5.2f} | avg r2 score {avg_score:.3f}',
+        print(f'diabetes dataset | avg r2 score {avg_score:.3f}',
               flush=True)
+        
+
+class SanityCheckLoggerCallback(ConsoleLoggerCallback):
+    def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
+        prior = ObservationalDataLoader(num_steps=10,
+                                batch_size=1,
+                                prior_config=prior_config,
+                                preprocessing_config=preprocessing_config,
+                                seed=42)
+        regressor = Regressor(model, dist, preprocessor, device)
+        scores = []
+        for data in prior:
+            X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
+            y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
+            X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
+            y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
+            
+            regressor.fit(X_train, y_train)
+            pred = regressor.predict(X_test)
+            scores.append(r2_score(y_test, pred))
+        avg_score = sum(scores) / len(scores)
+        print(f'synthetic data | avg r2 score {avg_score:.3f}',
+              flush=True)
+            
 
 
-callbacks: List[Callback] = [EvaluationLoggerCallback(TOY_TASKS_REGRESSION)]
+evaluation_callback = EvaluationLoggerCallback(TOY_TASKS_REGRESSION)
+sanity_callback = SanityCheckLoggerCallback()
+logger_callback = ConsoleLoggerCallback()
+callbacks: List[Callback] = [logger_callback, evaluation_callback, sanity_callback]
 
 trained_model, loss = train(
     model=model,
