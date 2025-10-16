@@ -43,6 +43,7 @@ class ObservationalDataLoader(DataLoader):
         self.generator = torch.Generator()
         self.generator.manual_seed(seed)
         
+        self.prior_config = prior_config
         self.graph_config = prior_config["graph_config"]
         self.scm_config = prior_config["scm_config"]
         self.preprocessing_config = preprocessing_config
@@ -50,8 +51,11 @@ class ObservationalDataLoader(DataLoader):
         
         self.graph_samplers = build_samplers(self.graph_config, "graph")
         self.scm_samplers = build_samplers(self.scm_config, "scm")
-        self.preprocessing_samplers = build_samplers(self.preprocessing_config, "preprocessing")
         self.dataset_samplers = build_samplers(self.dataset_config, "dataset")
+        
+        preprocessing_samplers = build_samplers(self.preprocessing_config, "preprocessing")
+        preprocessing_params = sample_parameters(preprocessing_samplers, "preprocessing", self.generator)
+        self.preprocessor = Preprocessor(**preprocessing_params)
         
     def __len__(self) -> int:
         """Return the number of batches contained in this dataloader."""
@@ -87,10 +91,8 @@ class ObservationalDataLoader(DataLoader):
             X, y = select_features(data, dataset_params["dropout_prob"], self.generator)
             
             # preprocessing
-            preprocessing_params = sample_parameters(self.preprocessing_samplers, "preprocessing", self.generator)
-            preprocessor = Preprocessor(**preprocessing_params)
-            preprocessor.fit(X, y)
-            X, y = preprocessor.process(X, y)
+            self.preprocessor.fit(X, y)
+            X, y = self.preprocessor.process(X, y)
             
             # aggregate data in the format required by NanoTabPFN
             full_data = {}

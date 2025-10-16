@@ -5,7 +5,7 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 100, "high": 200}
+            "distribution_parameters": {"low": 500, "high": 1000}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -27,7 +27,7 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 15, "high": 20}
+            "distribution_parameters": {"low": 4, "high": 8}
         },
         # probability that any two nodes in the causal graph are connected
         # float
@@ -46,7 +46,7 @@ prior_config = {
         # number of features contained in each node
         # int
         "node_dim": {
-            "value": 4
+            "value": 2
         },
         # number of hidden layers in MLP mechanisms
         # int, >= 0
@@ -115,7 +115,7 @@ preprocessing_config = {
     # whether to remove outliers during preprocessing
     # bool
     "remove_outliers": {  
-        "value": True
+        "value": False
     },
     # quantile threshold for outlier removal
     # float
