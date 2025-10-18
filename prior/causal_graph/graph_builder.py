@@ -23,8 +23,9 @@ class GraphBuilder:
             topological order. Must be in [0, 1].
         """
         self.num_nodes = num_nodes
-        self.edge_prob = edge_prob
-        
+        edge_prob_min = 1 / (np.sqrt(num_nodes))
+        self.edge_prob = max(edge_prob_min, edge_prob) # make sure prob is not too small
+
 
     def sample_ER_DAG(self, generator: Optional[torch.Generator]) -> nx.DiGraph:
         """

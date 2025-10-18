@@ -100,7 +100,9 @@ class ObservationalDataLoader(DataLoader):
             full_data['y'] = y.unsqueeze(-1)
             full_data['target_y'] = y.unsqueeze(-1) # for some reason, the current NanoTabPFN train loop needs this
             full_data['single_eval_pos'] = num_train_samples
+            full_data['graph'] = graph
             full_data['adjacency_matrix'] = nx.to_numpy_array(graph)
+            full_data['sampled_params'] = {"graph_params": graph_params, "scm_params": scm_params, "dataset_params": dataset_params}
             return full_data
             
         return iter(batch_function() for _ in range(self.num_steps))

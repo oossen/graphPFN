@@ -24,7 +24,7 @@ parser.add_argument("-heads", type=int, default=6, help="number of attention hea
 parser.add_argument("-embeddingsize", type=int, default=192, help="the size of the embeddings used for the cells")
 parser.add_argument("-hiddensize", type=int, default=768, help="size of the hidden layer of the mlps")
 parser.add_argument("-layers", type=int, default=6, help="number of transformer layers")
-parser.add_argument("-batchsize", type=int, default=100, help="batch size used during training (before gradient accumulation)")
+parser.add_argument("-batchsize", type=int, default=4, help="batch size used during training (before gradient accumulation)")
 parser.add_argument("-accumulate", type=int, default=1, help="number of gradients to accumulate before updating the weights")
 parser.add_argument("-lr", type=float, default=1e-4, help="learning rate")
 parser.add_argument("-steps", type=int, default=1000, help="number of steps that constitute one epoch (important for lr scheduler)")

@@ -21,5 +21,4 @@ def compare_dataloaders(loader_1: DataLoader, loader_2: DataLoader):
         
     if next(iter_1, None) is not None or next(iter_2, None) is not None:
         raise ValueError(f"The dataloaders do not have the same number of data batches.")
-        
-    print("All good!")
+    

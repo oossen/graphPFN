@@ -5,8 +5,8 @@ from torch.utils.data import DataLoader
 from typing import Dict, Optional
 from pfns.bar_distribution import FullSupportBarDistribution
 import schedulefree
+from sklearn.metrics import r2_score
 
-from graphpfn.model import GraphPFNModel
 from nanotabpfn.callbacks import Callback
 from nanotabpfn.utils import get_default_device
 from nanotabpfn.model import NanoTabPFNModel

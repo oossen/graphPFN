@@ -1,6 +1,8 @@
 .venv/
 .vscode/
 
+visualization/output
+
 *.pyc
 *.h5
 *.pth
