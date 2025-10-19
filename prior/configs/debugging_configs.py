@@ -27,6 +27,11 @@ prior_config = {"dataset_config": dataset_config, "graph_config": graph_config, 
 preprocessing_config = defaults.preprocessing_config
 
 
+training_config = defaults.training_config
+training_config["steps"] = 100
+training_config["epochs"] = 10
+
+
 
 
 

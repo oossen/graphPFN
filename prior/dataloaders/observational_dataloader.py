@@ -53,9 +53,7 @@ class ObservationalDataLoader(DataLoader):
         self.scm_samplers = build_samplers(self.scm_config, "scm")
         self.dataset_samplers = build_samplers(self.dataset_config, "dataset")
         
-        preprocessing_samplers = build_samplers(self.preprocessing_config, "preprocessing")
-        preprocessing_params = sample_parameters(preprocessing_samplers, "preprocessing", self.generator)
-        self.preprocessor = Preprocessor(**preprocessing_params)
+        self.preprocessor = Preprocessor(**preprocessing_config)
         
     def __len__(self) -> int:
         """Return the number of batches contained in this dataloader."""

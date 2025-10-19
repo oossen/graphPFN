@@ -3,4 +3,5 @@ pfns==0.3.0
 h5py==3.13.0
 tabpfn
 xgboost
+tensorboard
 git+https://github.com/PriorLabs/nanoTabPFN

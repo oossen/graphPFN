@@ -28,9 +28,9 @@ def make_all(config: str, n_steps: int = 10, check_seeding=True, include_r2=True
     
     
     now = datetime.now()
-    date_time_str = now.strftime("%m_%d_%H_%M")
+    datetime_str = now.strftime("%m_%d_%H_%M")
     config_name = config.split('/')[-1][:-3] # remove .py
-    output_path = f"visualization/output/{config_name}_{date_time_str}"
+    output_path = f"visualization/output/{config_name}_{datetime_str}"
     os.makedirs(output_path, exist_ok=True)
     
     # copy config file

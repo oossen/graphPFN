@@ -49,6 +49,7 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
             model.train()  # Turn on the train mode
             optimizer.train()
             total_loss = 0.
+            total_r2 = 0.
             for i, full_data in enumerate(prior):
                 single_eval_pos = full_data['single_eval_pos']
                 data = (full_data['x'].to(device),
@@ -66,6 +67,14 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
                 loss = losses.mean() / accumulate_gradients
                 loss.backward()
                 total_loss += loss.cpu().detach().item() * accumulate_gradients
+                
+                # Compute R² scores
+                if not classification_task:
+                    preds = criterion.mean(output)
+                    ss_res = torch.sum((targets.squeeze(-1) - preds) ** 2, dim=1)
+                    ss_tot = torch.sum((targets.squeeze(-1) - preds.mean(dim=1, keepdim=True)) ** 2, dim=1)
+                    r2 = (1 - ss_res / ss_tot).mean()
+                    total_r2 += r2.cpu().detach().item() * accumulate_gradients
 
                 if (i + 1) % accumulate_gradients == 0:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
@@ -74,6 +83,8 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
 
             end_time = time.time()
             mean_loss = total_loss / len(prior)
+            if not classification_task:
+                mean_r2 = total_r2 / len(prior)
             model.eval()
             optimizer.eval()
 
@@ -86,7 +97,7 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
 
             for callback in callbacks:
                 if type(criterion) is FullSupportBarDistribution:
-                    callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model, dist=criterion)
+                    callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model, dist=criterion, r2=mean_r2)
                 else:
                     callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model)
     except KeyboardInterrupt:

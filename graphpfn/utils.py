@@ -28,5 +28,4 @@ def make_bar_distribution(prior_factory: Callable[[int], DataLoader],
     
     device = get_default_device()
     buckets = get_bucket_limits(n_buckets, ys=ys_tensor).to(device)
-    print(f"Buckets of bar distribution: {buckets}")
     return FullSupportBarDistribution(buckets)

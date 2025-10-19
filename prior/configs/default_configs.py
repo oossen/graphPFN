@@ -104,22 +104,74 @@ prior_config = {
 preprocessing_config = {
     # whether to scale features to [-1, 1] range
     # bool
-    "negative_one_one_scaling": {  # whether to scale features to [-1, 1] range
-        "value": False
-    },
+    "negative_one_one_scaling": False,
+    
     # whether to standardize features (zero mean, unit variance)
     # bool
-    "standardize": {
-        "value": True
-    },
+    "standardize": True,
     # whether to remove outliers during preprocessing
     # bool
-    "remove_outliers": {  
-        "value": False
-    },
+    "remove_outliers": False,
     # quantile threshold for outlier removal
     # float
-    "outlier_quantile": {  
-        "value": 0.95
-    },
+    "outlier_quantile": 0.95,
+}
+
+
+training_config = {
+    # path to save the trained model to
+    # str
+    "saveweights": "graph_pfn_weights.pth",
+    
+    # number of attention heads
+    # int
+    "heads": 6,
+    
+    # embedding size of the transformer model
+    # int
+    "embeddingsize": 192,
+    
+    # hidden size of the transformer model
+    # int
+    "hiddensize": 768,
+    
+    # number of transformer layers
+    # int
+    "layers": 6,
+    
+    # batch size used during training
+    # int
+    "batchsize": 4,
+    
+    # number of gradients to accumulate before updating weights
+    # int
+    "accumulate": 1,
+    
+    # learning rate
+    # float
+    "lr": 1e-4,
+    
+    # number of data batches contained in each epoch
+    # int
+    "steps": 1000,
+    
+    # number of epochs to train for
+    # int
+    "epochs": 100,
+    
+    # checkpoint from which to continue training
+    # str | None
+    "loadcheckpoint": None,
+    
+    # number of buckets for the bar distribution
+    # int
+    "n_buckets": 100,
+    
+    # number of data batches used to infer buckets for bar distribution
+    # int
+    "n_bardist_samples": 100,
+    
+    # tensorlogger directory
+    # str
+    "tensorboard": "tensorboard",
 }
