@@ -13,7 +13,7 @@ from nanotabpfn.callbacks import Callback
 
 from graphpfn.utils import make_bar_distribution
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from prior.configs.default_configs import prior_config, preprocessing_config, training_config as args
+from configs.default_configs import prior_config, preprocessing_config, training_config as args
 
 
 device = get_default_device()

@@ -3,6 +3,7 @@
 
 visualization/output
 tensorboard/
+logs/
 
 *.pyc
 *.h5
