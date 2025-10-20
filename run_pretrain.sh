@@ -13,6 +13,9 @@
 #SBATCH --output logs/%x-%A-pretrain.out   # STDOUT  %x and %A will be replaced by the job name and job id, respectively. short: -o logs/%x-%A-job_name.out
 #SBATCH --error logs/%x-%A-pretrain.err    # STDERR  short: -e logs/%x-%A-job_name.out
 
+# Define the amount of memory required per node
+#SBATCH --mem 8GB
+
 echo "Workingdir: $PWD";
 echo "Started at $(date)";
 
