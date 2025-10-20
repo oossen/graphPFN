@@ -5,21 +5,26 @@ import itertools
 import networkx as nx
 from sklearn.metrics import r2_score
 
-def plot_point_clouds(X: torch.Tensor, filename: str):
+def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str):
     pairs = list(itertools.combinations(range(X.shape[1]), 2))
     n_pairs = len(pairs)
-    n_cols = int((n_pairs) ** 0.5)
-    n_rows = (n_pairs + n_cols - 1) // n_cols
+    n_plots = n_pairs + X.shape[1] # pairs of features plus pairs involving the target
+    n_cols = int((n_plots) ** 0.5)
+    n_rows = (n_plots + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(3 * n_cols, 3 * n_rows))
     axes = axes.flatten()
 
-    for ax, (p, q) in zip(axes, pairs):
-        ax.scatter(X[:, p].numpy(), X[:, q].numpy(), s=5, c='red')
-        ax.set_xlabel(f"feature {p}")
-        ax.set_ylabel(f"feature {q}")
+    for i, (p, q) in enumerate(pairs):
+        axes[i].scatter(X[:, p].numpy(), X[:, q].numpy(), s=5, c='red')
+        axes[i].set_xlabel(f"feature {p}")
+        axes[i].set_ylabel(f"feature {q}")
+    for i in range(X.shape[1]):
+        axes[i + n_pairs].scatter(X[:, i].numpy(), y.numpy(), s=5, c='blue')
+        axes[i + n_pairs].set_xlabel(f"feature {i}")
+        axes[i + n_pairs].set_ylabel(f"target")
 
-    for ax in axes[len(pairs):]:
+    for ax in axes[n_plots:]:
         ax.axis("off")
 
     plt.tight_layout()

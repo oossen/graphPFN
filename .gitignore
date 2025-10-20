@@ -2,8 +2,8 @@
 .vscode/
 
 visualization/output
-tensorboard/
 logs/
+output/
 
 *.pyc
 *.h5

@@ -3,7 +3,7 @@ These are like the default configs, but all relevant parameters are chosen much 
 so that things like the training loop can be debugged easily even locally.
 """
 
-import prior.configs.default_configs as defaults
+import configs.default_configs as defaults
 
 dataset_config = defaults.prior_config["dataset_config"]
 dataset_config["number_train_samples_per_dataset"] = {

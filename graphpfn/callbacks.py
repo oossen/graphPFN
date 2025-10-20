@@ -1,6 +1,4 @@
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from prior.preprocessing.preprocessing import Preprocessor
-from prior.utils.hyperparameter_sampling import sample_parameters
 
 from nanotabpfn.callbacks import TensorboardLoggerCallback
 from nanotabpfn.evaluation import get_openml_predictions
@@ -47,7 +45,7 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
         self.preprocessor = prior.preprocessor
     
     def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
-        test_prior = ObservationalDataLoader(num_steps=10,
+        test_prior = ObservationalDataLoader(num_steps=50,
                                 batch_size=1,
                                 prior_config=self.prior_config,
                                 preprocessing_config=self.preprocessing_config,
