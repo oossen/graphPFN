@@ -13,7 +13,7 @@ from nanotabpfn.callbacks import Callback
 
 from graphpfn.utils import make_bar_distribution
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from configs.default_configs import prior_config, preprocessing_config, training_config as args
+from configs.debugging_configs import prior_config, training_config as args
 from visualization.make_visualization import make_all
 
 
@@ -25,7 +25,6 @@ if args["loadcheckpoint"]:
 prior = ObservationalDataLoader(num_steps=args["steps"],
                                 batch_size=args["batchsize"],
                                 prior_config=prior_config,
-                                preprocessing_config=preprocessing_config,
                                 seed=42)
 
 model = NanoTabPFNModel(
@@ -39,7 +38,6 @@ model = NanoTabPFNModel(
 prior_factory = partial(ObservationalDataLoader,
                         batch_size=10,
                         prior_config=prior_config,
-                        preprocessing_config=preprocessing_config,
                         seed=42)
 dist = make_bar_distribution(prior_factory, n_buckets=args["n_buckets"], n_samples=args["n_bardist_samples"])
 
@@ -55,7 +53,7 @@ logger_callback = TensorboardLoggerR2Callback(tensorboard_dir)
 callbacks: List[Callback] = [logger_callback, evaluation_callback, sanity_callback]
 
 # visualize data and save configs
-make_all(prior_config, preprocessing_config, f"{args['output']}/{datetime_str}/visualization")
+make_all(prior_config, f"{args['output']}/{datetime_str}/visualization")
 
 trained_model, loss = train(
     model=model,

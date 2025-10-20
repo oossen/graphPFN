@@ -51,8 +51,6 @@ def plot_graph(g: nx.DiGraph, filename: str):
 
 def plot_r2(prior: DataLoader, filename: str):
     models = {}
-    from nanotabpfn import NanoTabPFNRegressor
-    models["nano_tabpfn"] = NanoTabPFNRegressor()
     from tabpfn import TabPFNRegressor
     models["tabpfn"] = TabPFNRegressor()
     from sklearn.ensemble import RandomForestRegressor

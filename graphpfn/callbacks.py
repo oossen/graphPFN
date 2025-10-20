@@ -3,7 +3,7 @@ from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from nanotabpfn.callbacks import TensorboardLoggerCallback
 from nanotabpfn.evaluation import get_openml_predictions
 from nanotabpfn.utils import get_default_device
-from graphpfn.interface import Regressor
+from nanotabpfn.interface import NanoTabPFNRegressor
 
 from sklearn.metrics import r2_score
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -18,12 +18,9 @@ class EvaluationLoggerCallback(TensorboardLoggerCallback):
         self.writer = SummaryWriter(log_dir=log_dir)
         self.tasks = tasks
         self.dist = dist
-        self.preprocessing_config = prior.preprocessing_config
-        self.preprocessor = prior.preprocessor
-    
 
     def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
-        regressor = Regressor(model, self.dist, self.preprocessor, get_default_device())
+        regressor = NanoTabPFNRegressor(model, self.dist, get_default_device())
         predictions = get_openml_predictions(model=regressor, tasks=self.tasks)
         scores = []
         for dataset_name, (y_true, y_pred, _) in predictions.items():
@@ -41,16 +38,13 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
         self.writer = SummaryWriter(log_dir=log_dir)
         self.prior_config = prior.prior_config
         self.dist = dist
-        self.preprocessing_config = prior.preprocessing_config
-        self.preprocessor = prior.preprocessor
     
     def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
         test_prior = ObservationalDataLoader(num_steps=50,
                                 batch_size=1,
                                 prior_config=self.prior_config,
-                                preprocessing_config=self.preprocessing_config,
                                 seed=42)
-        regressor = Regressor(model, self.dist, self.preprocessor, get_default_device())
+        regressor = NanoTabPFNRegressor(model, self.dist, get_default_device())
         scores = []
         for data in test_prior:
             X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()

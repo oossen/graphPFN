@@ -9,7 +9,6 @@ from visualization.plotting import plot_r2, plot_correlation, plot_graph, plot_p
 
 
 def make_all(prior_config: Dict,
-             preprocessing_config: Dict,
              output_dir: str,
              n_steps: int = 10,
              check_seeding=True,
@@ -19,8 +18,8 @@ def make_all(prior_config: Dict,
     This must be a string specifying a path to a configuration file.
     """
     if check_seeding:
-        prior_1 = ObservationalDataLoader(n_steps, 5, prior_config, preprocessing_config, 42)
-        prior_2 = ObservationalDataLoader(n_steps, 5, prior_config, preprocessing_config, 42)
+        prior_1 = ObservationalDataLoader(n_steps, 5, prior_config, 42)
+        prior_2 = ObservationalDataLoader(n_steps, 5, prior_config, 42)
         compare_dataloaders(prior_1, prior_2)
     
     
@@ -32,13 +31,12 @@ def make_all(prior_config: Dict,
     # save the configs we used
     with open(f"{output_path}/configs.py", "w") as f:
         f.write(f"prior_config = {repr(prior_config)}\n")
-        f.write(f"preprocessing_config = {repr(preprocessing_config)}\n")
     
     if include_r2:
-        big_prior = ObservationalDataLoader(10 * n_steps, 1, prior_config, preprocessing_config, 42)
+        big_prior = ObservationalDataLoader(10 * n_steps, 1, prior_config, 42)
         plot_r2(big_prior, f"{output_path}/r2.png")
     
-    prior = ObservationalDataLoader(n_steps, 1, prior_config, preprocessing_config, 42)
+    prior = ObservationalDataLoader(n_steps, 1, prior_config, 42)
     for i, data in enumerate(prior):
         X = data['x'][0]
         y = data['y'][0]
@@ -54,5 +52,5 @@ def make_all(prior_config: Dict,
     
 
 if __name__ == "__main__":
-    from configs.default_configs import prior_config, preprocessing_config
-    make_all(prior_config, preprocessing_config, "visualization/output")
+    from configs.default_configs import prior_config
+    make_all(prior_config, "visualization/output")

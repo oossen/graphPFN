@@ -100,22 +100,6 @@ prior_config = {
     }
 }
 
-preprocessing_config = {
-    # whether to scale features to [-1, 1] range
-    # bool
-    "negative_one_one_scaling": False,
-    
-    # whether to standardize features (zero mean, unit variance)
-    # bool
-    "standardize": True,
-    # whether to remove outliers during preprocessing
-    # bool
-    "remove_outliers": False,
-    # quantile threshold for outlier removal
-    # float
-    "outlier_quantile": 0.95,
-}
-
 
 training_config = {
     # path to save the trained model to

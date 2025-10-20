@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 import networkx as nx
 
 from prior.causal_graph.graph_builder import GraphBuilder
-from prior.preprocessing.preprocessing import Preprocessor
 from prior.scm.scm_builder import SCMBuilder
 from prior.utils.hyperparameter_sampling import sample_parameters, build_samplers
 from prior.utils.select_data import select_features
@@ -19,7 +18,6 @@ class ObservationalDataLoader(DataLoader):
                  num_steps: int,
                  batch_size: int, 
                  prior_config: Dict[str, Any],
-                 preprocessing_config: Dict[str, Any],
                  seed: int = 42):
         """
         Initialize a new dataloader as specified by the given configuration dicts.
@@ -32,8 +30,6 @@ class ObservationalDataLoader(DataLoader):
             The number of data tables contained in each batch.
         prior_config : dict
             Specifies hyperparameters for the prior.
-        preprocessing_config : dict
-            Specifies hyperparameters for processing sampled data.
         seed : int
             Makes the sampling of hyperparameters across the entire data generation process deterministic.
             Does not make sampling of data tables themselves deterministic.
@@ -46,14 +42,11 @@ class ObservationalDataLoader(DataLoader):
         self.prior_config = prior_config
         self.graph_config = prior_config["graph_config"]
         self.scm_config = prior_config["scm_config"]
-        self.preprocessing_config = preprocessing_config
         self.dataset_config = prior_config["dataset_config"]
         
         self.graph_samplers = build_samplers(self.graph_config, "graph")
         self.scm_samplers = build_samplers(self.scm_config, "scm")
         self.dataset_samplers = build_samplers(self.dataset_config, "dataset")
-        
-        self.preprocessor = Preprocessor(**preprocessing_config)
         
     def __len__(self) -> int:
         """Return the number of batches contained in this dataloader."""
@@ -87,10 +80,6 @@ class ObservationalDataLoader(DataLoader):
             scm.sample_noise(sample_shape, generator=self.generator)
             data = scm.propagate(sample_shape)
             X, y = select_features(data, dataset_params["dropout_prob"], self.generator)
-            
-            # preprocessing
-            self.preprocessor.fit(X, y)
-            X, y = self.preprocessor.process(X, y)
             
             # aggregate data in the format required by NanoTabPFN
             full_data = {}
