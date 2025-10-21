@@ -13,7 +13,7 @@ from nanotabpfn.callbacks import Callback
 
 from graphpfn.utils import make_bar_distribution
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from configs.debugging_configs import prior_config, training_config as args
+from configs.default_configs import prior_config, training_config as args
 from visualization.make_visualization import make_all
 
 
