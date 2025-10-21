@@ -27,6 +27,10 @@ def select_features(data: Dict[int, torch.Tensor],
         # Build data tensor [B, N, F_total]
         data_tensor = torch.cat(list(data.values()), dim=2)
         feat_dim_total = data_tensor.shape[2]
+        
+        # randomly switch signs
+        sign = torch.randint(0, 2, (data_tensor.size(2),), generator=generator, dtype=torch.float32) * 2 - 1
+        data_tensor *= sign
 
         # Target selection
         target_feat = torch.randint(0, feat_dim_total - 1, (1,), generator=generator)
@@ -57,9 +61,5 @@ def select_features(data: Dict[int, torch.Tensor],
         y = y[:, perm_rows]
         perm_cols = torch.randperm(F, device=X.device, generator=generator)
         X = X[:, :, perm_cols]
-        
-        # switch sign of y with 50% probability
-        if torch.rand((), generator=generator) < 0.5:
-            y = -y
 
         return X, y

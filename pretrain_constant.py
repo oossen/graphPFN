@@ -12,6 +12,7 @@ from nanotabpfn.utils import get_default_device
 from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
+from prior.dataloaders.constant_dataloader import ConstantDataLoader
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from configs.default_configs import prior_config, training_config as args
 from visualization.make_visualization import make_all
@@ -19,8 +20,8 @@ from visualization.make_visualization import make_all
 
 device = get_default_device()
 
-prior = ObservationalDataLoader(num_steps=args["steps"],
-                                batch_size=args["batchsize"],
+prior = ConstantDataLoader(num_steps=1,
+                                batch_size=1,
                                 prior_config=prior_config,
                                 seed=42)
 
@@ -48,7 +49,7 @@ logger_callback = TensorboardLoggerCallback(tensorboard_dir)
 callbacks: List[Callback] = [logger_callback, evaluation_callback, sanity_callback]
 
 # visualize data and save configs
-make_all(ObservationalDataLoader, prior_config, f"{output_dir}/visualization")
+make_all(ConstantDataLoader, prior_config, f"{output_dir}/visualization")
 # save buckets
 with open(f"{output_dir}/buckets.txt", "w") as f:
     f.write(str(buckets))
@@ -58,7 +59,7 @@ trained_model, loss = train(
     model=model,
     prior=prior,
     criterion=dist,
-    epochs=args["epochs"],
+    epochs=10000,
     accumulate_gradients=args["accumulate"],
     lr=args["lr"],
     device=torch.device(device),

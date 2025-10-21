@@ -15,13 +15,13 @@ class EvaluationLoggerCallback(TensorboardLoggerCallback):
     On epoch end, evaluate the model on `tasks`.
     To initialize, needs the bar distribution and prior used for training.
     """
-    def __init__(self, log_dir: str, tasks, prior, dist):
+    def __init__(self, log_dir: str, tasks, prior):
         self.writer = SummaryWriter(log_dir=log_dir)
         self.tasks = tasks
-        self.dist = dist
 
     def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
-        regressor = NanoTabPFNRegressor(model, self.dist, get_default_device())
+        dist = kwargs['dist']
+        regressor = NanoTabPFNRegressor(model, dist, get_default_device())
         predictions = get_openml_predictions(model=regressor, tasks=self.tasks)
         scores = []
         for dataset_name, (y_true, y_pred, _) in predictions.items():
@@ -35,17 +35,17 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
     On epoch end, evaluate the model on data from the same prior that it is being trained on.
     To initialize, needs the bar distribution and prior used for training.
     """
-    def __init__(self, log_dir: str, prior, dist):
+    def __init__(self, log_dir: str, prior):
         self.writer = SummaryWriter(log_dir=log_dir)
         self.prior_config = prior.prior_config
-        self.dist = dist
     
     def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
         test_prior = ObservationalDataLoader(num_steps=50,
                                 batch_size=1,
                                 prior_config=self.prior_config,
                                 seed=42)
-        regressor = NanoTabPFNRegressor(model, self.dist, get_default_device())
+        dist = kwargs['dist']
+        regressor = NanoTabPFNRegressor(model, dist, get_default_device())
         scores = []
         for data in test_prior:
             X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
