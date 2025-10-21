@@ -142,10 +142,6 @@ training_config = {
     # int
     "epochs": 100,
     
-    # checkpoint from which to continue training
-    # str | None
-    "loadcheckpoint": None,
-    
     # number of buckets for the bar distribution
     # int
     "n_buckets": 100,

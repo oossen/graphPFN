@@ -57,10 +57,5 @@ def select_features(data: Dict[int, torch.Tensor],
         y = y[:, perm_rows]
         perm_cols = torch.randperm(F, device=X.device, generator=generator)
         X = X[:, :, perm_cols]
-        
-        # normalize y
-        y_mean = torch.mean(y, 1, keepdim=True)
-        y_std = torch.std(y, 1, keepdim=True) + 1e-8
-        y = (y - y_mean) / y_std
 
         return X, y

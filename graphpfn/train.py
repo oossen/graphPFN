@@ -5,7 +5,6 @@ from torch.utils.data import DataLoader
 from typing import Dict, Optional
 from pfns.bar_distribution import FullSupportBarDistribution
 import schedulefree
-from sklearn.metrics import r2_score
 
 from nanotabpfn.callbacks import Callback
 from nanotabpfn.utils import get_default_device
@@ -96,7 +95,7 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
             torch.save(training_state, 'latest_checkpoint.pth')
 
             for callback in callbacks:
-                if type(criterion) is FullSupportBarDistribution:
+                if not classification_task:
                     callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model, dist=criterion, r2=mean_r2)
                 else:
                     callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model)

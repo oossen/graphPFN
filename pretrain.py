@@ -7,7 +7,7 @@ import torch
 from nanotabpfn.evaluation import TOY_TASKS_REGRESSION
 from graphpfn.callbacks import TensorboardLoggerR2Callback, EvaluationLoggerCallback, SanityCheckLoggerCallback
 from nanotabpfn.model import NanoTabPFNModel
-from graphpfn.train import train
+from nanotabpfn.train import train
 from nanotabpfn.utils import get_default_device
 from nanotabpfn.callbacks import Callback
 
@@ -18,9 +18,6 @@ from visualization.make_visualization import make_all
 
 
 device = get_default_device()
-ckpt = None
-if args["loadcheckpoint"]:
-    ckpt = torch.load(args["loadcheckpoint"])
 
 prior = ObservationalDataLoader(num_steps=args["steps"],
                                 batch_size=args["batchsize"],
@@ -41,9 +38,6 @@ prior_factory = partial(ObservationalDataLoader,
                         seed=42)
 dist = make_bar_distribution(prior_factory, n_buckets=args["n_buckets"], n_samples=args["n_bardist_samples"])
 
-if ckpt:
-    model.load_state_dict(ckpt['model']) 
-
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")
 tensorboard_dir = f"{args['output']}/{datetime_str}/tensorboard"
@@ -62,9 +56,8 @@ trained_model, loss = train(
     epochs=args["epochs"],
     accumulate_gradients=args["accumulate"],
     lr=args["lr"],
-    device=device,
+    device=torch.device(device),
     callbacks=callbacks,
-    ckpt=ckpt
 )
 
 torch.save(trained_model.to('cpu').state_dict(), args["saveweights"])
