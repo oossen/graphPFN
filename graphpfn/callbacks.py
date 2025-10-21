@@ -1,3 +1,4 @@
+from tabpfn import TabPFNRegressor
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 
 from nanotabpfn.callbacks import TensorboardLoggerCallback
@@ -45,7 +46,9 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
                                 prior_config=self.prior_config,
                                 seed=42)
         regressor = NanoTabPFNRegressor(model, self.dist, get_default_device())
+        tabpfn_regressor = TabPFNRegressor()
         scores = []
+        tabpfn_scores = []
         for data in test_prior:
             X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
             y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
@@ -55,8 +58,13 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
             regressor.fit(X_train, y_train)
             pred = regressor.predict(X_test)
             scores.append(r2_score(y_test, pred))
+            tabpfn_regressor.fit(X_train, y_train)
+            tabpfn_pred = tabpfn_regressor.predict(X_test)
+            tabpfn_scores.append(r2_score(y_test, tabpfn_pred))
         avg_score = sum(scores) / len(scores)
+        tabpfn_avg_score = sum(tabpfn_scores) / len(tabpfn_scores)
         self.writer.add_scalar('synthetic R²', avg_score, epoch)
+        self.writer.add_scalar('tabpfn synthetic R²', tabpfn_avg_score, epoch)
         
 
 class TensorboardLoggerR2Callback(TensorboardLoggerCallback):
