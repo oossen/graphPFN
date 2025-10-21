@@ -57,5 +57,9 @@ def select_features(data: Dict[int, torch.Tensor],
         y = y[:, perm_rows]
         perm_cols = torch.randperm(F, device=X.device, generator=generator)
         X = X[:, :, perm_cols]
+        
+        # switch sign of y with 50% probability
+        if torch.rand((), generator=generator) < 0.5:
+            y = -y
 
         return X, y
