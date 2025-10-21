@@ -44,7 +44,7 @@ datetime_str = now.strftime("%m_%d_%H_%M")
 output_dir = f"{args['output']}/{datetime_str}"
 tensorboard_dir = f"{output_dir}/tensorboard"
 evaluation_callback = EvaluationLoggerCallback(tensorboard_dir, TOY_TASKS_REGRESSION, prior)
-sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, prior)
+sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, prior, num_steps=1)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
 callbacks: List[Callback] = [logger_callback, evaluation_callback, sanity_callback]
 
