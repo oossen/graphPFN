@@ -1,7 +1,6 @@
 import os
 from typing import Dict
 
-from prior.dataloaders.constant_dataloader import ConstantDataLoader
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from visualization.check_seeding import compare_dataloaders
 from visualization.plotting import plot_r2, plot_correlation, plot_graph, plot_point_clouds
@@ -57,4 +56,4 @@ if __name__ == "__main__":
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
-    make_all(ConstantDataLoader, prior_config, f"visualization/output/{datetime_str}")
+    make_all(ObservationalDataLoader, prior_config, f"visualization/output/{datetime_str}")

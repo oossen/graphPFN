@@ -18,6 +18,10 @@ class GraphPFNModel(NanoTabPFNModel):
                  num_outputs: int):
         """ Initializes the feature/target encoder, transformer stack and decoder """
         nn.Module.__init__(self)
+        self.embedding_size = embedding_size
+        self.num_attention_heads = num_attention_heads
+        self.mlp_hidden_size = mlp_hidden_size
+        self.num_layers = num_layers
         self.num_outputs = num_outputs
         self.feature_encoder = FeatureEncoder(embedding_size)
         self.target_encoder = TargetEncoder(embedding_size)
@@ -153,9 +157,11 @@ class TransformerEncoderLayer(nn.Module):
         src = self.self_attn_between_features(src, src, src)[0]+src
         src = self.norm1(src)
         # adjacency based attention
-        mask = (1 - adjacency_matrix).to(get_default_device())
-        src = self.self_attn_graph_parents(src, src, src, attn_mask=mask)[0]+src
-        src = self.self_attn_graph_children(src, src, src, attn_mask=mask.T)[0]+src
+        mask = (1 - adjacency_matrix).to(get_default_device()).bool()
+        if not (mask.all(dim=1)).any():
+            src = self.self_attn_graph_parents(src, src, src, attn_mask=mask)[0]+src
+        if not (mask.all(dim=0)).any():
+            src = self.self_attn_graph_children(src, src, src, attn_mask=mask.T)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
         src = self.norm2(src)
         # attention between datapoints

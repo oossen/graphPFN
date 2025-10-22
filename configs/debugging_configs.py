@@ -27,9 +27,5 @@ prior_config = {"dataset_config": dataset_config, "graph_config": graph_config, 
 training_config = defaults.training_config
 training_config["steps"] = 100
 training_config["epochs"] = 10
-
-
-
-
-
-
+training_config["n_buckets"] = 100
+training_config["n_bardist_samples"] = 100

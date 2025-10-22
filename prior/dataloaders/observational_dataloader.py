@@ -81,7 +81,7 @@ class ObservationalDataLoader(DataLoader):
         sample_shape = (self.batch_size, total_samples)
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate(sample_shape)
-        X, y = select_features(data, dataset_params["dropout_prob"], self.generator)
+        X, y, adjacency_matrix = select_features(data, graph, dataset_params["dropout_prob"], self.generator)
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
@@ -90,6 +90,6 @@ class ObservationalDataLoader(DataLoader):
         full_data['target_y'] = y.unsqueeze(-1) # for some reason, the current NanoTabPFN train loop needs this
         full_data['single_eval_pos'] = num_train_samples
         full_data['graph'] = graph
-        full_data['adjacency_matrix'] = nx.to_numpy_array(graph)
+        full_data['adjacency_matrix'] = adjacency_matrix
         full_data['sampled_params'] = {"graph_params": graph_params, "scm_params": scm_params, "dataset_params": dataset_params}
         return full_data
