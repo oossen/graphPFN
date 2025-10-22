@@ -40,7 +40,7 @@ prior_config = {
         # probability of using XGBoost mechanism as opposed to MLP mechanism
         # float
         "xgboost_prob": {
-            "value": 0.0
+            "value": 0.3
         },
         # number of features contained in each node
         # int
@@ -85,12 +85,12 @@ prior_config = {
         # the standard deviation of noise sampled at root nodes when propagating through the SCM
         # float
         "root_std": {
-            "value": 0.1
+            "value": 1.0
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "value": 0.01
+            "value": 0.1
         },
         # whether to use a fast SCM implementation (as opposed to doing additional checks)
         # bool
@@ -144,11 +144,11 @@ training_config = {
     
     # number of buckets for the bar distribution
     # int
-    "n_buckets": 100,
+    "n_buckets": 10000,
     
     # number of data batches used to infer buckets for bar distribution
     # int
-    "n_bardist_samples": 100,
+    "n_bardist_samples": 1000,
     
     # output directory for tensorboard and data visualization
     # str
