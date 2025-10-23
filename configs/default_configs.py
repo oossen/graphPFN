@@ -85,12 +85,12 @@ prior_config = {
         # the standard deviation of noise sampled at root nodes when propagating through the SCM
         # float
         "root_std": {
-            "value": 0.1
+            "value": 1.0
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "value": 0.01
+            "value": 0.1
         },
         # whether to use a fast SCM implementation (as opposed to doing additional checks)
         # bool
@@ -140,7 +140,7 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 100,
+    "epochs": 150,
     
     # number of buckets for the bar distribution
     # int

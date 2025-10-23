@@ -34,7 +34,9 @@ def select_features(data: Dict[int, torch.Tensor],
         """
         # select target node
         nodes = list(graph.nodes())
-        target_node = int(torch.randint(0, len(nodes), (1,), generator=generator))
+        connected_nodes = [v for v in nodes if len(list(graph.predecessors(v))) > 0 or len(list(graph.successors(v))) > 0]
+        target_node_idx = int(torch.randint(0, len(connected_nodes), (1,), generator=generator))
+        target_node = connected_nodes[target_node_idx]
         target_values = data[target_node][:, :, 0]
         renaming = {target_node: "Y"}
         

@@ -1,12 +1,12 @@
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F
 from pfns.bar_distribution import FullSupportBarDistribution
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
+from scipy.sparse import spmatrix
 
 from nanotabpfn.utils import get_default_device
 
@@ -57,7 +57,8 @@ def get_feature_preprocessor(X: np.ndarray | pd.DataFrame) -> ColumnTransformer:
         transformers=[
             ('num', num_transformer, num_mask),
             ('cat', cat_transformer, cat_mask)
-        ]
+        ],
+        sparse_threshold=0
     )
     return preprocessor
 
@@ -81,8 +82,8 @@ class GraphPFNRegressor():
         self.y_train = y_train
         self.adjacency_matrix = adjacency_matrix
 
-        self.y_train_mean = np.mean(self.y_train)
-        self.y_train_std = np.std(self.y_train, ddof=1) + 1e-8
+        self.y_train_mean = torch.tensor(np.mean(self.y_train), dtype=torch.float32, device=self.device)
+        self.y_train_std = torch.tensor(np.std(self.y_train, ddof=1) + 1e-8, dtype=torch.float32, device=self.device)
         self.y_train_n = (self.y_train - self.y_train_mean) / self.y_train_std
 
     def predict(self, X_test: np.ndarray) -> np.ndarray:
@@ -91,7 +92,9 @@ class GraphPFNRegressor():
         Predicts the means of the output distributions for X_test.
         Renormalizes the predictions back to the original target scale.
         """
-        X = np.concatenate((self.X_train, self.feature_preprocessor.transform(X_test)))
+        X_test_transformed = self.feature_preprocessor.transform(X_test)
+        assert isinstance(X_test_transformed, np.ndarray) and isinstance(self.X_train, np.ndarray), "Preprocessing did not produce numpy arrays!"
+        X = np.concatenate((self.X_train, X_test_transformed))
         y = self.y_train_n
 
         with torch.no_grad():

@@ -54,9 +54,6 @@ class GraphBuilder:
         G = nx.DiGraph()
         G.add_nodes_from(range(n))
 
-        if n <= 1 or self.edge_prob == 0.0:
-            return G
-
         # Random topological order
         perm = self.rng.permutation(n)
 
@@ -69,6 +66,10 @@ class GraphBuilder:
             src = perm[i_idx]
             dst = perm[j_idx]
             G.add_edges_from(zip(src.tolist(), dst.tolist()))
+            
+        # resample if there are no edges
+        if len(G.edges) == 0:
+            return self.sample_ER_DAG(generator)
 
         return G
 
