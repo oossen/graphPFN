@@ -6,15 +6,15 @@ import torch
 
 from nanotabpfn.evaluation import TOY_TASKS_REGRESSION
 from graphpfn.callbacks import EvaluationLoggerCallback, SanityCheckLoggerCallback
-from nanotabpfn.model import NanoTabPFNModel
-from nanotabpfn.train import train
+from graphpfn.train import train
 from nanotabpfn.utils import get_default_device
 from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
-from configs.default_configs import prior_config, training_config as args
 from visualization.make_visualization import make_all
+
+from configs.default_configs_graph import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -24,19 +24,14 @@ prior = ObservationalDataLoader(num_steps=args["steps"],
                                 prior_config=prior_config,
                                 seed=42)
 
-model = NanoTabPFNModel(
-    num_attention_heads=args["heads"],
-    embedding_size=args["embeddingsize"],
-    mlp_hidden_size=args["hiddensize"],
-    num_layers=args["layers"],
-    num_outputs=args["n_buckets"],
-)
+model = args["model"]
+n_buckets = model.num_outputs
 
 prior_factory = partial(ObservationalDataLoader,
                         batch_size=10,
                         prior_config=prior_config,
                         seed=42)
-dist, buckets = make_bar_distribution(prior_factory, n_buckets=args["n_buckets"], n_samples=args["n_bardist_samples"])
+dist, buckets = make_bar_distribution(prior_factory, n_buckets=n_buckets, n_samples=args["n_bardist_samples"])
 
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")

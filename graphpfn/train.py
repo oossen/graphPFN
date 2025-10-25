@@ -12,6 +12,12 @@ from nanotabpfn.model import NanoTabPFNModel
 from nanotabpfn.utils import get_default_device
 
 
+"""
+Describe how this differs from the normal NanoTabPFN training loop!
+- adjacency matrix gets added to data
+"""
+
+
 def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyLoss | FullSupportBarDistribution,
           epochs: int, accumulate_gradients: int = 1, lr: float = 1e-4, device: torch.device = torch.device(get_default_device()),
           callbacks: list[Callback] = [], ckpt: Optional[Dict] = None, run_name: str = 'graphPFN'):
@@ -52,9 +58,9 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
             total_loss = 0.
             for i, full_data in enumerate(prior):
                 single_eval_pos = full_data['single_eval_pos']
-                adjacency_matrix = full_data['adjacency_matrix']
                 data = (full_data['x'].to(device),
-                        full_data['y'][:, :single_eval_pos].to(device))
+                        full_data['y'][:, :single_eval_pos].to(device),
+                        full_data['adjacency_matrix'])
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
                     continue
                 targets = full_data['target_y'].to(device)
@@ -65,7 +71,7 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
                     y_norm = (data[1] - y_mean) / y_std
                     data = (data[0], y_norm)
 
-                output = model(data, single_eval_pos=single_eval_pos, adjacency_matrix=adjacency_matrix)
+                output = model(data, single_eval_pos=single_eval_pos)
                 targets = targets[:, single_eval_pos:]
                 if regression_task:
                     targets = (targets - y_mean) / y_std

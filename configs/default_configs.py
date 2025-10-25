@@ -1,3 +1,6 @@
+from nanotabpfn.model import NanoTabPFNModel
+
+
 prior_config = {
     
     "dataset_config": {
@@ -106,21 +109,15 @@ training_config = {
     # str
     "saveweights": "graph_pfn_weights.pth",
     
-    # number of attention heads
-    # int
-    "heads": 8,
-    
-    # embedding size of the transformer model
-    # int
-    "embeddingsize": 192,
-    
-    # hidden size of the transformer model
-    # int
-    "hiddensize": 768,
-    
-    # number of transformer layers
-    # int
-    "layers": 6,
+    # the model we are training
+    # NanoTabPFNModel
+    "model": NanoTabPFNModel(
+        num_attention_heads=6,
+        embedding_size=192,
+        mlp_hidden_size=768,
+        num_layers=6,
+        num_outputs=5000,
+    ),
     
     # batch size used during training
     # int
@@ -141,10 +138,6 @@ training_config = {
     # number of epochs to train for
     # int
     "epochs": 150,
-    
-    # number of buckets for the bar distribution
-    # int
-    "n_buckets": 10000,
     
     # number of data batches used to infer buckets for bar distribution
     # int

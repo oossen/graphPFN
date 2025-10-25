@@ -1,10 +1,9 @@
 """
-These are like the default configs, but all relevant parameters are chosen much smaller,
+These are like the default graph configs, but all relevant parameters are chosen much smaller,
 so that things like the training loop can be debugged easily even locally.
 """
 
-import configs.default_configs as defaults
-from graphpfn.model import GraphPFNModel
+import configs.debugging_configs as defaults
 
 dataset_config = defaults.prior_config["dataset_config"]
 dataset_config["number_train_samples_per_dataset"] = {
@@ -28,13 +27,4 @@ prior_config = {"dataset_config": dataset_config, "graph_config": graph_config, 
 training_config = defaults.training_config
 training_config["steps"] = 100
 training_config["epochs"] = 10
-training_config["n_buckets"] = 100
 training_config["n_bardist_samples"] = 100
-training_config["model"] = model = GraphPFNModel(
-    num_attention_heads=6,
-    num_graph_attention_heads=2,
-    embedding_size=192,
-    mlp_hidden_size=768,
-    num_layers=6,
-    num_outputs=100,
-)

@@ -1,5 +1,5 @@
 from tabpfn import TabPFNRegressor
-from graphpfn.interface import GraphPFNRegressor
+from graphpfn.interface import Regressor
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 
 from nanotabpfn.callbacks import TensorboardLoggerCallback
@@ -22,7 +22,7 @@ class EvaluationLoggerCallback(TensorboardLoggerCallback):
 
     def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
         dist = kwargs['dist']
-        regressor = NanoTabPFNRegressor(model, dist, get_default_device())
+        regressor = Regressor(model, dist, get_default_device())
         predictions = get_openml_predictions(model=regressor, tasks=self.tasks)
         scores = []
         for dataset_name, (y_true, y_pred, _) in predictions.items():
@@ -78,29 +78,17 @@ class SanityCheckLoggerGraphCallback(TensorboardLoggerCallback):
                                 prior_config=self.prior_config,
                                 seed=42)
         dist = kwargs['dist']
-        regressor = GraphPFNRegressor(model, dist, get_default_device())
+        regressor = Regressor(model, dist, get_default_device())
         scores = []
         for data in test_prior:
             X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
             y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
             X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
             y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
-            adjacency_matrix = data['adjacency_matrix'].cpu().numpy()
+            adjacency_matrix = data['adjacency_matrix']
             
-            regressor.fit(X_train, y_train, adjacency_matrix)
-            pred = regressor.predict(X_test)
+            regressor.fit(X_train, y_train)
+            pred = regressor.predict(X_test, adjacency_matrix=adjacency_matrix)
             scores.append(r2_score(y_test, pred))
         avg_score = sum(scores) / len(scores)
         self.writer.add_scalar('synthetic R²', avg_score, epoch)
-        
-
-class TensorboardLoggerR2Callback(TensorboardLoggerCallback):
-    """ Logger callback that prints epoch information to the console, including R²-score. """
-    def __init__(self, log_dir: str):
-        self.writer = SummaryWriter(log_dir=log_dir)
-
-    def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
-        r2 = kwargs["r2"]
-        self.writer.add_scalar('Loss/train', loss, epoch)
-        self.writer.add_scalar('R²/train', r2, epoch)
-        self.writer.add_scalar('Time/epoch', epoch_time, epoch)

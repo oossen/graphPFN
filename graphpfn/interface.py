@@ -1,14 +1,15 @@
 import numpy as np
 import pandas as pd
+from tabpfn import TabPFNRegressor
 import torch
 from pfns.bar_distribution import FullSupportBarDistribution
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
-from scipy.sparse import spmatrix
 
 from nanotabpfn.utils import get_default_device
+from nanotabpfn.interface import NanoTabPFNRegressor
 
 from graphpfn.model import GraphPFNModel
 
@@ -63,7 +64,7 @@ def get_feature_preprocessor(X: np.ndarray | pd.DataFrame) -> ColumnTransformer:
     return preprocessor
 
 
-class GraphPFNRegressor():
+class Regressor(NanoTabPFNRegressor):
     """ scikit-learn like interface """
     def __init__(self, model: GraphPFNModel, dist: FullSupportBarDistribution, device: str|torch.device|None = None):
         if device is None:
@@ -72,7 +73,7 @@ class GraphPFNRegressor():
         self.device = device
         self.dist = dist
 
-    def fit(self, X_train: np.ndarray, y_train: np.ndarray, adjacency_matrix: torch.Tensor):
+    def fit(self, X_train: np.ndarray, y_train: np.ndarray):
         """
         Stores X_train and y_train for later use.
         Computes target normalization.
@@ -80,13 +81,12 @@ class GraphPFNRegressor():
         self.feature_preprocessor = get_feature_preprocessor(X_train)
         self.X_train = self.feature_preprocessor.fit_transform(X_train)
         self.y_train = y_train
-        self.adjacency_matrix = adjacency_matrix
 
-        self.y_train_mean = torch.tensor(np.mean(self.y_train), dtype=torch.float32, device=self.device)
-        self.y_train_std = torch.tensor(np.std(self.y_train, ddof=1) + 1e-8, dtype=torch.float32, device=self.device)
+        self.y_train_mean = np.mean(self.y_train)
+        self.y_train_std = np.std(self.y_train, ddof=1) + 1e-8
         self.y_train_n = (self.y_train - self.y_train_mean) / self.y_train_std
 
-    def predict(self, X_test: np.ndarray) -> np.ndarray:
+    def predict(self, X_test: np.ndarray, **kwargs) -> np.ndarray:
         """
         Performs in-context learning using X_train and y_train.
         Predicts the means of the output distributions for X_test.
@@ -100,10 +100,9 @@ class GraphPFNRegressor():
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32, device=self.device).unsqueeze(0)
             y_tensor = torch.tensor(y, dtype=torch.float32, device=self.device).unsqueeze(0)
-            adjacency_matrix = torch.tensor(self.adjacency_matrix, dtype=torch.float32, device=self.device)
 
-            logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), adjacency_matrix=adjacency_matrix).squeeze(0)
+            logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs).squeeze(0)
             preds_n = self.dist.mean(logits)
-            preds = preds_n * self.y_train_std + self.y_train_mean
+            preds = preds_n * torch.tensor(np.std(self.y_train, ddof=1) + 1e-8, dtype=torch.float32, device=self.device) + torch.tensor(np.mean(self.y_train), dtype=torch.float32, device=self.device)
 
         return preds.cpu().numpy()
