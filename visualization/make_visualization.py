@@ -37,6 +37,7 @@ def make_all(prior_class,
             X = data['x'][0]
             y = data['y'][0]
             g = data['graph']
+            scm = data['scm']
             plot_graph(g, f"{output_dir}/graph_{n}_{i}.png")
             plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
             plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png")
@@ -45,10 +46,13 @@ def make_all(prior_class,
             with open(f"{output_dir}/sampled_params_{n}_{i}.py", "w") as f:
                 for name, param_dict in data["sampled_params"].items():
                     f.write(f"{name} = {repr(param_dict)}\n")
+            # write SCM mechanisms to file
+            with open(f"{output_dir}/scm_{n}_{i}.py", "w") as f:
+                f.write(f"mechanisms = {repr(scm.mechanisms)}")
                     
     # call the plotting two times to check if subsequent iterators are different
+    plot_all_(prior, 0)
     plot_all_(prior, 1)
-    plot_all_(prior, 2)
     
 
 if __name__ == "__main__":

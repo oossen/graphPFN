@@ -18,7 +18,8 @@ class ObservationalDataLoader(DataLoader):
                  num_steps: int,
                  batch_size: int, 
                  prior_config: Dict[str, Any],
-                 seed: int = 42):
+                 seed: int = 42,
+                 detailed_prior_data: bool = True):
         """
         Initialize a new dataloader as specified by the given configuration dicts.
         
@@ -33,8 +34,12 @@ class ObservationalDataLoader(DataLoader):
         seed : int
             Makes the sampling of hyperparameters across the entire data generation process deterministic.
             Does not make sampling of data tables themselves deterministic.
+        detailed_prior_data : bool
+            Whether to return additional data for visualizing and probing the prior,
+            like the graph, SCM, and sampled parameters.
         """
         self.seed = seed
+        self.detailed_prior_data = detailed_prior_data
         self.num_steps: int = num_steps
         self.batch_size: int = batch_size
         self.generator = torch.Generator()
@@ -89,7 +94,9 @@ class ObservationalDataLoader(DataLoader):
         full_data['y'] = y.unsqueeze(-1)
         full_data['target_y'] = y.unsqueeze(-1) # for some reason, the current NanoTabPFN train loop needs this
         full_data['single_eval_pos'] = num_train_samples
-        full_data['graph'] = graph
         full_data['adjacency_matrix'] = adjacency_matrix
-        full_data['sampled_params'] = {"graph_params": graph_params, "scm_params": scm_params, "dataset_params": dataset_params}
+        if self.detailed_prior_data:
+            full_data['graph'] = graph
+            full_data['scm'] = scm
+            full_data['sampled_params'] = {"graph_params": graph_params, "scm_params": scm_params, "dataset_params": dataset_params}
         return full_data

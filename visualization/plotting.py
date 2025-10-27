@@ -1,3 +1,4 @@
+from typing import List
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -79,5 +80,13 @@ def plot_r2(prior: DataLoader, filename: str):
         axes[i].boxplot(scores[name], label=name, showfliers=False)
         axes[i].set_title(name)
     plt.tight_layout()
+    plt.savefig(filename, dpi=300)
+    plt.close()
+    
+
+def plot_scores(scores: List, filename: str):
+    plt.scatter(range(len(scores)), scores)
+    plt.xlabel("Index")
+    plt.ylabel("R²")
     plt.savefig(filename, dpi=300)
     plt.close()

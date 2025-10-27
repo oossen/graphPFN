@@ -63,7 +63,7 @@ class GraphPFNModel(NanoTabPFNModel):
         else:
             raise ValueError("Invalid input!")
 
-    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor | None = None) -> torch.Tensor:
+    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor | None = None, num_mem_chunks: int = 1) -> torch.Tensor:
         x_src, y_src = src
         if adjacency_matrix is None:
             num_cols = x_src.shape[2] + 1

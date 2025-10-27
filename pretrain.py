@@ -15,6 +15,7 @@ from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from visualization.make_visualization import make_all
 
 from configs.default_configs_graph import prior_config, training_config as args
+from visualization.pointwise_evaluation import evaluate
 
 
 device = get_default_device()
@@ -59,5 +60,7 @@ trained_model, loss = train(
     device=torch.device(device),
     callbacks=callbacks,
 )
+
+evaluate(prior, trained_model, dist, f"{output_dir}/evaluation")
 
 torch.save(trained_model.to('cpu').state_dict(), args["saveweights"])
