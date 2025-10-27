@@ -137,7 +137,7 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 150,
+    "epochs": 75,
     
     # number of data batches used to infer buckets for bar distribution
     # int

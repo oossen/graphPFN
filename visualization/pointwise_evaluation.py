@@ -13,7 +13,7 @@ def evaluate(prior,
              model,
              dist,
              output_dir: str,
-             n_steps: int = 5,
+             n_steps: int = 50,
              ):
     """
     Evaluate `model` on data sampled from the specified prior.
