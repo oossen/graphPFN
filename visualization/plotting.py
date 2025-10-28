@@ -45,7 +45,9 @@ def plot_correlation(X: torch.Tensor, filename: str):
     
     
 def plot_graph(g: nx.DiGraph, filename: str):
-    nx.draw(g, with_labels=True)
+    node_color = ['gray' if g.nodes[v].get('dropped', False) else 'blue' for v in g.nodes]
+    edge_color = ['gray' if g.edges[e].get('contracted', False) else 'black' for e in g.edges]
+    nx.draw(g, with_labels=True, node_color=node_color, edge_color=edge_color)
     plt.savefig(filename, dpi=300)
     plt.close()
     

@@ -37,8 +37,10 @@ def make_all(prior_class,
             X = data['x'][0]
             y = data['y'][0]
             g = data['graph']
+            new_g = data['new_graph']
             scm = data['scm']
             plot_graph(g, f"{output_dir}/graph_{n}_{i}.png")
+            plot_graph(new_g, f"{output_dir}/new_graph_{n}_{i}.png")
             plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
             plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png")
             

@@ -86,7 +86,7 @@ class ObservationalDataLoader(DataLoader):
         sample_shape = (self.batch_size, total_samples)
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate(sample_shape)
-        X, y, adjacency_matrix = select_features(data, graph, dataset_params["dropout_prob"], self.generator)
+        X, y, adjacency_matrix, new_graph = select_features(data, graph, dataset_params["dropout_prob"], self.generator)
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
@@ -97,6 +97,7 @@ class ObservationalDataLoader(DataLoader):
         full_data['adjacency_matrix'] = adjacency_matrix
         if self.detailed_prior_data:
             full_data['graph'] = graph
+            full_data['new_graph'] = new_graph
             full_data['scm'] = scm
             full_data['sampled_params'] = {"graph_params": graph_params, "scm_params": scm_params, "dataset_params": dataset_params}
         return full_data

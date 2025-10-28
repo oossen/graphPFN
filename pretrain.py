@@ -13,9 +13,10 @@ from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
 from graphpfn.utils import make_bar_distribution
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from visualization.make_visualization import make_all
+from visualization.pointwise_evaluation import evaluate
+
 
 from configs.default_configs_graph import prior_config, training_config as args
-from visualization.pointwise_evaluation import evaluate
 
 
 device = get_default_device()
