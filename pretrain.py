@@ -13,10 +13,9 @@ from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
 from graphpfn.utils import make_bar_distribution
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from visualization.make_visualization import make_all
-from visualization.pointwise_evaluation import evaluate
 
 
-from configs.default_configs_graph import prior_config, training_config as args
+from configs.default_configs import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -62,6 +61,15 @@ trained_model, loss = train(
     callbacks=callbacks,
 )
 
-evaluate(prior, trained_model, dist, f"{output_dir}/evaluation")
 
-torch.save(trained_model.to('cpu').state_dict(), args["saveweights"])
+model_params = {'architecture': {
+                    'num_layers': int(model.num_layers),
+                    'embedding_size': int(model.embedding_size),
+                    'num_attention_heads': int(model.num_attention_heads),
+                    'num_graph_attention_heads': model.num_graph_attention_heads if hasattr(model, 'num_graph_attention_heads') else None,
+                    'mlp_hidden_size': int(model.mlp_hidden_size),
+                    'num_outputs': int(model.num_outputs)
+                },
+                'model': model.state_dict(),}
+torch.save(model_params, f"{args['saveweights']}_model.pth")
+torch.save(buckets.to('cpu'), f"{args['saveweights']}_dist.pth")

@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from tabpfn import TabPFNRegressor
 import torch
 from pfns.bar_distribution import FullSupportBarDistribution
 from sklearn.compose import ColumnTransformer
@@ -12,6 +11,23 @@ from nanotabpfn.utils import get_default_device
 from nanotabpfn.interface import NanoTabPFNRegressor
 
 from graphpfn.model import GraphPFNModel
+
+
+def init_model_from_state_dict_file(file_path):
+    """
+    reads model architecture from state dict, instantiates the architecture and loads the weights
+    """
+    state_dict = torch.load(file_path, map_location=torch.device('cpu'))
+    model = GraphPFNModel(
+        num_attention_heads=state_dict['architecture']['num_attention_heads'],
+        num_graph_attention_heads=state_dict['architecture']['num_graph_attention_heads'],
+        embedding_size=state_dict['architecture']['embedding_size'],
+        mlp_hidden_size=state_dict['architecture']['mlp_hidden_size'],
+        num_layers=state_dict['architecture']['num_layers'],
+        num_outputs=state_dict['architecture']['num_outputs'],
+    )
+    model.load_state_dict(state_dict['model'])
+    return model
 
 
 # doing these as lambdas would cause NanoTabPFNClassifier to not be pickle-able,

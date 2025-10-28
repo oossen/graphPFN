@@ -1,7 +1,6 @@
 from typing import Any, Dict, Iterator
 import torch
 from torch.utils.data import DataLoader
-import networkx as nx
 
 from prior.causal_graph.graph_builder import GraphBuilder
 from prior.scm.scm_builder import SCMBuilder

@@ -10,23 +10,18 @@ from visualization.plotting import plot_correlation, plot_graph, plot_point_clou
 
 
 def evaluate(prior,
-             model,
-             dist,
+             models: Dict,
+             dists: Dict,
              output_dir: str,
              n_steps: int = 50,
              ):
     """
-    Evaluate `model` on data sampled from the specified prior.
+    Evaluate the models in `models` on data sampled from the specified prior.
     The result is reported in detail for each individual data point.
     """
     os.makedirs(output_dir, exist_ok=True)
-    
-    prior = ObservationalDataLoader(num_steps=n_steps,
-                                batch_size=1,
-                                prior_config=prior.prior_config,
-                                seed=42)
-    regressor = Regressor(model, dist, get_default_device())
-    scores = []
+    regressors = {key: Regressor(models[key], dists[key], get_default_device()) for key in models.keys()}
+    scores = {key: [] for key in models.keys()}
         
     for i, data in enumerate(prior):
         X = data['x'][0]
@@ -53,9 +48,10 @@ def evaluate(prior,
         X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
         y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
         adjacency_matrix = data['adjacency_matrix']
-            
-        regressor.fit(X_train, y_train)
-        pred = regressor.predict(X_test, adjacency_matrix=adjacency_matrix)
-        scores.append(r2_score(y_test, pred))
+        
+        for key, reg in regressors.items():
+            reg.fit(X_train, y_train)
+            pred = reg.predict(X_test, adjacency_matrix=adjacency_matrix)
+            scores[key].append(r2_score(y_test, pred))
     
     plot_scores(scores, f"{output_dir}/scores.png")

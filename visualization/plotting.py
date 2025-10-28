@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -86,9 +86,12 @@ def plot_r2(prior: DataLoader, filename: str):
     plt.close()
     
 
-def plot_scores(scores: List, filename: str):
-    plt.scatter(range(len(scores)), scores)
+def plot_scores(scores: Dict, filename: str):
+    plt.grid(True)
+    for name, values in scores.items():
+        plt.scatter(range(len(values)), values, label=name)
     plt.xlabel("Index")
     plt.ylabel("R²")
+    plt.legend()
     plt.savefig(filename, dpi=300)
     plt.close()

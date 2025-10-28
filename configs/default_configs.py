@@ -108,12 +108,12 @@ prior_config = {
 training_config = {
     # path to save the trained model to
     # str
-    "saveweights": "graph_pfn_weights.pth",
+    "saveweights": "nano_tab_pfn",
     
     # the model we are training
     # NanoTabPFNModel
     "model": NanoTabPFNModel(
-        num_attention_heads=6,
+        num_attention_heads=8,
         embedding_size=192,
         mlp_hidden_size=768,
         num_layers=6,

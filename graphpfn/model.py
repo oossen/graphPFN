@@ -20,6 +20,7 @@ class GraphPFNModel(NanoTabPFNModel):
         nn.Module.__init__(self)
         self.embedding_size = embedding_size
         self.num_attention_heads = num_attention_heads
+        self.num_graph_attention_heads = num_graph_attention_heads
         self.mlp_hidden_size = mlp_hidden_size
         self.num_layers = num_layers
         self.num_outputs = num_outputs
@@ -30,40 +31,39 @@ class GraphPFNModel(NanoTabPFNModel):
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
         """
-        Like nanoTabPFN, provides two interfaces:
+        Like NanoTabPFN, provides two interfaces:
         
-        model(X_train, y_train, X_test, adjacency_matrix)
+        model(X_train, y_train, X_test, adjacency_matrix=adjacency_matrix)
             Args:
-                X_train: (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, num_features)
-                y_train: (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, 1)
-                X_test: (torch.Tensor) a tensor of shape (batch_size, num_test_datapoints, num_features)
+                X_train : (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, num_features)
+                y_train : (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, 1)
+                X_test : (torch.Tensor) a tensor of shape (batch_size, num_test_datapoints, num_features)
+                adjacency_matrix : (torch.Tensor) a tensor of shape (num_features+1, num_features+1)
 
-        model((x,y), single_eval_pos)
+        model((x, y), single_eval_pos, adjacency_matrix=adjacency_matrix)
             Args:
                 x: (torch.Tensor) a tensor of shape (batch_size, num_datapoints, num_features)
                 y: (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, 1)
+                adjacency_matrix : (torch.Tensor) a tensor of shape (num_features+1, num_features+1)
                 single_eval_pos: int
-
-        Specify an adjacency matrix using a keyword argument:
-            adjacency_matrix: (torch.Tensor) a binary tensor of shape (num_features + 1, num_features + 1)
 
         Returns:
             (torch.Tensor) a tensor of shape (batch_size, num_test_datapoints, num_classes),
                            which represent the predicted logits
         """
         if len(args) == 3:
-            # case model(train_x, train_y, test_x, adjacency_matrix)
+            # case model(train_x, train_y, test_x, adjacency_matrix=adjacency_matrix)
             x = args[0]
             if args[2] is not None:
                 x = torch.cat((x, args[2]), dim=1)
             return self._forward((x, args[1]), single_eval_pos=len(args[0]), **kwargs)
         elif len(args) == 1 and isinstance(args, tuple):
-            # case model((x,y), single_eval_pos=None)
+            # case model((x,y), single_eval_pos=single_eval_pos, adjacency_matrix=adjacency_matrix)
             return self._forward(*args, **kwargs)
         else:
             raise ValueError("Invalid input!")
 
-    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor | None = None, num_mem_chunks: int = 1) -> torch.Tensor:
+    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         x_src, y_src = src
         if adjacency_matrix is None:
             num_cols = x_src.shape[2] + 1
