@@ -15,7 +15,7 @@ from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from visualization.make_visualization import make_all
 
 
-from configs.default_configs import prior_config, training_config as args
+from configs.default_configs_additive_encoding import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -67,6 +67,7 @@ model_params = {'architecture': {
                     'embedding_size': int(model.embedding_size),
                     'num_attention_heads': int(model.num_attention_heads),
                     'num_graph_attention_heads': model.num_graph_attention_heads if hasattr(model, 'num_graph_attention_heads') else None,
+                    'gcn_hidden_size': model.gcn_hidden_size if hasattr(model, 'gcn_hidden_size') else None,
                     'mlp_hidden_size': int(model.mlp_hidden_size),
                     'num_outputs': int(model.num_outputs)
                 },

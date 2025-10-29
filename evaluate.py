@@ -13,16 +13,20 @@ prior = ObservationalDataLoader(num_steps=50,
                                 prior_config=prior_config,
                                 seed=42)
 
-graph_model = graphpfn.interface.init_model_from_state_dict_file("graph_pfn_model.pth")
-graph_buckets = torch.load("graph_pfn_dist.pth")
-graph_dist = FullSupportBarDistribution(graph_buckets)
+attention_model = graphpfn.interface.init_model_from_state_dict_file("attention_pfn_model.pth")
+attention_buckets = torch.load("attention_pfn_dist.pth")
+attention_dist = FullSupportBarDistribution(attention_buckets)
+
+additive_encoding_model = graphpfn.interface.init_model_from_state_dict_file("additive_encoding_pfn_model.pth")
+additive_encoding_buckets = torch.load("additive_encoding_pfn_dist.pth")
+additive_encoding_dist = FullSupportBarDistribution(additive_encoding_buckets)
 
 pfn_model = nanotabpfn.interface.init_model_from_state_dict_file("nano_tab_pfn_model.pth")
 pfn_buckets = torch.load("nano_tab_pfn_dist.pth")
 pfn_dist = FullSupportBarDistribution(pfn_buckets)
 
-models = {"graph": graph_model, "pfn": pfn_model}
-dists = {"graph": graph_dist, "pfn": pfn_dist}
+models = {"attention": attention_model, "additive_encoding": additive_encoding_model, "pfn": pfn_model}
+dists = {"attention": attention_dist, "additive_encoding": additive_encoding_dist, "pfn": pfn_dist}
 
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")

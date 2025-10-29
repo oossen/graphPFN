@@ -95,7 +95,7 @@ prior_config = {
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "value": 0.3
+            "value": 0.1
         },
         # whether to use a fast SCM implementation (as opposed to doing additional checks)
         # bool

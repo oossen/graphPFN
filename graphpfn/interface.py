@@ -10,7 +10,7 @@ from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
 from nanotabpfn.utils import get_default_device
 from nanotabpfn.interface import NanoTabPFNRegressor
 
-from graphpfn.model import GraphPFNModel
+import graphpfn.attention_model, graphpfn.additive_encoding_model
 
 
 def init_model_from_state_dict_file(file_path):
@@ -18,14 +18,26 @@ def init_model_from_state_dict_file(file_path):
     reads model architecture from state dict, instantiates the architecture and loads the weights
     """
     state_dict = torch.load(file_path, map_location=torch.device('cpu'))
-    model = GraphPFNModel(
-        num_attention_heads=state_dict['architecture']['num_attention_heads'],
-        num_graph_attention_heads=state_dict['architecture']['num_graph_attention_heads'],
-        embedding_size=state_dict['architecture']['embedding_size'],
-        mlp_hidden_size=state_dict['architecture']['mlp_hidden_size'],
-        num_layers=state_dict['architecture']['num_layers'],
-        num_outputs=state_dict['architecture']['num_outputs'],
-    )
+    if state_dict['architecture']['num_graph_attention_heads'] is not None:
+        model = graphpfn.attention_model.GraphPFNModel(
+            num_attention_heads=state_dict['architecture']['num_attention_heads'],
+            num_graph_attention_heads=state_dict['architecture']['num_graph_attention_heads'],
+            embedding_size=state_dict['architecture']['embedding_size'],
+            mlp_hidden_size=state_dict['architecture']['mlp_hidden_size'],
+            num_layers=state_dict['architecture']['num_layers'],
+            num_outputs=state_dict['architecture']['num_outputs'],
+        )
+    elif state_dict['architecture']['gcn_hidden_size'] is not None:
+        model = graphpfn.additive_encoding_model.GraphPFNModel(
+            num_attention_heads=state_dict['architecture']['num_attention_heads'],
+            gcn_hidden_size=state_dict['architecture']['gcn_hidden_size'],
+            embedding_size=state_dict['architecture']['embedding_size'],
+            mlp_hidden_size=state_dict['architecture']['mlp_hidden_size'],
+            num_layers=state_dict['architecture']['num_layers'],
+            num_outputs=state_dict['architecture']['num_outputs'],
+        )
+    else:
+        raise ValueError("No valid model can be built from this state dict!")
     model.load_state_dict(state_dict['model'])
     return model
 
@@ -82,7 +94,7 @@ def get_feature_preprocessor(X: np.ndarray | pd.DataFrame) -> ColumnTransformer:
 
 class Regressor(NanoTabPFNRegressor):
     """ scikit-learn like interface """
-    def __init__(self, model: GraphPFNModel, dist: FullSupportBarDistribution, device: str|torch.device|None = None):
+    def __init__(self, model, dist: FullSupportBarDistribution, device: str|torch.device|None = None):
         if device is None:
             device = get_default_device()
         self.model = model.to(device)
