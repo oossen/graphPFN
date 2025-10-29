@@ -2,7 +2,7 @@ import torch
 from datetime import datetime
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from visualization.pointwise_evaluation import evaluate
-from configs.debugging_configs_graph import prior_config
+from configs.default_configs import prior_config
 from pfns.bar_distribution import FullSupportBarDistribution
 import graphpfn.interface
 import nanotabpfn.interface

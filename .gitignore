@@ -4,6 +4,7 @@
 visualization/output
 logs/
 output/
+evaluation/
 
 *.pyc
 *.h5

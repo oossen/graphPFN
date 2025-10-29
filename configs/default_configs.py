@@ -8,7 +8,7 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 50, "high": 500}
+            "distribution_parameters": {"low": 50, "high": 300}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -20,7 +20,7 @@ prior_config = {
         # float
         "dropout_prob": {
             "distribution": "uniform",
-            "distribution_parameters": {"low": 0.0, "high": 0.4}
+            "distribution_parameters": {"low": 0.2, "high": 0.5}
         },
     },
 
@@ -31,12 +31,13 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 5, "high": 10}
+            "distribution_parameters": {"low": 15, "high": 20}
         },
         # probability that any two nodes in the causal graph are connected
         # float
         "edge_prob": {
-            "value": 0.2,
+            "distribution": "uniform",
+            "distribution_parameters": {"low": 0.1, "high": 0.2}
         },
     },
 
@@ -94,7 +95,7 @@ prior_config = {
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "value": 0.1
+            "value": 0.3
         },
         # whether to use a fast SCM implementation (as opposed to doing additional checks)
         # bool
