@@ -1,6 +1,7 @@
 from typing import Tuple
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 from nanotabpfn.model import Decoder, FeatureEncoder, TargetEncoder, NanoTabPFNModel, TransformerEncoderStack
 from nanotabpfn.utils import get_default_device
@@ -139,5 +140,5 @@ class GCNLayer(nn.Module):
         adj_norm = D_hat @ adj_hat @ D_hat
 
         output = adj_norm @ input @ self.weight + self.bias
-        return output
+        return F.relu(output)
     
