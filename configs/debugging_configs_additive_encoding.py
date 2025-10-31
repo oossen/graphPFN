@@ -16,6 +16,6 @@ training_config["model"] = model = GraphPFNModel(
     embedding_size=192,
     mlp_hidden_size=768,
     num_layers=6,
-    num_outputs=5000,
+    num_outputs=100,
 )
 training_config["saveweights"] = "additive_encoding_pfn"

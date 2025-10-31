@@ -3,12 +3,12 @@ from datetime import datetime
 from prior.dataloaders.observational_dataloader import ObservationalDataLoader
 from visualization.pointwise_evaluation import evaluate
 from configs.default_configs import prior_config
-from pfns.bar_distribution import FullSupportBarDistribution
+from pfns.model.bar_distribution import FullSupportBarDistribution
 import graphpfn.interface
 import nanotabpfn.interface
 
 
-prior = ObservationalDataLoader(num_steps=50,
+prior = ObservationalDataLoader(num_steps=5,
                                 batch_size=1,
                                 prior_config=prior_config,
                                 seed=42)

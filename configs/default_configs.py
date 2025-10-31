@@ -118,7 +118,7 @@ training_config = {
         embedding_size=192,
         mlp_hidden_size=768,
         num_layers=6,
-        num_outputs=5000,
+        num_outputs=1000,
     ),
     
     # batch size used during training
@@ -143,7 +143,7 @@ training_config = {
     
     # number of data batches used to infer buckets for bar distribution
     # int
-    "n_bardist_samples": 1000,
+    "n_bardist_samples": 5000,
     
     # output directory for tensorboard and data visualization
     # str

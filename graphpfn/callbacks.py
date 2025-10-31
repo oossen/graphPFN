@@ -49,6 +49,7 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
         dist = kwargs['dist']
         regressor = Regressor(model, dist, get_default_device())
         scores = []
+        entropies = []
         for data in test_prior:
             X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
             y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
@@ -57,7 +58,10 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
             adjacency_matrix = data['adjacency_matrix']
             
             regressor.fit(X_train, y_train)
-            pred = regressor.predict(X_test, adjacency_matrix=adjacency_matrix)
+            pred, entropy = regressor.predict(X_test, adjacency_matrix=adjacency_matrix, return_entropy=True)
             scores.append(r2_score(y_test, pred))
+            entropies.append(entropy.mean())
         avg_score = sum(scores) / len(scores)
+        avg_entropy = sum(entropies) / len(entropies)
         self.writer.add_scalar('synthetic R²', avg_score, epoch)
+        self.writer.add_scalar('synthetic entropy', avg_entropy, epoch)

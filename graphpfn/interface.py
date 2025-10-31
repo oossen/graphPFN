@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
-from pfns.bar_distribution import FullSupportBarDistribution
+from pfns.model.bar_distribution import FullSupportBarDistribution
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -114,7 +114,7 @@ class Regressor(NanoTabPFNRegressor):
         self.y_train_std = np.std(self.y_train, ddof=1) + 1e-8
         self.y_train_n = (self.y_train - self.y_train_mean) / self.y_train_std
 
-    def predict(self, X_test: np.ndarray, **kwargs) -> np.ndarray:
+    def predict(self, X_test: np.ndarray, **kwargs):
         """
         Performs in-context learning using X_train and y_train.
         Predicts the means of the output distributions for X_test.
@@ -132,5 +132,10 @@ class Regressor(NanoTabPFNRegressor):
             logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs).squeeze(0)
             preds_n = self.dist.mean(logits)
             preds = preds_n * torch.tensor(np.std(self.y_train, ddof=1) + 1e-8, dtype=torch.float32, device=self.device) + torch.tensor(np.mean(self.y_train), dtype=torch.float32, device=self.device)
+            entropy = self.dist.entropy(logits)
+            preds = preds.cpu().numpy()
+            entropy = entropy.cpu().numpy()
 
-        return preds.cpu().numpy()
+        if kwargs.get("return_entropy"):
+            return preds, entropy
+        return preds

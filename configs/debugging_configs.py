@@ -4,6 +4,7 @@ so that things like the training loop can be debugged easily even locally.
 """
 
 import configs.default_configs as defaults
+from nanotabpfn.model import NanoTabPFNModel
 
 dataset_config = defaults.prior_config["dataset_config"]
 dataset_config["number_train_samples_per_dataset"] = {
@@ -28,3 +29,10 @@ training_config = defaults.training_config
 training_config["steps"] = 100
 training_config["epochs"] = 10
 training_config["n_bardist_samples"] = 100
+training_config["model"] = NanoTabPFNModel(
+        num_attention_heads=8,
+        embedding_size=192,
+        mlp_hidden_size=768,
+        num_layers=6,
+        num_outputs=100,
+    )

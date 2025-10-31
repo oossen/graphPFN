@@ -22,6 +22,7 @@ def evaluate(prior,
     os.makedirs(output_dir, exist_ok=True)
     regressors = {key: Regressor(models[key], dists[key], get_default_device()) for key in models.keys()}
     scores = {key: [] for key in models.keys()}
+    entropies = {key: [] for key in models.keys()}
         
     for i, data in enumerate(prior):
         X = data['x'][0]
@@ -51,7 +52,9 @@ def evaluate(prior,
         
         for key, reg in regressors.items():
             reg.fit(X_train, y_train)
-            pred = reg.predict(X_test, adjacency_matrix=adjacency_matrix)
+            pred, entropy = reg.predict(X_test, adjacency_matrix=adjacency_matrix, return_entropy=True)
             scores[key].append(r2_score(y_test, pred))
+            entropies[key].append(entropy.mean())
     
     plot_scores(scores, f"{output_dir}/scores.png")
+    plot_scores(entropies, f"{output_dir}/entropies.png")
