@@ -55,13 +55,18 @@ prior_config = {
         # int, >= 0
         "mlp_num_hidden_layers": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 0, "high": 0}
+            "distribution_parameters": {"low": 1, "high": 3}
         },
         # number of hidden units in each layer of an MLP mechanism
         # int
         "mlp_hidden_dim": {
             "distribution": "categorical",
-            "distribution_parameters": {"choices": [8, 16, 32, 64]}
+            "distribution_parameters": {"choices": [8, 16, 32]}
+        },
+        # whether the adding of noise is the final step in the mechanisms
+        # bool
+        "ann": {
+            "value": True,
         },
         # number of hidden layers in XGBoost mechanisms
         # 0 is probably already good

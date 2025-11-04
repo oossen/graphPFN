@@ -61,6 +61,7 @@ class SCMBuilder:
         # Mechanism Type Selection
         xgboost_prob: float = 0.1,
         node_dim: int = 1,
+        ann: bool = True,
         
         # MLP Mechanism Hyperparameters
         mlp_num_hidden_layers: int = 0,
@@ -84,6 +85,7 @@ class SCMBuilder:
         
         self.xgboost_prob = xgboost_prob
         self.node_dim = node_dim
+        self.ann = ann
         
         self.mlp_num_hidden_layers = mlp_num_hidden_layers
         self.mlp_hidden_dim = mlp_hidden_dim
@@ -148,6 +150,7 @@ class SCMBuilder:
                     node_dim=self.node_dim,
                     num_hidden_layers=self.mlp_num_hidden_layers,
                     hidden_dim=self.mlp_hidden_dim,
+                    ann=self.ann,
                     generator=generator,
                 )
         

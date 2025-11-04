@@ -19,6 +19,8 @@ class SampleMLPMechanism(BaseMechanism):
         Fixed number of hidden layers.
     hidden_dim : int, default 64
         Width of hidden layers.
+    ann : bool
+        If True, adding noise is the last step of the mechanism. Otherwise, a final activation is applied after.
     generator : torch.Generator, optional
         RNG for reproducibility of activation sampling.
     """
@@ -30,6 +32,7 @@ class SampleMLPMechanism(BaseMechanism):
         node_dim: int = 1,
         num_hidden_layers: int = 2,
         hidden_dim: int = 64,
+        ann: bool = True,
         generator: Optional[torch.Generator] = None,
     ) -> None:
         super().__init__(input_dim=input_dim, node_dim=node_dim)
@@ -56,10 +59,12 @@ class SampleMLPMechanism(BaseMechanism):
                 layers.append(_deterministic_linear_layer(d, node_dim, generator=self.gen))
             self.net = nn.Sequential(*layers)
 
-        # final layer, used after adding noise (the only activation if there are no hidden layers)
-        post_linear = _deterministic_linear_layer(node_dim, node_dim, generator=self.gen)
-        post_activation = RandomActivation(generator=self.gen)
-        self.post_layer = nn.Sequential(post_linear, post_activation)
+        self.ann = ann
+        if not self.ann:
+            # final layer, used after adding noise (the only activation if there are no hidden layers)
+            post_linear = _deterministic_linear_layer(node_dim, node_dim, generator=self.gen)
+            post_activation = RandomActivation(generator=self.gen)
+            self.post_layer = nn.Sequential(post_linear, post_activation)
 
     def _forward(self, parents: Tensor, eps: Tensor) -> Tensor:
         if self.net is None:
@@ -68,7 +73,8 @@ class SampleMLPMechanism(BaseMechanism):
         else:
             out = self.net(parents)      
         out = out + eps
-        out = self.post_layer(out)
+        if not self.ann:
+            out = self.post_layer(out)
         return out 
     
 
