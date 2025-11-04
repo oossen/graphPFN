@@ -1,4 +1,5 @@
-from typing import Dict, List
+from typing import Dict
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -14,6 +15,7 @@ def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str):
     n_rows = (n_plots + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(3 * n_cols, 3 * n_rows))
+    axes = np.atleast_1d(axes) # in case there is only one plot
     axes = axes.flatten()
 
     for i, (p, q) in enumerate(pairs):

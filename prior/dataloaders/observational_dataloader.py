@@ -31,8 +31,7 @@ class ObservationalDataLoader(DataLoader):
         prior_config : dict
             Specifies hyperparameters for the prior.
         seed : int
-            Makes the sampling of hyperparameters across the entire data generation process deterministic.
-            Does not make sampling of data tables themselves deterministic.
+            Fixes the rng so that this generator samples the same data every time.
         detailed_prior_data : bool
             Whether to return additional data for visualizing and probing the prior,
             like the graph, SCM, and sampled parameters.

@@ -24,7 +24,7 @@ class SCM:
     ----------
     dag : CausalDAG
     mechanisms : Mapping[str, BaseMechanism]
-    noise : Mapping[str, Distribution]
+    noise : Mapping[int, Distribution]
     device : torch.device | str
     dtype : torch.dtype
     fast : bool, default False
