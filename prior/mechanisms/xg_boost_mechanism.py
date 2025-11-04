@@ -114,6 +114,8 @@ class SampleXGBoostMechanism(BaseMechanism):
         Number of hidden XGBoost layers.
     hidden_dim : int, default 64
         Width of hidden layers (number of outputs from each XGBoost layer).
+    ann : bool
+        If True, adding noise is the last step of the mechanism. Otherwise, a final activation is applied after.
     generator : torch.Generator, optional
         RNG for reproducibility of architecture sampling.
     n_training_samples : int, default 1000
@@ -129,6 +131,7 @@ class SampleXGBoostMechanism(BaseMechanism):
         node_dim: int = 1,
         num_hidden_layers: int = 0,
         hidden_dim: int = 64,
+        ann: bool = True,
         generator: Optional[torch.Generator] = None,
         n_training_samples: int = 1000,
         add_noise: bool = False
@@ -190,16 +193,18 @@ class SampleXGBoostMechanism(BaseMechanism):
             )
             self.xgb_layers.append(output_layer)
 
-        # final layer, used after adding noise
-        n_est, max_d = self._sample_xgboost_params()
-        self.post_xgb_layer = XGBoostLayer(
-            input_dim=node_dim,
-            output_dim=node_dim,
-            n_estimators=n_est,
-            max_depth=max_d,
-            generator=self.gen,
-            n_training_samples=self.n_training_samples
-        )
+        self.ann = ann
+        if not self.ann:
+            # final layer, used after adding noise
+            n_est, max_d = self._sample_xgboost_params()
+            self.post_xgb_layer = XGBoostLayer(
+                input_dim=node_dim,
+                output_dim=node_dim,
+                n_estimators=n_est,
+                max_depth=max_d,
+                generator=self.gen,
+                n_training_samples=self.n_training_samples
+            )
 
     def _sample_xgboost_params(self) -> Tuple[int, int]:
         """
@@ -236,5 +241,6 @@ class SampleXGBoostMechanism(BaseMechanism):
 
         # Apply final XGBoost transformation after adding noise
         out = out + eps
-        out = self.post_xgb_layer(out)
+        if not self.ann:
+            out = self.post_xgb_layer(out)
         return out

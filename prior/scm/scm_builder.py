@@ -140,6 +140,7 @@ class SCMBuilder:
                     node_dim=self.node_dim,
                     num_hidden_layers=self.xgb_num_hidden_layers,
                     hidden_dim=self.xgb_hidden_dim,
+                    ann=self.ann,
                     n_training_samples=self.xgb_n_training_samples,
                     generator=generator,
                     add_noise=self.xgb_add_noise
