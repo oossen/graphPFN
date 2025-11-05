@@ -14,5 +14,5 @@ training_config["model"] = GraphPFNModel(
         embedding_size=192,
         mlp_hidden_size=768,
         num_layers=6,
-        num_outputs=100,
+        num_outputs=1000,
     )
