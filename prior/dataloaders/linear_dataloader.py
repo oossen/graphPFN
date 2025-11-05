@@ -62,7 +62,7 @@ class LinearDataLoader(DataLoader):
             
         # build SCM
         noise = {v: MixedDist(std=1.0) for v in graph.nodes() if graph.in_degree(v) == 0} \
-            | {v: MixedDist(std=0.2) for v in graph.nodes() if graph.in_degree(v) > 0}
+            | {v: MixedDist(std=0.1) for v in graph.nodes() if graph.in_degree(v) > 0}
         mechanisms = {}
         for v in graph.nodes():
             mechanisms[v] = LinearMechanism(graph.in_degree(v), 1, self.batch_size)
@@ -70,7 +70,7 @@ class LinearDataLoader(DataLoader):
             
         # sample dataset parameters
         num_train_samples = 10
-        num_test_samples = 100
+        num_test_samples = 1
         
         # sample data from SCM
         total_samples = num_train_samples + num_test_samples

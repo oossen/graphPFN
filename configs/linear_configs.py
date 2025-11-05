@@ -16,3 +16,6 @@ training_config["model"] = GraphPFNModel(
         num_layers=6,
         num_outputs=1000,
     )
+training_config["batchsize"] = 1
+training_config["steps"] = 10000
+training_config["epochs"] = 100
