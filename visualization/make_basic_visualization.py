@@ -10,10 +10,10 @@ def make_basic(prior, output_dir: str):
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    for i, data in list(enumerate(prior))[:10]:
+    for i, data in list(enumerate(prior))[:20]:
         X = data['x'][0]
         y = data['y'][0]
-        g = data['graph']
+        g = data['graph_information']['graph']
         plot_graph(g, f"{output_dir}/graph_{i}.png")
         plot_point_clouds(X, y, f"{output_dir}/point_clouds_{i}.png")    
     plot_r2(prior, f"{output_dir}/r2.png")

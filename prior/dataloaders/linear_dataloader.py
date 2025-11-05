@@ -41,7 +41,7 @@ class LinearDataLoader(DataLoader):
         g_2 = nx.DiGraph()
         g_2.add_edges_from([(0, 1)])
         g_3 = nx.DiGraph()
-        g_3.add_edges_from([(0, 1)])
+        g_3.add_edges_from([(1, 0)])
         self.graphs = [g_1, g_2, g_3]
         
     def __len__(self) -> int:
@@ -61,14 +61,15 @@ class LinearDataLoader(DataLoader):
         graph = self.graphs[int(graph_index)]
             
         # build SCM
-        noise = {v: MixedDist(std=1.0) for v in graph.nodes()}
+        noise = {v: MixedDist(std=1.0) for v in graph.nodes() if graph.in_degree(v) == 0} \
+            | {v: MixedDist(std=0.2) for v in graph.nodes() if graph.in_degree(v) > 0}
         mechanisms = {}
         for v in graph.nodes():
             mechanisms[v] = LinearMechanism(graph.in_degree(v), 1, self.batch_size)
         scm = SCM(graph, mechanisms, noise)
             
         # sample dataset parameters
-        num_train_samples = 100
+        num_train_samples = 10
         num_test_samples = 100
         
         # sample data from SCM
