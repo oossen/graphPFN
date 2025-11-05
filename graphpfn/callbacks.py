@@ -52,10 +52,9 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
             y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
             X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
             y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
-            adjacency_matrix = data['adjacency_matrix']
             
             regressor.fit(X_train, y_train)
-            pred, entropy = regressor.predict(X_test, adjacency_matrix=adjacency_matrix, return_entropy=True)
+            pred, entropy = regressor.predict(X_test, return_entropy=True, **data['graph_information'])
             scores.append(r2_score(y_test, pred))
             entropies.append(entropy.mean())
         avg_score = sum(scores) / len(scores)

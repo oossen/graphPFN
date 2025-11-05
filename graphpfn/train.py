@@ -58,7 +58,6 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
             total_loss = 0.
             for i, full_data in enumerate(prior):
                 single_eval_pos = full_data['single_eval_pos']
-                adjacency_matrix = full_data['adjacency_matrix']
                 data = (full_data['x'].to(device),
                         full_data['y'][:, :single_eval_pos].to(device))
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
@@ -71,7 +70,7 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
                     y_norm = (data[1] - y_mean) / y_std
                     data = (data[0], y_norm)
 
-                output = model(data, single_eval_pos=single_eval_pos, adjacency_matrix=adjacency_matrix)
+                output = model(data, single_eval_pos=single_eval_pos, **full_data['graph_information'])
                 targets = targets[:, single_eval_pos:]
                 if regression_task:
                     targets = (targets - y_mean) / y_std

@@ -13,7 +13,7 @@ from graphpfn.utils import make_bar_distribution
 from prior.dataloaders.linear_dataloader import LinearDataLoader
 
 
-from configs.debugging_configs_additive_encoding import training_config as args
+from configs.linear_configs import training_config as args
 
 
 device = get_default_device()

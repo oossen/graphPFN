@@ -83,9 +83,12 @@ class LinearDataLoader(DataLoader):
         full_data['y'] = data[1]
         full_data['target_y'] = data[1]
         full_data['single_eval_pos'] = num_train_samples
-        full_data['adjacency_matrix'] = torch.from_numpy(nx.to_numpy_array(graph)).to(data[0].dtype)
-        full_data['graph'] = graph
-        full_data['scm'] = scm
+        full_data['graph_information'] = {
+            'adjacency_matrix': torch.from_numpy(nx.to_numpy_array(graph)).to(data[0].dtype),
+            'graph': graph,
+            'graph_index': graph_index,
+            'scm': scm,
+        }
         return full_data
     
 
