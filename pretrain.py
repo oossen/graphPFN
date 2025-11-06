@@ -11,7 +11,7 @@ from nanotabpfn.utils import get_default_device
 from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
-from prior.dataloaders.observational_dataloader import ObservationalDataLoader
+from priors.observational_dataloader import ObservationalDataLoader
 from visualization.make_visualization import make_all
 
 

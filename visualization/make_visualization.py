@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 
-from prior.dataloaders.observational_dataloader import ObservationalDataLoader
+from priors.observational_dataloader import ObservationalDataLoader
 from visualization.check_seeding import compare_dataloaders
 from visualization.plotting import plot_r2, plot_correlation, plot_graph, plot_point_clouds
 

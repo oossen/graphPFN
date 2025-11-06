@@ -3,9 +3,9 @@ import torch
 import networkx as nx
 from torch.utils.data import DataLoader
 
-from prior.mechanisms.base_mechanism import BaseMechanism
-from prior.scm.noise_dist import MixedDist
-from prior.scm.scm import SCM
+from dopfnprior.mechanisms.base_mechanism import BaseMechanism
+from dopfnprior.scm.noise_dist import MixedDist
+from dopfnprior.scm.scm import SCM
 
 
 class LinearDataLoader(DataLoader):

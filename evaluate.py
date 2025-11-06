@@ -1,6 +1,6 @@
 import torch
 from datetime import datetime
-from prior.dataloaders.observational_dataloader import ObservationalDataLoader
+from priors.observational_dataloader import ObservationalDataLoader
 from visualization.pointwise_evaluation import evaluate
 from configs.default_configs import prior_config
 from pfns.model.bar_distribution import FullSupportBarDistribution

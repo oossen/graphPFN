@@ -5,7 +5,7 @@ from sklearn.metrics import r2_score
 from nanotabpfn.utils import get_default_device
 
 from graphpfn.interface import Regressor
-from prior.dataloaders.observational_dataloader import ObservationalDataLoader
+from priors.observational_dataloader import ObservationalDataLoader
 from visualization.plotting import plot_correlation, plot_graph, plot_point_clouds, plot_scores
 
 

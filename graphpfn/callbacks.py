@@ -1,6 +1,6 @@
 from tabpfn import TabPFNRegressor
 from graphpfn.interface import Regressor
-from prior.dataloaders.observational_dataloader import ObservationalDataLoader
+from dopfnprior.dataloaders.observational_dataloader import ObservationalDataLoader
 
 from nanotabpfn.callbacks import TensorboardLoggerCallback
 from nanotabpfn.evaluation import get_openml_predictions

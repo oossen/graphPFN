@@ -10,7 +10,7 @@ from nanotabpfn.utils import get_default_device
 from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
-from prior.dataloaders.linear_dataloader import LinearDataLoader
+from priors.linear_dataloader import LinearDataLoader
 
 
 from configs.linear_configs import training_config as args
