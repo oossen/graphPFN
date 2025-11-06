@@ -1,6 +1,6 @@
 import os
 
-from prior.dataloaders.linear_dataloader import LinearDataLoader
+from priors.linear_dataloader import LinearDataLoader
 from visualization.plotting import plot_graph, plot_point_clouds, plot_r2
 
 
