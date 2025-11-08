@@ -1,8 +1,4 @@
-torch==2.6.0
-pfns==0.4.2
-h5py==3.13.0
 tabpfn
-xgboost
 tensorboard
 git+https://github.com/oossen/TFM-Playground
 git+ssh://git@github.com/oossen/Do-PFN-prior.git
