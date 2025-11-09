@@ -10,7 +10,7 @@ from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
-from priors.linear_dataloader import LinearDataLoader
+from priors.linear_dataloader_2 import LinearDataLoader
 
 
 from configs.linear_configs import training_config as args

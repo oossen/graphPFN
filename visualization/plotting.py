@@ -7,7 +7,10 @@ import itertools
 import networkx as nx
 from sklearn.metrics import r2_score
 
-def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str):
+def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos=None):
+    if single_eval_pos is None:
+        # plot everything in the same color
+        single_eval_pos = X.shape[0]
     pairs = list(itertools.combinations(range(X.shape[1]), 2))
     n_pairs = len(pairs)
     n_plots = n_pairs + X.shape[1] # pairs of features plus pairs involving the target
@@ -19,11 +22,13 @@ def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str):
     axes = axes.flatten()
 
     for i, (p, q) in enumerate(pairs):
-        axes[i].scatter(X[:, p].numpy(), X[:, q].numpy(), s=5, c='red')
+        axes[i].scatter(X[:single_eval_pos, p].numpy(), X[:single_eval_pos, q].numpy(), s=5, c='red')
+        axes[i].scatter(X[single_eval_pos:, p].numpy(), X[single_eval_pos:, q].numpy(), s=5, c='gray')
         axes[i].set_xlabel(f"feature {p}")
         axes[i].set_ylabel(f"feature {q}")
     for i in range(X.shape[1]):
-        axes[i + n_pairs].scatter(X[:, i].numpy(), y.numpy(), s=5, c='blue')
+        axes[i + n_pairs].scatter(X[:single_eval_pos, i].numpy(), y[:single_eval_pos].numpy(), s=5, c='blue')
+        axes[i + n_pairs].scatter(X[single_eval_pos:, i].numpy(), y[single_eval_pos:].numpy(), s=5, c='gray')
         axes[i + n_pairs].set_xlabel(f"feature {i}")
         axes[i + n_pairs].set_ylabel(f"target")
 
