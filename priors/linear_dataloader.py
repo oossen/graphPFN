@@ -2,10 +2,11 @@ from typing import Any, Dict, Iterator
 import torch
 import networkx as nx
 from torch.utils.data import DataLoader
+import torch.distributions as dist
 
 from dopfnprior.mechanisms.base_mechanism import BaseMechanism
-from dopfnprior.scm.noise_dist import MixedDist
 from dopfnprior.scm.scm import SCM
+from dopfnprior.utils.sampling import TorchDistributionSampler
 
 
 class LinearDataLoader(DataLoader):
@@ -61,8 +62,8 @@ class LinearDataLoader(DataLoader):
         graph = self.graphs[int(graph_index)]
             
         # build SCM
-        noise = {v: MixedDist(std=1.0) for v in graph.nodes() if graph.in_degree(v) == 0} \
-            | {v: MixedDist(std=0.1) for v in graph.nodes() if graph.in_degree(v) > 0}
+        noise = {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0)) for v in graph.nodes() if graph.in_degree(v) == 0} | \
+                {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.1)) for v in graph.nodes() if graph.in_degree(v) > 0}
         mechanisms = {}
         for v in graph.nodes():
             mechanisms[v] = LinearMechanism(graph.in_degree(v), 1, self.batch_size)
