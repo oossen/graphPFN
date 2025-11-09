@@ -1,14 +1,14 @@
 import numpy as np
 import pandas as pd
 import torch
-from pfns.model.bar_distribution import FullSupportBarDistribution
+from pfns.bar_distribution import FullSupportBarDistribution
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
 
-from nanotabpfn.utils import get_default_device
-from nanotabpfn.interface import NanoTabPFNRegressor
+from tfmplayground.utils import get_default_device
+from tfmplayground.interface import NanoTabPFNRegressor
 
 import graphpfn.attention_model, graphpfn.additive_encoding_model
 
@@ -132,10 +132,6 @@ class Regressor(NanoTabPFNRegressor):
             logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs).squeeze(0)
             preds_n = self.dist.mean(logits)
             preds = preds_n * torch.tensor(np.std(self.y_train, ddof=1) + 1e-8, dtype=torch.float32, device=self.device) + torch.tensor(np.mean(self.y_train), dtype=torch.float32, device=self.device)
-            entropy = self.dist.entropy(logits)
             preds = preds.cpu().numpy()
-            entropy = entropy.cpu().numpy()
 
-        if kwargs.get("return_entropy"):
-            return preds, entropy
         return preds

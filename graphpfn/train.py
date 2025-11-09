@@ -3,13 +3,13 @@ from torch import nn
 import time
 from torch.utils.data import DataLoader
 from typing import Dict, Optional
-from pfns.model.bar_distribution import FullSupportBarDistribution
+from pfns.bar_distribution import FullSupportBarDistribution
 import schedulefree
 import os
 
-from nanotabpfn.callbacks import Callback
-from nanotabpfn.model import NanoTabPFNModel
-from nanotabpfn.utils import get_default_device
+from tfmplayground.callbacks import Callback
+from tfmplayground.model import NanoTabPFNModel
+from tfmplayground.utils import get_default_device
 
 
 """

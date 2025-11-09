@@ -4,8 +4,8 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn import MultiheadAttention, Linear, LayerNorm
 
-from nanotabpfn.model import Decoder, FeatureEncoder, TargetEncoder, NanoTabPFNModel
-from nanotabpfn.utils import get_default_device
+from tfmplayground.model import Decoder, FeatureEncoder, TargetEncoder, NanoTabPFNModel
+from tfmplayground.utils import get_default_device
 
 
 class GraphPFNModel(NanoTabPFNModel):

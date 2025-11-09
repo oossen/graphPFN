@@ -4,7 +4,7 @@ so that things like the training loop can be debugged easily even locally.
 """
 
 import configs.default_configs as defaults
-from nanotabpfn.model import NanoTabPFNModel
+from tfmplayground.model import NanoTabPFNModel
 
 dataset_config = defaults.prior_config["dataset_config"]
 dataset_config["number_train_samples_per_dataset"] = {

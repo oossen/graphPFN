@@ -2,10 +2,10 @@ from tabpfn import TabPFNRegressor
 from graphpfn.interface import Regressor
 from dopfnprior.dataloaders.observational_dataloader import ObservationalDataLoader
 
-from nanotabpfn.callbacks import TensorboardLoggerCallback
-from nanotabpfn.evaluation import get_openml_predictions
-from nanotabpfn.utils import get_default_device
-from nanotabpfn.interface import NanoTabPFNRegressor
+from tfmplayground.callbacks import TensorboardLoggerCallback
+from tfmplayground.evaluation import get_openml_predictions
+from tfmplayground.utils import get_default_device
+from tfmplayground.interface import NanoTabPFNRegressor
 
 from sklearn.metrics import r2_score
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -46,7 +46,6 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
         dist = kwargs['dist']
         regressor = Regressor(model, dist, get_default_device())
         scores = []
-        entropies = []
         for data in test_prior:
             X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
             y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
@@ -54,10 +53,7 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
             y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
             
             regressor.fit(X_train, y_train)
-            pred, entropy = regressor.predict(X_test, return_entropy=True, **data['graph_information'])
+            pred = regressor.predict(X_test, **data['graph_information'])
             scores.append(r2_score(y_test, pred))
-            entropies.append(entropy.mean())
         avg_score = sum(scores) / len(scores)
-        avg_entropy = sum(entropies) / len(entropies)
         self.writer.add_scalar('synthetic R²', avg_score, epoch)
-        self.writer.add_scalar('synthetic entropy', avg_entropy, epoch)

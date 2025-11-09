@@ -4,11 +4,11 @@ from datetime import datetime
 
 import torch
 
-from nanotabpfn.evaluation import TOY_TASKS_REGRESSION
+from tfmplayground.evaluation import TOY_TASKS_REGRESSION
 from graphpfn.callbacks import EvaluationLoggerCallback, SanityCheckLoggerCallback
 from graphpfn.train import train
-from nanotabpfn.utils import get_default_device
-from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
+from tfmplayground.utils import get_default_device
+from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
 from priors.observational_dataloader import ObservationalDataLoader

@@ -19,3 +19,4 @@ training_config["model"] = GraphPFNModel(
 training_config["batchsize"] = 1
 training_config["steps"] = 10000
 training_config["epochs"] = 100
+training_config["saveweights"] = "linear_model_family"

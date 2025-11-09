@@ -1,7 +1,7 @@
 from typing import Callable, Type
-from pfns.model.bar_distribution import FullSupportBarDistribution
-from pfns.model.bar_distribution import get_bucket_borders
-from nanotabpfn.utils import get_default_device
+from pfns.bar_distribution import FullSupportBarDistribution
+from pfns.bar_distribution import get_bucket_limits
+from tfmplayground.utils import get_default_device
 
 import torch
 from torch.utils.data import DataLoader
@@ -30,5 +30,5 @@ def make_bar_distribution(prior_factory: Callable[[int], DataLoader],
     ys_tensor = torch.concat(sampled_ys)
     
     device = get_default_device()
-    buckets = get_bucket_borders(n_buckets, ys=ys_tensor).to(device)
+    buckets = get_bucket_limits(n_buckets, ys=ys_tensor).to(device)
     return FullSupportBarDistribution(buckets), buckets

@@ -6,8 +6,8 @@ import torch
 
 from graphpfn.callbacks import SanityCheckLoggerCallback
 from graphpfn.train import train
-from nanotabpfn.utils import get_default_device
-from nanotabpfn.callbacks import Callback, TensorboardLoggerCallback
+from tfmplayground.utils import get_default_device
+from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
 from priors.linear_dataloader import LinearDataLoader

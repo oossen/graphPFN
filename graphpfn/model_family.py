@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from nanotabpfn.model import NanoTabPFNModel
+from tfmplayground.model import NanoTabPFNModel
 
 
 class GraphPFNModel(NanoTabPFNModel):
