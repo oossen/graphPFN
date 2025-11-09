@@ -69,8 +69,8 @@ class LinearDataLoader(DataLoader):
         scm = SCM(graph, mechanisms, noise)
             
         # sample dataset parameters
-        num_train_samples = 10
-        num_test_samples = 1
+        num_train_samples = 20
+        num_test_samples = 20
         
         # sample data from SCM
         total_samples = num_train_samples + num_test_samples

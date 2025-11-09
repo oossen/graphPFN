@@ -4,7 +4,7 @@ from datetime import datetime
 
 import torch
 
-from graphpfn.callbacks import SanityCheckLoggerCallback
+from graphpfn.callbacks import SanityCheckLinearLoggerCallback, SanityCheckLoggerCallback
 from graphpfn.train import train
 from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
@@ -32,8 +32,9 @@ output_dir = f"{args['output']}/{datetime_str}"
 tensorboard_dir = f"{output_dir}/tensorboard"
 test_prior_factory = partial(LinearDataLoader, batch_size=1, seed=42)
 sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
+sanity_callback_linear = SanityCheckLinearLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
-callbacks: List[Callback] = [logger_callback, sanity_callback]
+callbacks: List[Callback] = [logger_callback, sanity_callback, sanity_callback_linear]
 
 # save buckets
 with open(f"{output_dir}/buckets.txt", "w") as f:
