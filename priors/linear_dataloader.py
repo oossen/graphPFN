@@ -58,15 +58,15 @@ class LinearDataLoader(DataLoader):
             
         # build SCM
         noise = {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0)) for v in graph.nodes() if graph.in_degree(v) == 0} | \
-                {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.1)) for v in graph.nodes() if graph.in_degree(v) > 0}
+                {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0)) for v in graph.nodes() if graph.in_degree(v) > 0}
         mechanisms = {}
         for v in graph.nodes():
-            mechanisms[v] = LinearMechanism(graph.in_degree(v), 1, self.batch_size)
+            mechanisms[v] = LinearMechanism(graph.in_degree(v), 1, self.batch_size, generator=self.generator)
         scm = SCM(graph, mechanisms, noise)
             
         # sample dataset parameters
-        num_train_samples = 20
-        num_test_samples = 20
+        num_train_samples = 10
+        num_test_samples = 10
         
         # sample data from SCM
         total_samples = num_train_samples + num_test_samples
@@ -76,9 +76,10 @@ class LinearDataLoader(DataLoader):
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
-        full_data['x'] = data[0]
-        full_data['y'] = data[1]
-        full_data['target_y'] = data[1]
+        data_keys = list(data.keys())
+        full_data['x'] = torch.concat([data[i] for i in data_keys[:-1]], dim=-1)
+        full_data['y'] = data[data_keys[-1]]
+        full_data['target_y'] = full_data['y']
         full_data['single_eval_pos'] = num_train_samples
         full_data['graph_information'] = {
             'adjacency_matrix': torch.from_numpy(nx.to_numpy_array(graph)).to(data[0].dtype),
@@ -90,13 +91,13 @@ class LinearDataLoader(DataLoader):
     
 
 class LinearMechanism(BaseMechanism):
-    def __init__(self, input_dim: int, node_dim: int, batch_size: int):
+    def __init__(self, input_dim: int, node_dim: int, batch_size: int, generator: torch.Generator):
         super().__init__(input_dim=input_dim, node_dim=node_dim)
         
         self.input_dim = input_dim
         if input_dim > 0:
-            self.w_1 = torch.randn(batch_size, 1, 1)
-            self.w_2 = torch.randn(batch_size, 1, 1)
+            self.w_1 = torch.randn(batch_size, 1, 1, generator=generator)
+            self.w_2 = torch.randn(batch_size, 1, 1, generator=generator)
 
     def _forward(self, parents: torch.Tensor, eps: torch.Tensor) -> torch.Tensor:
         if self.input_dim > 0:
