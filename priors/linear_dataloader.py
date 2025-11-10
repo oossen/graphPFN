@@ -58,15 +58,15 @@ class LinearDataLoader(DataLoader):
             
         # build SCM
         noise = {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0)) for v in graph.nodes() if graph.in_degree(v) == 0} | \
-                {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0)) for v in graph.nodes() if graph.in_degree(v) > 0}
+                {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.5)) for v in graph.nodes() if graph.in_degree(v) > 0}
         mechanisms = {}
         for v in graph.nodes():
             mechanisms[v] = LinearMechanism(graph.in_degree(v), 1, self.batch_size, generator=self.generator)
         scm = SCM(graph, mechanisms, noise)
             
         # sample dataset parameters
-        num_train_samples = 10
-        num_test_samples = 10
+        num_train_samples = 15
+        num_test_samples = 15
         
         # sample data from SCM
         total_samples = num_train_samples + num_test_samples
@@ -76,7 +76,7 @@ class LinearDataLoader(DataLoader):
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
-        data_keys = list(data.keys())
+        data_keys = list(range(len(data)))
         full_data['x'] = torch.concat([data[i] for i in data_keys[:-1]], dim=-1)
         full_data['y'] = data[data_keys[-1]]
         full_data['target_y'] = full_data['y']
