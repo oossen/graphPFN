@@ -1,6 +1,7 @@
 from functools import partial
 from typing import List
 from datetime import datetime
+import networkx as nx
 
 import torch
 
@@ -10,27 +11,35 @@ from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
-from priors.linear_dataloader_2 import LinearDataLoader
+from priors.linear_dataloader import LinearDataLoader
 
 
-from configs.linear_configs import training_config as args
+from configs.default_configs import training_config as args
+
+g_1 = nx.DiGraph()
+g_1.add_edges_from([(0, 1), (1, 2)])
+g_2 = nx.DiGraph()
+g_2.add_edges_from([(1, 0), (0, 2)])
+g_3 = nx.DiGraph()
+g_3.add_edges_from([(0, 2), (2, 1)])
+graphs = [g_1, g_2, g_3]
 
 
 device = get_default_device()
 
-prior = LinearDataLoader(num_steps=args["steps"], batch_size=args["batchsize"], seed=42)
+prior = LinearDataLoader(num_steps=args["steps"], batch_size=args["batchsize"], graphs=graphs, seed=42)
 
 model = args["model"]
 n_buckets = model.num_outputs
 
-prior_factory = partial(LinearDataLoader, batch_size=10, seed=42)
+prior_factory = partial(LinearDataLoader, batch_size=10, graphs=graphs, seed=42)
 dist, buckets = make_bar_distribution(prior_factory, n_buckets=n_buckets, n_samples=args["n_bardist_samples"])
 
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")
 output_dir = f"{args['output']}/{datetime_str}"
 tensorboard_dir = f"{output_dir}/tensorboard"
-test_prior_factory = partial(LinearDataLoader, batch_size=1, seed=42)
+test_prior_factory = partial(LinearDataLoader, batch_size=1, graphs=graphs, seed=42)
 sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 sanity_callback_linear = SanityCheckLinearLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
