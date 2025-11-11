@@ -36,9 +36,9 @@ def make_all(prior_class,
         for i, data in enumerate(prior):
             X = data['x'][0]
             y = data['y'][0]
-            g = data['graph']
-            new_g = data['new_graph']
-            scm = data['scm']
+            g = data['graph_information']['graph']
+            new_g = data['graph_information']['new_graph']
+            scm = data['graph_information']['scm']
             plot_graph(g, f"{output_dir}/graph_{n}_{i}.png")
             plot_graph(new_g, f"{output_dir}/new_graph_{n}_{i}.png")
             plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
@@ -46,7 +46,7 @@ def make_all(prior_class,
             
             # write sampled parameters to file
             with open(f"{output_dir}/sampled_params_{n}_{i}.py", "w") as f:
-                for name, param_dict in data["sampled_params"].items():
+                for name, param_dict in data['graph_information']["sampled_params"].items():
                     f.write(f"{name} = {repr(param_dict)}\n")
             # write SCM mechanisms to file
             with open(f"{output_dir}/scm_{n}_{i}.py", "w") as f:

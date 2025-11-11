@@ -10,8 +10,8 @@ prior_config = defaults.prior_config
 
 training_config = defaults.training_config
 training_config["model"] = model = GraphPFNModel(
-    num_attention_heads=4,
-    num_graph_attention_heads=2,
+    num_attention_heads=8,
+    num_graph_attention_heads=8,
     embedding_size=192,
     mlp_hidden_size=768,
     num_layers=6,

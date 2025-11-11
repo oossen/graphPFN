@@ -16,13 +16,13 @@ from priors.linear_dataloader import LinearDataLoader
 
 from configs.default_configs import training_config as args
 
+g_0 = nx.DiGraph()
+g_0.add_edges_from([(0, 1), (1, 2)])
 g_1 = nx.DiGraph()
-g_1.add_edges_from([(0, 1), (1, 2)])
+g_1.add_edges_from([(1, 0), (0, 2)])
 g_2 = nx.DiGraph()
-g_2.add_edges_from([(1, 0), (0, 2)])
-g_3 = nx.DiGraph()
-g_3.add_edges_from([(0, 2), (2, 1)])
-graphs = [g_1, g_2, g_3]
+g_2.add_edges_from([(0, 2), (2, 1)])
+graphs = [g_0, g_1, g_2]
 
 
 device = get_default_device()

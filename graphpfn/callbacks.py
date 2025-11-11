@@ -66,7 +66,7 @@ class SanityCheckLinearLoggerCallback(TensorboardLoggerCallback):
     To initialize, needs the bar distribution and prior used for training.
     Report results separately for each possible graph index.
     """
-    def __init__(self, log_dir: str, prior_factory, num_steps=50):
+    def __init__(self, log_dir: str, prior_factory, num_steps=300):
         self.writer = SummaryWriter(log_dir=log_dir)
         self.prior_factory = prior_factory
         self.num_steps = num_steps

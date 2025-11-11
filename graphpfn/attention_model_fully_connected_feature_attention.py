@@ -127,8 +127,9 @@ class TransformerEncoderLayer(nn.Module):
                  device=None, dtype=None):
         super().__init__()
         self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph_parents = MultiheadAttention(embedding_size, nhead_graph // 2, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph_children = MultiheadAttention(embedding_size, nhead_graph // 2, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn_between_features = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn_graph_parents = MultiheadAttention(embedding_size, nhead_graph, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn_graph_children = MultiheadAttention(embedding_size, nhead_graph, batch_first=batch_first, device=device, dtype=dtype)
 
         self.linear1 = Linear(embedding_size, mlp_hidden_size, device=device, dtype=dtype)
         self.linear2 = Linear(mlp_hidden_size, embedding_size, device=device, dtype=dtype)
@@ -151,9 +152,11 @@ class TransformerEncoderLayer(nn.Module):
             (torch.Tensor) a tensor of shape (batch_size, num_rows, num_features, embedding_size)
         """
         batch_size, rows_size, col_size, embedding_size = src.shape
-
-        # adjacency based attention
+        # attention between features
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
+        src = self.self_attn_between_features(src, src, src)[0]+src
+        src = self.norm1(src)
+        # adjacency based attention
         mask = (1 - adjacency_matrix).to(get_default_device()).bool()
         if not (mask.all(dim=1)).any():
             src = self.self_attn_graph_parents(src, src, src, attn_mask=mask)[0]+src
