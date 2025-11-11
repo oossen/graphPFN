@@ -1,6 +1,6 @@
 import os
 
-from priors.linear_dataloader import LinearDataLoader
+from priors.basic_dataloader import BasicDataLoader
 from visualization.plotting import plot_graph, plot_point_clouds, plot_r2
 import networkx as nx
 
@@ -32,5 +32,5 @@ if __name__ == "__main__":
     g_3 = nx.DiGraph()
     g_3.add_edges_from([(0, 2), (2, 1)])
     graphs = [g_1, g_2, g_3]
-    prior = LinearDataLoader(20, 1, graphs, 43)
+    prior = BasicDataLoader(20, 1, graphs, 43)
     make_basic(prior, f"visualization/output/{datetime_str}")
