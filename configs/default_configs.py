@@ -8,7 +8,7 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 100, "high": 300}
+            "distribution_parameters": {"low": 50, "high": 100}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -65,7 +65,7 @@ prior_config = {
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "value": 0.1
+            "value": 0.5
         },
     }
 }
