@@ -25,12 +25,15 @@ if __name__ == "__main__":
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
+    g_0 = nx.DiGraph()
+    g_0.add_nodes_from([0, 1, 2, 3])
+    g_0.add_edges_from([(0, 3)])
     g_1 = nx.DiGraph()
-    g_1.add_edges_from([(0, 1), (1, 2)])
+    g_1.add_nodes_from([0, 1, 2, 3])
+    g_1.add_edges_from([(0, 3), (1, 3)])
     g_2 = nx.DiGraph()
-    g_2.add_edges_from([(1, 0), (0, 2)])
-    g_3 = nx.DiGraph()
-    g_3.add_edges_from([(0, 2), (2, 1)])
-    graphs = [g_1, g_2, g_3]
+    g_2.add_nodes_from([0, 1, 2, 3])
+    g_2.add_edges_from([(0, 3), (1, 3), (2, 3)])
+    graphs = [g_0, g_1, g_2]
     prior = BasicDataLoader(20, 1, graphs, 43)
     make_basic(prior, f"visualization/output/{datetime_str}")
