@@ -154,11 +154,12 @@ class TransformerEncoderLayer(nn.Module):
 
         # adjacency based attention
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
-        mask = (1 - adjacency_matrix).to(get_default_device()).bool()
-        if not (mask.all(dim=1)).any():
-            src = self.self_attn_graph_parents(src, src, src, attn_mask=mask)[0]+src
-        if not (mask.all(dim=0)).any():
-            src = self.self_attn_graph_children(src, src, src, attn_mask=mask.T)[0]+src
+        # flip adjacency matrix, except for diagonal entries
+        eye = torch.eye(col_size, dtype=torch.bool)
+        adjacency_matrix = adjacency_matrix.bool()
+        mask = torch.where(eye, adjacency_matrix, ~adjacency_matrix).to(get_default_device())
+        src = self.self_attn_graph_parents(src, src, src, attn_mask=mask)[0]+src
+        src = self.self_attn_graph_children(src, src, src, attn_mask=mask.T)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
         src = self.norm2(src)
         # attention between datapoints

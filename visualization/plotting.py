@@ -61,8 +61,6 @@ def plot_graph(g: nx.DiGraph, filename: str):
 
 def plot_r2(prior: DataLoader, filename: str):
     models = {}
-    from tabpfn import TabPFNRegressor
-    models["tabpfn"] = TabPFNRegressor()
     from sklearn.ensemble import RandomForestRegressor
     models["rf_10"] = RandomForestRegressor(10)
     from sklearn.svm import SVR
