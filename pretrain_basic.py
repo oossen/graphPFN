@@ -23,16 +23,17 @@ g_1.add_edges_from([(1, 0), (0, 2)])
 g_2 = nx.DiGraph()
 g_2.add_edges_from([(0, 2), (2, 1)])
 graphs = [g_0, g_1, g_2]
+graph_subset = [g_0]
 
 
 device = get_default_device()
 
-prior = BasicDataLoader(num_steps=args["steps"], batch_size=args["batchsize"], graphs=[g_0], seed=42)
+prior = BasicDataLoader(num_steps=args["steps"], batch_size=args["batchsize"], graphs=graph_subset, seed=42)
 
 model = args["model"]
 n_buckets = model.num_outputs
 
-prior_factory = partial(BasicDataLoader, batch_size=10, graphs=graphs, seed=42)
+prior_factory = partial(BasicDataLoader, batch_size=10, graphs=graph_subset, seed=42)
 dist, buckets = make_bar_distribution(prior_factory, n_buckets=n_buckets, n_samples=args["n_bardist_samples"])
 
 now = datetime.now()
