@@ -17,15 +17,18 @@ from priors.basic_dataloader import BasicDataLoader
 from configs.default_configs import training_config as args
 
 g_0 = nx.DiGraph()
-g_0.add_nodes_from([0, 1, 2, 3])
-g_0.add_edges_from([(0, 3)])
+g_0.add_nodes_from([0, 1, 2, 3, 4])
+g_0.add_edges_from([(0, 4)])
 g_1 = nx.DiGraph()
-g_1.add_nodes_from([0, 1, 2, 3])
-g_1.add_edges_from([(0, 3), (1, 3)])
+g_1.add_nodes_from([0, 1, 2, 3, 4])
+g_1.add_edges_from([(0, 4), (1, 4)])
 g_2 = nx.DiGraph()
-g_2.add_nodes_from([0, 1, 2, 3])
-g_2.add_edges_from([(0, 3), (1, 3), (2, 3)])
-graphs = [g_0, g_1, g_2]
+g_2.add_nodes_from([0, 1, 2, 3, 4])
+g_2.add_edges_from([(0, 4), (1, 4), (2, 4)])
+g_3 = nx.DiGraph()
+g_3.add_nodes_from([0, 1, 2, 3, 4])
+g_3.add_edges_from([(0, 4), (1, 4), (2, 4), (3, 4)])
+graphs = [g_0, g_1, g_2, g_3]
 graph_subset = [g_0]
 
 

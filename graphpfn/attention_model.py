@@ -127,8 +127,7 @@ class TransformerEncoderLayer(nn.Module):
                  device=None, dtype=None):
         super().__init__()
         self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph_parents = MultiheadAttention(embedding_size, nhead_graph // 2, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph_children = MultiheadAttention(embedding_size, nhead_graph // 2, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn_graph = MultiheadAttention(embedding_size, nhead_graph, batch_first=batch_first, device=device, dtype=dtype)
 
         self.linear1 = Linear(embedding_size, mlp_hidden_size, device=device, dtype=dtype)
         self.linear2 = Linear(mlp_hidden_size, embedding_size, device=device, dtype=dtype)
@@ -155,11 +154,10 @@ class TransformerEncoderLayer(nn.Module):
         # adjacency based attention
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
         # flip adjacency matrix, except for diagonal entries
-        eye = torch.eye(col_size, dtype=torch.bool)
+        eye = torch.eye(col_size, dtype=torch.bool).bool()
         adjacency_matrix = adjacency_matrix.bool()
-        mask = torch.where(eye, adjacency_matrix, ~adjacency_matrix).to(get_default_device())
-        src = self.self_attn_graph_parents(src, src, src, attn_mask=mask)[0]+src
-        src = self.self_attn_graph_children(src, src, src, attn_mask=mask.T)[0]+src
+        mask = (adjacency_matrix | adjacency_matrix.T | eye).to(get_default_device())
+        src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
         src = self.norm2(src)
         # attention between datapoints
