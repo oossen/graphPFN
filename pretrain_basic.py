@@ -29,7 +29,7 @@ g_3 = nx.DiGraph()
 g_3.add_nodes_from([0, 1, 2, 3, 4])
 g_3.add_edges_from([(0, 4), (1, 4), (2, 4), (3, 4)])
 graphs = [g_0, g_1, g_2, g_3]
-graph_subset = [g_0, g_1, g_2, g_3]
+graph_subset = [g_0]
 
 
 device = get_default_device()

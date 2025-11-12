@@ -84,6 +84,7 @@ class SanityCheckPerGraphLoggerCallback(TensorboardLoggerCallback):
             
             regressor.fit(X_train, y_train)
             pred = regressor.predict(X_test, **data['graph_information'])
+            print(index, pred)
             r2 = r2_score(y_test, pred)
             scores[index].append(r2)
             scores['all'].append(r2)

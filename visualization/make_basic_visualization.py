@@ -38,5 +38,5 @@ if __name__ == "__main__":
     g_3.add_nodes_from([0, 1, 2, 3, 4])
     g_3.add_edges_from([(0, 4), (1, 4), (2, 4), (3, 4)])
     graphs = [g_0, g_1, g_2, g_3]
-    prior = BasicDataLoader(20, 1, graphs, 43)
+    prior = BasicDataLoader(200, 1, graphs, 43)
     make_basic(prior, f"visualization/output/{datetime_str}")
