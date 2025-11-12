@@ -58,7 +58,7 @@ class BasicDataLoader(DataLoader):
             
         # build SCM
         noise = {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0)) for v in graph.nodes() if graph.in_degree(v) == 0} | \
-                {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.5)) for v in graph.nodes() if graph.in_degree(v) > 0}
+                {v: TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.3)) for v in graph.nodes() if graph.in_degree(v) > 0}
         mechanisms = {}
         for v in graph.nodes():
             mechanisms[v] = SampleMLPMechanism(

@@ -6,7 +6,6 @@ from dopfnprior.dataloaders.observational_dataloader import ObservationalDataLoa
 from tfmplayground.callbacks import TensorboardLoggerCallback
 from tfmplayground.evaluation import get_openml_predictions
 from tfmplayground.utils import get_default_device
-from tfmplayground.interface import NanoTabPFNRegressor
 
 from sklearn.metrics import r2_score
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -60,13 +59,13 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
         self.writer.add_scalar('synthetic R²', avg_score, epoch)
         
 
-class SanityCheckLinearLoggerCallback(TensorboardLoggerCallback):
+class SanityCheckPerGraphLoggerCallback(TensorboardLoggerCallback):
     """
     On epoch end, evaluate the model on data from the same prior that it is being trained on.
     To initialize, needs the bar distribution and prior used for training.
     Report results separately for each possible graph index.
     """
-    def __init__(self, log_dir: str, prior_factory, num_steps=300):
+    def __init__(self, log_dir: str, prior_factory, num_steps=500):
         self.writer = SummaryWriter(log_dir=log_dir)
         self.prior_factory = prior_factory
         self.num_steps = num_steps
@@ -85,7 +84,10 @@ class SanityCheckLinearLoggerCallback(TensorboardLoggerCallback):
             
             regressor.fit(X_train, y_train)
             pred = regressor.predict(X_test, **data['graph_information'])
-            scores[index].append(r2_score(y_test, pred))
+            r2 = r2_score(y_test, pred)
+            scores[index].append(r2)
+            scores['all'].append(r2)
         for key, value in scores.items():
             avg_score = sum(value) / len(value)
             self.writer.add_scalar(f'synthetic R² for graph {key}', avg_score, epoch)
+        self.writer.add_scalar('overall R²', sum(scores['all']) / len(scores['all']), epoch)

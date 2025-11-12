@@ -5,7 +5,7 @@ import networkx as nx
 
 import torch
 
-from graphpfn.callbacks import SanityCheckLinearLoggerCallback, SanityCheckLoggerCallback
+from graphpfn.callbacks import SanityCheckPerGraphLoggerCallback
 from graphpfn.train import train
 from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
@@ -14,7 +14,7 @@ from graphpfn.utils import make_bar_distribution
 from priors.basic_dataloader import BasicDataLoader
 
 
-from configs.default_configs import training_config as args
+from configs.default_configs_attention import training_config as args
 
 g_0 = nx.DiGraph()
 g_0.add_nodes_from([0, 1, 2, 3, 4])
@@ -29,7 +29,7 @@ g_3 = nx.DiGraph()
 g_3.add_nodes_from([0, 1, 2, 3, 4])
 g_3.add_edges_from([(0, 4), (1, 4), (2, 4), (3, 4)])
 graphs = [g_0, g_1, g_2, g_3]
-graph_subset = [g_0]
+graph_subset = [g_0, g_1, g_2, g_3]
 
 
 device = get_default_device()
@@ -47,10 +47,9 @@ datetime_str = now.strftime("%m_%d_%H_%M")
 output_dir = f"{args['output']}/{datetime_str}"
 tensorboard_dir = f"{output_dir}/tensorboard"
 test_prior_factory = partial(BasicDataLoader, batch_size=1, graphs=graphs, seed=42)
-sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
-sanity_callback_linear = SanityCheckLinearLoggerCallback(tensorboard_dir, test_prior_factory)
+sanity_callback_per_graph = SanityCheckPerGraphLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
-callbacks: List[Callback] = [logger_callback, sanity_callback, sanity_callback_linear]
+callbacks: List[Callback] = [logger_callback, sanity_callback_per_graph]
 
 # save buckets
 with open(f"{output_dir}/buckets.txt", "w") as f:
