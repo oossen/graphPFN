@@ -91,4 +91,3 @@ class SanityCheckPerGraphLoggerCallback(TensorboardLoggerCallback):
         for key, value in scores.items():
             avg_score = sum(value) / len(value)
             self.writer.add_scalar(f'synthetic R² for graph {key}', avg_score, epoch)
-        self.writer.add_scalar('overall R²', sum(scores['all']) / len(scores['all']), epoch)
