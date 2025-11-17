@@ -8,7 +8,7 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 10, "high": 50}
+            "distribution_parameters": {"low": 10, "high": 500}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -30,13 +30,13 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 20, "high": 30}
+            "distribution_parameters": {"low": 5, "high": 50}
         },
         # probability that any two nodes in the causal graph are connected
         # float
         "edge_prob": {
             "distribution": "uniform",
-            "distribution_parameters": {"low": 0.05, "high": 0.1}
+            "distribution_parameters": {"low": 0.01, "high": 0.20}
         },
     },
 
@@ -60,12 +60,14 @@ prior_config = {
         # the standard deviation of noise sampled at root nodes when propagating through the SCM
         # float
         "root_std": {
-            "value": 1.0
+            "distribution": "uniform",
+            "distribution_parameters": {"low": 0.1, "high": 2.0}
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "value": 0.1
+            "distribution": "uniform",
+            "distribution_parameters": {"low": 0.05, "high": 1.0}
         },
     }
 }
@@ -104,13 +106,9 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 100,
+    "epochs": 200,
     
     # number of data batches used to infer buckets for bar distribution
     # int
     "n_bardist_samples": 5000,
-    
-    # output directory for tensorboard and data visualization
-    # str
-    "output": "output",
 }

@@ -1,10 +1,10 @@
 .venv/
 .vscode/
 
-visualization/output
+visualization/output/
 logs/
-output/
-evaluation/
+evaluation/output/
+workdir/
 
 *.pyc
 *.h5

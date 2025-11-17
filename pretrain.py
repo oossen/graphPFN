@@ -15,7 +15,7 @@ from priors.observational_dataloader import ObservationalDataLoader
 from visualization.make_visualization import make_all
 
 
-from configs.default_configs_posterior import prior_config, training_config as args
+from configs.debugging_configs import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -36,7 +36,8 @@ dist, buckets = make_bar_distribution(prior_factory, n_buckets=n_buckets, n_samp
 
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")
-output_dir = f"{args['output']}/{datetime_str}"
+run_name = f"{args['saveweights']}_{datetime_str}"
+output_dir = f"workdir/{run_name}"
 tensorboard_dir = f"{output_dir}/tensorboard"
 evaluation_callback = EvaluationLoggerCallback(tensorboard_dir, TOY_TASKS_REGRESSION, prior)
 test_prior_factory = partial(ObservationalDataLoader, batch_size=1, prior_config=prior.prior_config, seed=42)
@@ -50,7 +51,7 @@ make_all(ObservationalDataLoader, prior_config, f"{output_dir}/visualization")
 with open(f"{output_dir}/buckets.txt", "w") as f:
     f.write(str(buckets))
     
-
+torch.save(buckets.to('cpu'), f"{output_dir}/dist.pth")
 trained_model, loss = train(
     model=model,
     prior=prior,
@@ -60,18 +61,5 @@ trained_model, loss = train(
     lr=args["lr"],
     device=torch.device(device),
     callbacks=callbacks,
+    run_name=run_name,
 )
-
-
-model_params = {'architecture': {
-                    'num_layers': int(model.num_layers),
-                    'embedding_size': int(model.embedding_size),
-                    'num_attention_heads': int(model.num_attention_heads),
-                    'num_graph_attention_heads': model.num_graph_attention_heads if hasattr(model, 'num_graph_attention_heads') else None,
-                    'gcn_hidden_size': model.gcn_hidden_size if hasattr(model, 'gcn_hidden_size') else None,
-                    'mlp_hidden_size': int(model.mlp_hidden_size),
-                    'num_outputs': int(model.num_outputs)
-                },
-                'model': model.state_dict(),}
-torch.save(model_params, f"{args['saveweights']}_model.pth")
-torch.save(buckets.to('cpu'), f"{args['saveweights']}_dist.pth")
