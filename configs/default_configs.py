@@ -30,13 +30,13 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 10, "high": 20}
+            "distribution_parameters": {"low": 20, "high": 30}
         },
         # probability that any two nodes in the causal graph are connected
         # float
         "edge_prob": {
             "distribution": "uniform",
-            "distribution_parameters": {"low": 0.1, "high": 0.3}
+            "distribution_parameters": {"low": 0.05, "high": 0.1}
         },
     },
 
