@@ -15,7 +15,7 @@ from priors.observational_dataloader import ObservationalDataLoader
 from visualization.make_visualization import make_all
 
 
-from configs.default_configs import prior_config, training_config as args
+from configs.default_configs_posterior import prior_config, training_config as args
 
 
 device = get_default_device()
