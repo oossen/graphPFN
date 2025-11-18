@@ -8,7 +8,7 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 10, "high": 500}
+            "distribution_parameters": {"low": 10, "high": 300}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -30,7 +30,7 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 5, "high": 50}
+            "distribution_parameters": {"low": 5, "high": 30}
         },
         # probability that any two nodes in the causal graph are connected
         # float
