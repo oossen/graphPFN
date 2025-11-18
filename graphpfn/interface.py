@@ -9,12 +9,19 @@ from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
 
 from tfmplayground.utils import get_default_device
 from tfmplayground.interface import NanoTabPFNRegressor
+import graphpfn.attention_model, graphpfn.additive_encoding_model, tfmplayground.model
 
 
-def init_model_from_state_dict_file(model_class, file_path):
+def init_model_from_state_dict_file(model_type: str, file_path: str):
     """
     reads model architecture from state dict, instantiates the architecture and loads the weights
     """
+    if model_type == "pfn":
+        model_class = tfmplayground.model.NanoTabPFNModel
+    elif model_type == "attention":
+        model_class = graphpfn.attention_model.GraphPFNModel
+    elif model_type == "additive":
+        model_class = graphpfn.additive_encoding_model.GraphPFNModel
     state_dict = torch.load(file_path, map_location=torch.device('cpu'))
     model = model_class(**state_dict['architecture'])
     model.load_state_dict(state_dict['model'])
