@@ -10,8 +10,8 @@ from datetime import datetime
 
 
 def remove_outliers(x):
-    q1 = np.percentile(x, 5)
-    q3 = np.percentile(x, 95)
+    q1 = np.percentile(x, 10)
+    q3 = np.percentile(x, 90)
     iqr = q3 - q1
     lower = q1 - 1.5 * iqr
     upper = q3 + 1.5 * iqr
@@ -25,22 +25,43 @@ def compare(model_1, model_2, num_samples, filename):
     df2 = evaluate(model_2, prior)
     
     col_labels = ['num_nodes', 'edge_prob', 'root_std', 'non_root_std', 'number_train_samples_per_dataset']
-    
     n_cols = int(len(col_labels) ** 0.5)
     n_rows = (len(col_labels) + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 6 * n_rows))
     axes = axes.flatten()
-
+        
     for i, label in enumerate(col_labels):
         ax = axes[i]
-        # mask out outliers
-        m1 = remove_outliers(df1['R2'])
-        m2 = remove_outliers(df2['R2'])
-        ax.scatter(df1[label][m1], df1['R2'][m1], alpha=0.7)
-        ax.scatter(df2[label][m2], df2['R2'][m2], alpha=0.7)
+
+        diff = df2['R2'] - df1['R2']
+        outlier_mask = remove_outliers(diff)
+
+        x = df1[label][outlier_mask]
+        y = diff[outlier_mask]
+
+        # original scatter
+        ax.scatter(x, y, alpha=0.2, color='gray')
+
+        # bucketing
+        n_buckets = 20
+        bins = np.linspace(x.min(), x.max(), n_buckets + 1)
+        bucket_ids = np.digitize(x, bins) - 1
+
+        bucket_centers = []
+        bucket_means = []
+
+        for b in range(n_buckets):
+            mask = bucket_ids == b
+            if mask.any():
+                bucket_centers.append((bins[b] + bins[b+1]) / 2)
+                bucket_means.append(y[mask].mean())
+
+        # overlay bucket means
+        ax.plot(bucket_centers, bucket_means, marker='o', color='red')
+
         ax.set_xlabel(label)
-        ax.set_ylabel("R2")
+        ax.set_ylabel("R2 improvement")
         ax.grid(True)
 
     # hide unused axes
