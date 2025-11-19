@@ -9,6 +9,16 @@ from priors.observational_dataloader import ObservationalDataLoader
 from pfns.bar_distribution import FullSupportBarDistribution
 import torch
 from tfmplayground.utils import get_default_device
+import numpy as np
+
+
+def remove_outliers(x):
+    q1 = np.percentile(x, 10)
+    q3 = np.percentile(x, 90)
+    iqr = q3 - q1
+    lower = q1 - 1.5 * iqr
+    upper = q3 + 1.5 * iqr
+    return (x >= lower) & (x <= upper)
 
 
 def hamming_distance(adj_1: torch.Tensor, adj_2: torch.Tensor):
@@ -28,8 +38,8 @@ def hamming_distance(adj_1: torch.Tensor, adj_2: torch.Tensor):
     return dist
     
 
-def evaluate_on_wrong_graphs(model, prior, filename: str): 
-    scores = []
+def evaluate_on_wrong_graphs(model_1, model_2, prior, filename: str): 
+    diffs = []
     distances = []
     for data in prior:
         adj = data['graph_information']['adjacency_matrix']
@@ -42,12 +52,38 @@ def evaluate_on_wrong_graphs(model, prior, filename: str):
         y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
         X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
         y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
-        model.fit(X_train, y_train)
-        pred = model.predict(X_test, adjacency_matrix=modified_adj)
-        scores.append(r2_score(y_test, pred))
+        model_1.fit(X_train, y_train)
+        pred_1 = model_1.predict(X_test, adjacency_matrix=modified_adj)
+        score_1 = r2_score(y_test, pred_1)
+        model_2.fit(X_train, y_train)
+        pred_2 = model_2.predict(X_test, adjacency_matrix=modified_adj)
+        score_2 = r2_score(y_test, pred_2)
+        diff = score_2 - score_1
+        diffs.append(diff)
         distances.append(hamming_distance(adj, modified_adj))
+        
+    # remove outliers    
+    diffs = np.array(diffs)
+    distances = np.array(distances)
+    outlier_mask = remove_outliers(diffs)
+    diffs = diffs[outlier_mask]
+    distances = distances[outlier_mask]
     
-    plt.scatter(distances, scores, color='blue', marker='o')
+    # bucketing
+    n_buckets = 20
+    bins = np.linspace(distances.min(), distances.max(), n_buckets + 1)
+    bucket_ids = np.digitize(distances, bins) - 1
+
+    bucket_centers = []
+    bucket_means = []
+
+    for b in range(n_buckets):
+        mask = bucket_ids == b
+        if mask.any():
+            bucket_centers.append((bins[b] + bins[b+1]) / 2)
+            bucket_means.append(diffs[mask].mean())
+
+    plt.plot(bucket_centers, bucket_means, marker='o', color='red')
     plt.xlabel("Hamming distance")
     plt.ylabel("R²")
     plt.grid(True)
@@ -56,19 +92,25 @@ def evaluate_on_wrong_graphs(model, prior, filename: str):
         
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dir", type=str, required=True)
-parser.add_argument("--model", type=str, choices=["pfn", "attention", "additive"], required=True)
+parser.add_argument("--dir_1", type=str, required=True)
+parser.add_argument("--model_1", type=str, choices=["pfn", "attention", "additive"], required=True)
+parser.add_argument("--dir_2", type=str, required=True)
+parser.add_argument("--model_2", type=str, choices=["pfn", "attention", "additive"], required=True)
 parser.add_argument("--steps", type=int, default=50)
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    model = init_model_from_state_dict_file(args.model, f"{args.dir}/latest_checkpoint.pth")
-    buckets = torch.load(f"{args.dir}/dist.pth")
-    dist = FullSupportBarDistribution(buckets)
-    reg = Regressor(model, dist, get_default_device())
-    
+    model_1 = init_model_from_state_dict_file(args.model_1, f"{args.dir_1}/latest_checkpoint.pth")
+    model_2 = init_model_from_state_dict_file(args.model_2, f"{args.dir_2}/latest_checkpoint.pth")
+    buckets_1 = torch.load(f"{args.dir_1}/dist.pth")
+    buckets_2 = torch.load(f"{args.dir_2}/dist.pth")
+    dist_1 = FullSupportBarDistribution(buckets_1)
+    dist_2 = FullSupportBarDistribution(buckets_2)
+    reg_1 = Regressor(model_1, dist_1, get_default_device())
+    reg_2 = Regressor(model_2, dist_2, get_default_device())
     prior = ObservationalDataLoader(num_steps=args.steps, batch_size=1, prior_config=prior_config, seed=42)
+
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     os.makedirs(f"evaluation/output/{datetime_str}", exist_ok=True)
-    evaluate_on_wrong_graphs(reg, prior, f"evaluation/output/{datetime_str}/wrong_graphs.png")
+    evaluate_on_wrong_graphs(reg_1, reg_2, prior, f"evaluation/output/{datetime_str}/wrong_graphs.png")
