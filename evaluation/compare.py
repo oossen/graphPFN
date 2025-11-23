@@ -2,7 +2,7 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
-from evaluation.evaluate import evaluate
+from evaluation.evaluate import evaluate, evaluate_on_markov_blanket
 from priors.observational_dataloader import ObservationalDataLoader
 from configs.default_configs import prior_config
 from tfmplayground.utils import get_default_device
@@ -18,11 +18,17 @@ def remove_outliers(x):
     return (x >= lower) & (x <= upper)
 
 
-def compare(model_1, model_2, num_samples, filename):
+def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, eval_2_on_blanket=False):
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
-    df1 = evaluate(model_1, prior)
+    if eval_1_on_blanket:
+        df1 = evaluate_on_markov_blanket(model_1, prior)
+    else:
+        df1 = evaluate(model_1, prior)
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
-    df2 = evaluate(model_2, prior)
+    if eval_2_on_blanket:
+        df2 = evaluate_on_markov_blanket(model_2, prior)
+    else:
+        df2 = evaluate(model_2, prior)
     
     col_labels = ['num_nodes', 'edge_prob', 'root_std', 'non_root_std', 'number_train_samples_per_dataset']
     n_cols = int(len(col_labels) ** 0.5)
@@ -84,6 +90,8 @@ parser.add_argument("--model_1", type=str, choices=["pfn", "attention", "additiv
 parser.add_argument("--dir_2", type=str, required=True)
 parser.add_argument("--model_2", type=str, choices=["pfn", "attention", "additive"], required=True)
 parser.add_argument("--steps", type=int, default=50)
+parser.add_argument("--blanket_1", action="store_true")
+parser.add_argument("--blanket_2", action="store_true")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -99,4 +107,9 @@ if __name__ == "__main__":
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     os.makedirs(f"evaluation/output/{datetime_str}", exist_ok=True)
-    compare(reg_1, reg_2, args.steps, f"evaluation/output/{datetime_str}/comparisons.png")
+    compare(reg_1,
+            reg_2,
+            args.steps,
+            f"evaluation/output/{datetime_str}/comparisons.png",
+            eval_1_on_blanket=args.blanket_1,
+            eval_2_on_blanket=args.blanket_2)

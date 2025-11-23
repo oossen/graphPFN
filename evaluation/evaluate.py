@@ -7,6 +7,7 @@ from priors.observational_dataloader import ObservationalDataLoader
 from pfns.bar_distribution import FullSupportBarDistribution
 import torch
 from tfmplayground.utils import get_default_device
+import networkx as nx
 
 
 def evaluate(model, prior): 
@@ -24,11 +25,41 @@ def evaluate(model, prior):
         y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
         X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
         y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
-        adjacency_matrix = data['graph_information']['adjacency_matrix']
         model.fit(X_train, y_train)
-        pred = model.predict(X_test, adjacency_matrix=adjacency_matrix)
+        pred = model.predict(X_test, **data['graph_information'])
         flat["R2"] = r2_score(y_test, pred)
     return pd.DataFrame(rows)
+
+
+def evaluate_on_markov_blanket(model, prior):
+    rows = []
+    for data in prior:
+        # add sampled parameters to data frame
+        sampled_params = data["graph_information"]["sampled_params"]
+        flat = {}
+        for _, inner_dict in sampled_params.items():
+            for k, v in inner_dict.items():
+                flat[k] = v
+        rows.append(flat)
+        # find features in Markov blanket
+        g: nx.DiGraph = data["graph_information"]["new_graph"]
+        parents = list(g.predecessors('y'))
+        children = list(g.successors('y'))
+        coparents = [v for w in children for v in g.predecessors(w)]
+        blanket = set(parents + children + coparents)
+        blanket.remove('y')
+        blanket_indices = [int(v[1]) for v in blanket] # blanket contains strings of the form 'xi', so v[1]=i
+        flat["blanket_size"] = len(blanket_indices)
+        # evaluate on model
+        X_train = data['x'][0, :data['single_eval_pos'], blanket_indices].cpu().numpy()
+        y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
+        X_test = data['x'][0, data['single_eval_pos']:, blanket_indices].cpu().numpy()
+        y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
+        model.fit(X_train, y_train)
+        pred = model.predict(X_test, **data['graph_information'])
+        flat["R2"] = r2_score(y_test, pred)
+    return pd.DataFrame(rows)
+        
         
 
 parser = argparse.ArgumentParser()
