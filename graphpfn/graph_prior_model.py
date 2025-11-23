@@ -224,11 +224,13 @@ class MultiplicativeMultiheadAttention(nn.Module):
         scaling = float(self.head_dim) ** -0.5
         attn_scores = (q @ k.transpose(-2, -1)) * scaling
 
-        # 4. Pointwise multiplication before Softmax
-        attn_scores = attn_scores * attn_multiplier
-
-        # 5. Softmax and value computation
+        # 4. Softmax
         attn_weights = F.softmax(attn_scores, dim=-1)
+        
+        # 5. Pointwise multiplication with mask
+        attn_weights = attn_weights * attn_multiplier
+        
+        # 6. Value computation
         attn_output = attn_weights @ v
 
         # 7. Reshape back and Output Projection
