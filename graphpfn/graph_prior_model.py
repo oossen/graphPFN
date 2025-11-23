@@ -154,7 +154,7 @@ class TransformerEncoderLayer(nn.Module):
         # adjacency based attention
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
         # flip adjacency matrix, except for diagonal entries
-        eye = torch.eye(col_size, dtype=torch.bool).bool()
+        eye = torch.eye(col_size)
         mask = (prob_adj + prob_adj.T + eye).to(get_default_device())
         src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
@@ -196,7 +196,7 @@ class MultiplicativeMultiheadAttention(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim)
         self.out_proj = nn.Linear(embed_dim, embed_dim)
 
-    def forward(self, query, key, value, attn_multiplier):
+    def forward(self, query, key, value, attn_mask):
         """
         Args:
             query: (b, f, d)
@@ -228,7 +228,7 @@ class MultiplicativeMultiheadAttention(nn.Module):
         attn_weights = F.softmax(attn_scores, dim=-1)
         
         # 5. Pointwise multiplication with mask
-        attn_weights = attn_weights * attn_multiplier
+        attn_weights = attn_weights * attn_mask
         
         # 6. Value computation
         attn_output = attn_weights @ v

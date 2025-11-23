@@ -18,7 +18,7 @@ def remove_outliers(x):
     return (x >= lower) & (x <= upper)
 
 
-def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, eval_2_on_blanket=False):
+def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, eval_2_on_blanket=False, include_scatter=False):
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
     if eval_1_on_blanket:
         df1 = evaluate_on_markov_blanket(model_1, prior)
@@ -47,7 +47,8 @@ def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, ev
         y = diff[outlier_mask]
 
         # original scatter
-        ax.scatter(x, y, alpha=0.2, color='gray')
+        if include_scatter:
+            ax.scatter(x, y, alpha=0.2, color='gray')
 
         # bucketing
         n_buckets = 20
@@ -92,6 +93,7 @@ parser.add_argument("--model_2", type=str, choices=["pfn", "attention", "additiv
 parser.add_argument("--steps", type=int, default=50)
 parser.add_argument("--blanket_1", action="store_true")
 parser.add_argument("--blanket_2", action="store_true")
+parser.add_argument("--scatter", action="store_true")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -112,4 +114,5 @@ if __name__ == "__main__":
             args.steps,
             f"evaluation/output/{datetime_str}/comparisons.png",
             eval_1_on_blanket=args.blanket_1,
-            eval_2_on_blanket=args.blanket_2)
+            eval_2_on_blanket=args.blanket_2,
+            include_scatter=args.scatter)

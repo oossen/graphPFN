@@ -51,6 +51,11 @@ def make_all(prior_class,
             # write SCM mechanisms to file
             with open(f"{output_dir}/scm_{n}_{i}.py", "w") as f:
                 f.write(f"mechanisms = {repr(scm.mechanisms)}")
+            # write probabilistic adjacency matrix to file, if applicable
+            if 'prob_adj' in data['graph_information']:
+                prob_adj = data['graph_information']['prob_adj']
+                with open(f"{output_dir}/prob_adj_{n}_{i}.py", "w") as f:
+                    f.write(f"mechanisms = {repr(prob_adj)}")
                     
     # call the plotting two times to check if subsequent iterators are different
     plot_all_(prior, 0)

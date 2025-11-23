@@ -29,7 +29,7 @@ class GraphBuilder:
         self.edge_prob = max(edge_prob_min, edge_prob) 
 
 
-    def sample_ER_DAG(self, generator: Optional[torch.Generator]) -> Tuple[nx.DiGraph, torch.Tensor]:
+    def sample_ER_DAG(self, generator: Optional[torch.Generator]) -> Tuple[nx.DiGraph, np.ndarray]:
         """
         Create a random DAG.
 
@@ -65,18 +65,19 @@ class GraphBuilder:
         beta = 0.5
         alpha = (self.edge_prob * beta) / (1 - self.edge_prob) # mean of distribution is at self.edge_prob
         adj = self.rng.beta(a=alpha, b=beta, size=(n, n))
-        adj = np.triu(adj)
+        adj = np.triu(adj, k=1)
+        adj[perm[:, None], perm] = adj.copy()
         mask = self.rng.random((n, n)) < adj
 
         # Extract and add edges
         i_idx, j_idx = np.nonzero(mask)
         if i_idx.size:
-            src = perm[i_idx]
-            dst = perm[j_idx]
+            src = i_idx
+            dst = j_idx
             G.add_edges_from(zip(src.tolist(), dst.tolist()))
             
         # resample if there are no edges
         if len(G.edges) == 0:
             return self.sample_ER_DAG(generator)
 
-        return G, torch.from_numpy(adj)
+        return G, adj

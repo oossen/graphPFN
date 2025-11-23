@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from priors.graph_prior_builder import GraphBuilder
 from dopfnprior.scm.scm_builder import SCMBuilder
 from dopfnprior.utils.sampling import sample_parameters, build_samplers
-from priors.select_data import select_features
+from priors.select_data_graph_prior import select_features
 
 
 class ObservationalDataLoader(DataLoader):
@@ -79,7 +79,7 @@ class ObservationalDataLoader(DataLoader):
         sample_shape = (self.batch_size, total_samples)
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate(sample_shape)
-        X, y, adjacency_matrix, new_graph = select_features(data, graph, dataset_params["dropout_prob"], self.generator)
+        X, y, adjacency_matrix, prob_adj, new_graph = select_features(data, graph, prob_adj, dataset_params["dropout_prob"], self.generator)
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
@@ -89,7 +89,7 @@ class ObservationalDataLoader(DataLoader):
         full_data['single_eval_pos'] = num_train_samples
         full_data['graph_information'] = {
             'adjacency_matrix': adjacency_matrix,
-            'prob_adj': prob_adj,
+            'prob_adj': torch.from_numpy(prob_adj).to(X.dtype),
             'graph': graph,
             'new_graph': new_graph,
             'scm': scm,
