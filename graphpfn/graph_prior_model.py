@@ -202,7 +202,7 @@ class MultiplicativeMultiheadAttention(nn.Module):
             query: (b, f, d)
             key: (b, f, d)
             value: (b, f, d)
-            attn_multiplier: (f, f)
+            attn_mask: (f, f)
 
         Returns:
             attn_output: (b, f, d)
@@ -229,6 +229,7 @@ class MultiplicativeMultiheadAttention(nn.Module):
         
         # 5. Pointwise multiplication with mask
         attn_weights = attn_weights * attn_mask
+        attn_weights = attn_weights / (attn_weights.sum(dim=-1, keepdim=True) + 1e-6) 
         
         # 6. Value computation
         attn_output = attn_weights @ v
