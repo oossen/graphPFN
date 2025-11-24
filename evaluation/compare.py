@@ -87,9 +87,9 @@ from graphpfn.interface import Regressor, init_model_from_state_dict_file
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dir_1", type=str, required=True)
-parser.add_argument("--model_1", type=str, choices=["pfn", "attention", "additive"], required=True)
+parser.add_argument("--model_1", type=str, choices=["pfn", "attention", "additive", "graph_prior"], required=True)
 parser.add_argument("--dir_2", type=str, required=True)
-parser.add_argument("--model_2", type=str, choices=["pfn", "attention", "additive"], required=True)
+parser.add_argument("--model_2", type=str, choices=["pfn", "attention", "additive", "graph_prior"], required=True)
 parser.add_argument("--steps", type=int, default=50)
 parser.add_argument("--blanket_1", action="store_true")
 parser.add_argument("--blanket_2", action="store_true")

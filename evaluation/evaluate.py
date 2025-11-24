@@ -47,7 +47,7 @@ def evaluate_on_markov_blanket(model, prior):
         children = list(g.successors('y'))
         coparents = [v for w in children for v in g.predecessors(w)]
         blanket = set(parents + children + coparents)
-        blanket.remove('y')
+        blanket.discard('y')
         blanket_indices = [int(v[1]) for v in blanket] # blanket contains strings of the form 'xi', so v[1]=i
         flat["blanket_size"] = len(blanket_indices)
         # evaluate on model
