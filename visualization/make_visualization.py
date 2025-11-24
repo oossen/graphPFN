@@ -3,7 +3,7 @@ from typing import Dict
 
 from priors.observational_dataloader import ObservationalDataLoader
 from visualization.check_seeding import compare_dataloaders
-from visualization.plotting import plot_r2, plot_correlation, plot_graph, plot_point_clouds
+from visualization.plotting import plot_prob_adj, plot_r2, plot_correlation, plot_graph, plot_point_clouds
 
 
 def make_all(prior_class,
@@ -43,6 +43,7 @@ def make_all(prior_class,
             plot_graph(new_g, f"{output_dir}/new_graph_{n}_{i}.png")
             plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
             plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png")
+            plot_prob_adj(data['graph_information']['prob_adj'], f"{output_dir}/prob_adj_{n}_{i}.png")
             
             # write sampled parameters to file
             with open(f"{output_dir}/sampled_params_{n}_{i}.py", "w") as f:
@@ -51,11 +52,6 @@ def make_all(prior_class,
             # write SCM mechanisms to file
             with open(f"{output_dir}/scm_{n}_{i}.py", "w") as f:
                 f.write(f"mechanisms = {repr(scm.mechanisms)}")
-            # write probabilistic adjacency matrix to file, if applicable
-            if 'prob_adj' in data['graph_information']:
-                prob_adj = data['graph_information']['prob_adj']
-                with open(f"{output_dir}/prob_adj_{n}_{i}.py", "w") as f:
-                    f.write(f"mechanisms = {repr(prob_adj)}")
                     
     # call the plotting two times to check if subsequent iterators are different
     plot_all_(prior, 0)

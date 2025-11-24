@@ -50,6 +50,16 @@ def plot_correlation(X: torch.Tensor, filename: str):
     plt.savefig(filename, dpi=300)
     plt.close()
     
+
+def plot_prob_adj(prob_adj: torch.Tensor, filename: str):
+    plt.imshow(prob_adj, cmap='viridis', vmin=0.0, vmax=1.0)
+    plt.colorbar(label='Probability')
+    plt.title('Probabilistic adjacency matrix')
+    plt.xlabel('Feature Index')
+    plt.ylabel('Feature Index')
+    plt.savefig(filename, dpi=300)
+    plt.close()
+    
     
 def plot_graph(g: nx.DiGraph, filename: str):
     node_color = ['gray' if g.nodes[v].get('dropped', False) else 'blue' for v in g.nodes]
