@@ -43,7 +43,8 @@ def make_all(prior_class,
             plot_graph(new_g, f"{output_dir}/new_graph_{n}_{i}.png")
             plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
             plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png")
-            plot_prob_adj(data['graph_information']['prob_adj'], f"{output_dir}/prob_adj_{n}_{i}.png")
+            if 'prob_adj' in data['graph_information']:
+                plot_prob_adj(data['graph_information']['prob_adj'], f"{output_dir}/prob_adj_{n}_{i}.png")
             
             # write sampled parameters to file
             with open(f"{output_dir}/sampled_params_{n}_{i}.py", "w") as f:

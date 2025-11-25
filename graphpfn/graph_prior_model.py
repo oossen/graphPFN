@@ -157,7 +157,7 @@ class TransformerEncoderLayer(nn.Module):
         # flip adjacency matrix, except for diagonal entries
         eye = torch.eye(col_size)
         float_mask = (prob_adj + prob_adj.T + eye).to(get_default_device())
-        mask = calculate_masks(float_mask, batch_size, 8)
+        mask = calculate_masks(float_mask, batch_size * rows_size, 8)
         src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
         src = self.norm2(src)

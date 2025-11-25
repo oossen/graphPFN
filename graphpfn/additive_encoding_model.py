@@ -111,6 +111,7 @@ class GraphEncoder(nn.Module):
         f = adjacency_matrix.shape[0]
         pe = torch.zeros(f, self.hidden_dim)
         pos = torch.arange(0, f).unsqueeze(1)
+        degrees = adjacency_matrix.sum(dim=1).unsqueeze(1)
         i = torch.arange(0, self.hidden_dim).unsqueeze(0)
         angle_rates = 1 / torch.pow(10000, (2 * (i // 2)) / self.hidden_dim)
         angles = pos * angle_rates
