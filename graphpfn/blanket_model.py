@@ -58,11 +58,14 @@ class GraphPFNModel(NanoTabPFNModel):
         else:
             raise ValueError("Invalid input!")
 
-    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor, **kwargs) -> torch.Tensor:
+    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         x_src, y_src = src
+        if adjacency_matrix is None:
+            num_cols = x_src.shape[2] + 1
+            adjacency_matrix = torch.full((num_cols, num_cols), 1)
         # compute Markov blanket
         blanket = markov_blanket(adjacency_matrix)
-        x_src = x_src[:, :, blanket]
+        x_src = x_src[:, :, blanket].contiguous()
         # we expect the labels to look like (batches, num_train_datapoints, 1),
         # so we add the last dimension if it is missing
         if len(y_src.shape) < len(x_src.shape):
@@ -78,7 +81,7 @@ class GraphPFNModel(NanoTabPFNModel):
         # to give us the full table of embeddings (B,R,C,E))
         input = torch.cat([x_src, y_src], 2)
         # repeatedly applies the transformer block on (B,R,C,E)
-        output = self.transformer_encoder(input, single_eval_pos, adjacency_matrix)
+        output = self.transformer_encoder(input, single_eval_pos)
         # selects the target embeddings (B,num_targets,1,E)
         output = output[:, single_eval_pos:, -1, :]
         # runs the embeddings through the decoder to get

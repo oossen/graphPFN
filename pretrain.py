@@ -14,7 +14,7 @@ from graphpfn.utils import make_bar_distribution
 from visualization.make_visualization import make_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.default_configs import prior_config, training_config as args
+from configs.default_configs_blanket import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -38,11 +38,10 @@ datetime_str = now.strftime("%m_%d_%H_%M")
 run_name = f"{args['saveweights']}_{datetime_str}"
 output_dir = f"workdir/{run_name}"
 tensorboard_dir = f"{output_dir}/tensorboard"
-evaluation_callback = EvaluationLoggerCallback(tensorboard_dir, TOY_TASKS_REGRESSION, prior)
 test_prior_factory = partial(ObservationalDataLoader, batch_size=1, prior_config=prior.prior_config, seed=42)
 sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
-callbacks: List[Callback] = [logger_callback, evaluation_callback, sanity_callback]
+callbacks: List[Callback] = [logger_callback, sanity_callback]
 
 # visualize data and save configs
 make_all(ObservationalDataLoader, prior_config, f"{output_dir}/visualization")
