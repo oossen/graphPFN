@@ -4,7 +4,7 @@ import os
 from sklearn.metrics import r2_score
 import argparse
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
-from configs.default_configs import prior_config
+from configs.favorable_prior import prior_config
 from priors.observational_dataloader import ObservationalDataLoader
 from pfns.bar_distribution import FullSupportBarDistribution
 import torch
@@ -93,9 +93,9 @@ def evaluate_on_wrong_graphs(model_1, model_2, prior, filename: str):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dir_1", type=str, required=True)
-parser.add_argument("--model_1", type=str, choices=["pfn", "attention", "additive"], required=True)
+parser.add_argument("--model_1", type=str, required=True)
 parser.add_argument("--dir_2", type=str, required=True)
-parser.add_argument("--model_2", type=str, choices=["pfn", "attention", "additive"], required=True)
+parser.add_argument("--model_2", type=str, required=True)
 parser.add_argument("--steps", type=int, default=50)
 
 if __name__ == "__main__":

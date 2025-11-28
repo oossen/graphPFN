@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from evaluation.evaluate import evaluate, evaluate_on_markov_blanket
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.default_configs import prior_config
+from configs.favorable_prior import prior_config
 from tfmplayground.utils import get_default_device
 from datetime import datetime
 
@@ -38,8 +38,8 @@ def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, ev
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 6 * n_rows))
     axes = axes.flatten()
     
-    print(f"Difference of averages is {df2['R2'].mean() - df1['R2'].mean()}.")
-    print(f"Difference of medians is {df2['R2'].median() - df1['R2'].median()}.")
+    print(f"Mean difference is {df2['R2'].mean() - df1['R2'].mean()}.")
+    print(f"Median difference is {(df2['R2'] - df1['R2']).median()}.")
     
         
     for i, label in enumerate(col_labels):
@@ -94,9 +94,9 @@ from graphpfn.interface import Regressor, init_model_from_state_dict_file
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dir_1", type=str, required=True)
-parser.add_argument("--model_1", type=str, choices=["pfn", "attention", "additive", "graph_prior", "blanket"], required=True)
+parser.add_argument("--model_1", type=str, required=True)
 parser.add_argument("--dir_2", type=str, required=True)
-parser.add_argument("--model_2", type=str, choices=["pfn", "attention", "additive", "graph_prior", "blanket"], required=True)
+parser.add_argument("--model_2", type=str, required=True)
 parser.add_argument("--steps", type=int, default=50)
 parser.add_argument("--blanket_1", action="store_true")
 parser.add_argument("--blanket_2", action="store_true")

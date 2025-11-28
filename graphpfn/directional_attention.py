@@ -163,8 +163,8 @@ class TransformerEncoderLayer(nn.Module):
         mask_1 = mask_1.unsqueeze(0).expand(half_heads, -1, -1)
         mask_2 = mask_2.unsqueeze(0).expand(half_heads, -1, -1)
         mask = torch.cat([mask_1, mask_2], dim=0)
-        mask = mask.unsqueeze(0).repeat(batch_size, 1, 1, 1)
-        mask = mask.view(batch_size * self.nhead_graph, col_size, col_size)
+        mask = mask.unsqueeze(0).repeat(batch_size * rows_size, 1, 1, 1)
+        mask = mask.view(batch_size * rows_size * self.nhead_graph, col_size, col_size)
         
         src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)

@@ -9,7 +9,7 @@ from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
 
 from tfmplayground.utils import get_default_device
 from tfmplayground.interface import NanoTabPFNRegressor
-import graphpfn.attention_model, graphpfn.additive_encoding_model, tfmplayground.model, graphpfn.graph_prior_model, graphpfn.blanket_model
+import graphpfn.attention_model, graphpfn.additive_encoding_model, tfmplayground.model, graphpfn.graph_prior_model, graphpfn.blanket_model, graphpfn.directional_attention
 
 
 def init_model_from_state_dict_file(model_type: str, file_path: str):
@@ -20,6 +20,8 @@ def init_model_from_state_dict_file(model_type: str, file_path: str):
         model_class = tfmplayground.model.NanoTabPFNModel
     elif model_type == "attention":
         model_class = graphpfn.attention_model.GraphPFNModel
+    elif model_type == "directional_attention":
+        model_class = graphpfn.directional_attention.GraphPFNModel
     elif model_type == "additive":
         model_class = graphpfn.additive_encoding_model.GraphPFNModel
     elif model_type == 'graph_prior':
