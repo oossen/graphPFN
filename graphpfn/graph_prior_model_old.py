@@ -127,8 +127,8 @@ class TransformerEncoderLayer(nn.Module):
                  device=None, dtype=None):
         super().__init__()
         self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph = MultiplicativeMultiheadAttention(embedding_size, 3 * nhead_graph) # 4 parent heads, 4 child heads, 4 confounder heads
-        self.nhead_graph = nhead_graph
+        # self.self_attn_graph = MultiplicativeMultiheadAttention(embedding_size, nhead_graph)
+        self.self_attn_graph = MultiheadAttention(embedding_size, nhead_graph, batch_first=batch_first, device=device, dtype=dtype)
 
         self.linear1 = Linear(embedding_size, mlp_hidden_size, device=device, dtype=dtype)
         self.linear2 = Linear(mlp_hidden_size, embedding_size, device=device, dtype=dtype)
@@ -155,7 +155,9 @@ class TransformerEncoderLayer(nn.Module):
         # adjacency based attention
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
         # flip adjacency matrix, except for diagonal entries
-        mask = calculate_mask(prob_adj, batch_size * rows_size, self.nhead_graph)
+        eye = torch.eye(col_size)
+        float_mask = (prob_adj + prob_adj.T + eye).to(get_default_device())
+        mask = calculate_masks(float_mask, batch_size * rows_size, 8)
         src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
         src = self.norm2(src)
@@ -241,17 +243,10 @@ class MultiplicativeMultiheadAttention(nn.Module):
 
         return output, attn_weights
     
-
-def calculate_mask(prob_adj, batch_size, nhead):
-    f = prob_adj.shape[0]
-    eye = torch.eye(f, dtype=torch.bool)
-    mask_1 = (prob_adj + eye).to(get_default_device())
-    mask_2 = (prob_adj.T | eye).to(get_default_device())
-    mask_3 = (torch.full((f, f), 1.0)).to(get_default_device())
-    mask_1 = mask_1.unsqueeze(0).expand(nhead, -1, -1)
-    mask_2 = mask_2.unsqueeze(0).expand(nhead, -1, -1)
-    mask_3 = mask_3.unsqueeze(0).expand(nhead, -1, -1)
-    mask = torch.cat([mask_1, mask_2, mask_3], dim=0)
-    mask = mask.unsqueeze(0).repeat(batch_size, 1, 1, 1)
-    mask = mask.view(batch_size * 3 * nhead, f, f)
-    return mask
+    
+def calculate_masks(float_mask, batch_size, num_heads):
+    head_indices = torch.arange(num_heads, device=float_mask.device, dtype=float_mask.dtype)
+    thresholds = (head_indices / num_heads).view(num_heads, 1, 1)
+    float_mask_expanded = float_mask.unsqueeze(0)
+    mask = float_mask_expanded < thresholds
+    return mask.repeat(batch_size, 1, 1)

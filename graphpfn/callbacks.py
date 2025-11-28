@@ -36,7 +36,7 @@ class SanityCheckLoggerCallback(TensorboardLoggerCallback):
     On epoch end, evaluate the model on data from the same prior that it is being trained on.
     To initialize, needs the bar distribution and prior used for training.
     """
-    def __init__(self, log_dir: str, prior_factory, num_steps=500):
+    def __init__(self, log_dir: str, prior_factory, num_steps=2500):
         self.writer = SummaryWriter(log_dir=log_dir)
         self.prior_factory = prior_factory
         self.num_steps = num_steps
