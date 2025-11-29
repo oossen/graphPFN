@@ -223,13 +223,13 @@ class MultiplicativeMultiheadAttention(nn.Module):
         # 3. Calculate Scaled Dot-Product Attention Scores
         scaling = float(self.head_dim) ** -0.5
         attn_scores = (q @ k.transpose(-2, -1)) * scaling
-
-        # 4. Softmax
-        attn_weights = F.softmax(attn_scores, dim=-1)
         
-        # 5. Pointwise multiplication with mask
-        attn_weights = attn_weights * attn_mask
-        attn_weights = attn_weights / (attn_weights.sum(dim=-1, keepdim=True) + 1e-6) 
+        # 4. mask in log space
+        log_mask = torch.log(attn_mask + 1e-30) 
+        attn_scores = attn_scores + log_mask
+
+        # 5. Softmax
+        attn_weights = F.softmax(attn_scores, dim=-1)
         
         # 6. Value computation
         attn_output = attn_weights @ v
