@@ -4,7 +4,7 @@ import os
 from sklearn.metrics import r2_score
 import argparse
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
-from configs.favorable_prior import prior_config
+from configs.default_configs import prior_config
 from priors.observational_dataloader import ObservationalDataLoader
 from pfns.bar_distribution import FullSupportBarDistribution
 import torch

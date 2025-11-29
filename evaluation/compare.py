@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from evaluation.evaluate import evaluate, evaluate_on_markov_blanket
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.favorable_prior import prior_config
+from configs.default_configs import prior_config
 from tfmplayground.utils import get_default_device
 from datetime import datetime
 
