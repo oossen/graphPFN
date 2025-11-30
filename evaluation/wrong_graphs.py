@@ -36,6 +36,49 @@ def hamming_distance(adj_1: torch.Tensor, adj_2: torch.Tensor):
     total_positions = adj_1.shape[0] * (adj_1.shape[0]) / 2
     dist = lower_diff.sum().item()  / total_positions
     return dist
+
+
+def missing_edges_distance(adj_1: torch.Tensor, adj_2: torch.Tensor):
+    """
+    Return the proportion of pairs of nodes {v, w} such that an edge between v and w
+    is present in graph 1, but not in graph 2.
+    """
+    adj_1 = (adj_1.bool() | adj_1.T.bool())
+    adj_2 = (adj_2.bool() | adj_2.T.bool())
+    diff = adj_1 & ~adj_2
+    lower_diff = torch.tril(diff, diagonal=-1)
+    total_positions = adj_1.shape[0] * (adj_1.shape[0]) / 2
+    dist = lower_diff.sum().item()  / total_positions
+    return dist
+    
+    
+def superfluous_edges_distance(adj_1: torch.Tensor, adj_2: torch.Tensor):
+    """
+    Return the proportion of pairs of nodes {v, w} such that an edge between v and w
+    is present in graph 2, but not in graph 1.
+    """
+    adj_1 = (adj_1.bool() | adj_1.T.bool())
+    adj_2 = (adj_2.bool() | adj_2.T.bool())
+    diff = ~adj_1 & adj_2
+    lower_diff = torch.tril(diff, diagonal=-1)
+    total_positions = adj_1.shape[0] * (adj_1.shape[0]) / 2
+    dist = lower_diff.sum().item()  / total_positions
+    return dist
+    
+
+def wrong_orientation_distance(adj_1: torch.Tensor, adj_2: torch.Tensor):
+    """
+    Return the proportion of pairs of nodes {v, w} such that an edge between v and w
+    is present in both graph 1 and graph 2, but with opposite orientations.
+    (Or else graph 2 is misspecified by having edges in both directions.)
+    """
+    adj_1 = adj_1.bool()
+    adj_2 = adj_2.bool()
+    diff = adj_1 == adj_2.T
+    lower_diff = torch.tril(diff, diagonal=-1)
+    total_positions = adj_1.shape[0] * (adj_1.shape[0]) / 2
+    dist = lower_diff.sum().item()  / total_positions
+    return dist
     
 
 def evaluate_on_wrong_graphs(model_1, model_2, prior, filename: str): 
@@ -76,14 +119,23 @@ def evaluate_on_wrong_graphs(model_1, model_2, prior, filename: str):
 
     bucket_centers = []
     bucket_means = []
+    bucket_stds = []
 
     for b in range(n_buckets):
         mask = bucket_ids == b
         if mask.any():
             bucket_centers.append((bins[b] + bins[b+1]) / 2)
             bucket_means.append(diffs[mask].mean())
+            bucket_stds.append(diffs[mask].std())
+            
+    centers_arr = np.array(bucket_centers)
+    means_arr = np.array(bucket_means)
+    stds_arr = np.array(bucket_stds)
+    upper_bound = means_arr + stds_arr
+    lower_bound = means_arr - stds_arr
 
-    plt.plot(bucket_centers, bucket_means, marker='o', color='red')
+    plt.plot(centers_arr, means_arr, marker='o', color='red')
+    plt.fill_between(centers_arr, lower_bound, upper_bound, alpha=0.3, color='red')
     plt.xlabel("Hamming distance")
     plt.ylabel("R²")
     plt.grid(True)
