@@ -10,6 +10,7 @@ from pfns.bar_distribution import FullSupportBarDistribution
 import torch
 from tfmplayground.utils import get_default_device
 import numpy as np
+from collections import defaultdict
 
 
 def remove_outliers(x):
@@ -83,7 +84,7 @@ def wrong_orientation_distance(adj_1: torch.Tensor, adj_2: torch.Tensor):
 
 def evaluate_on_wrong_graphs(model_1, model_2, prior, filename: str): 
     diffs = []
-    distances = []
+    distance_dict = defaultdict(list)
     for data in prior:
         adj = data['graph_information']['adjacency_matrix']
         # make modified adjacency matrix
@@ -103,44 +104,49 @@ def evaluate_on_wrong_graphs(model_1, model_2, prior, filename: str):
         score_2 = r2_score(y_test, pred_2)
         diff = score_2 - score_1
         diffs.append(diff)
-        distances.append(hamming_distance(adj, modified_adj))
-        
-    # remove outliers    
+        distance_dict['hamming'].append(hamming_distance(adj, modified_adj))
+        distance_dict['missing'].append(missing_edges_distance(adj, modified_adj))
+        distance_dict['superfluous'].append(superfluous_edges_distance(adj, modified_adj))
+        distance_dict['orientation'].append(wrong_orientation_distance(adj, modified_adj))
+    
+    # remove outliers  
     diffs = np.array(diffs)
-    distances = np.array(distances)
     outlier_mask = remove_outliers(diffs)
     diffs = diffs[outlier_mask]
-    distances = distances[outlier_mask]
-    
-    # bucketing
-    n_buckets = 20
-    bins = np.linspace(distances.min(), distances.max(), n_buckets + 1)
-    bucket_ids = np.digitize(distances, bins) - 1
+    for key in distance_dict.keys():
+        distances = np.array(distance_dict[key])
+        distances = distances[outlier_mask]
+        
+        # bucketing
+        n_buckets = 20
+        bins = np.linspace(distances.min(), distances.max(), n_buckets + 1)
+        bucket_ids = np.digitize(distances, bins) - 1
 
-    bucket_centers = []
-    bucket_means = []
-    bucket_stds = []
+        bucket_centers = []
+        bucket_means = []
+        bucket_stds = []
 
-    for b in range(n_buckets):
-        mask = bucket_ids == b
-        if mask.any():
-            bucket_centers.append((bins[b] + bins[b+1]) / 2)
-            bucket_means.append(diffs[mask].mean())
-            bucket_stds.append(diffs[mask].std())
-            
-    centers_arr = np.array(bucket_centers)
-    means_arr = np.array(bucket_means)
-    stds_arr = np.array(bucket_stds)
-    upper_bound = means_arr + stds_arr
-    lower_bound = means_arr - stds_arr
+        for b in range(n_buckets):
+            mask = bucket_ids == b
+            if mask.any():
+                bucket_centers.append((bins[b] + bins[b+1]) / 2)
+                bucket_means.append(diffs[mask].mean())
+                bucket_stds.append(diffs[mask].std())
+                
+        centers_arr = np.array(bucket_centers)
+        means_arr = np.array(bucket_means)
+        stds_arr = np.array(bucket_stds)
+        upper_bound = means_arr + stds_arr
+        lower_bound = means_arr - stds_arr
 
-    plt.plot(centers_arr, means_arr, marker='o', color='red')
-    plt.fill_between(centers_arr, lower_bound, upper_bound, alpha=0.3, color='red')
-    plt.xlabel("Hamming distance")
-    plt.ylabel("R²")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(filename, dpi=300)
+        plt.clf() 
+        plt.plot(centers_arr, means_arr, marker='o', label=key)
+        plt.fill_between(centers_arr, lower_bound, upper_bound, alpha=0.3)
+        plt.xlabel("Hamming distance")
+        plt.ylabel("R²")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(f"{filename}_{key}.png", dpi=300)
         
 
 parser = argparse.ArgumentParser()
@@ -165,4 +171,4 @@ if __name__ == "__main__":
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     os.makedirs(f"evaluation/output/{datetime_str}", exist_ok=True)
-    evaluate_on_wrong_graphs(reg_1, reg_2, prior, f"evaluation/output/{datetime_str}/wrong_graphs.png")
+    evaluate_on_wrong_graphs(reg_1, reg_2, prior, f"evaluation/output/{datetime_str}/wrong_graphs")

@@ -36,7 +36,7 @@ prior_config = {
         # float
         "edge_prob": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.01, "high": 0.20}
+            "distribution_parameters": {"low": 0.05, "high": 0.20}
         },
     },
 

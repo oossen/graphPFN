@@ -2,8 +2,8 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
-from evaluation.evaluate import evaluate, evaluate_on_markov_blanket
-from priors.observational_dataloader import ObservationalDataLoader
+from evaluation.evaluate import evaluate
+from priors.observational_dataloader_graph_prior import ObservationalDataLoader
 from configs.default_configs import prior_config
 from tfmplayground.utils import get_default_device
 from datetime import datetime
@@ -18,7 +18,7 @@ def remove_outliers(x):
     return (x >= lower) & (x <= upper)
 
 
-def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, eval_2_on_blanket=False, include_scatter=False):
+def compare(model_1, model_2, num_samples, filename, include_scatter=False):
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
     if eval_1_on_blanket:
         df1 = evaluate_on_markov_blanket(model_1, prior)
@@ -43,6 +43,7 @@ def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, ev
     
         
     for i, label in enumerate(col_labels):
+        print(label)
         ax = axes[i]
 
         diff = df2['R2'] - df1['R2']
@@ -62,15 +63,23 @@ def compare(model_1, model_2, num_samples, filename, eval_1_on_blanket=False, ev
 
         bucket_centers = []
         bucket_means = []
+        bucket_stds = []
 
         for b in range(n_buckets):
             mask = bucket_ids == b
             if mask.any():
-                bucket_centers.append((bins[b] + bins[b+1]) / 2)
+                bucket_center = (bins[b] + bins[b+1]) / 2
+                bucket_centers.append(bucket_center)
                 bucket_means.append(y[mask].mean())
-
-        # overlay bucket means
-        ax.plot(bucket_centers, bucket_means, marker='o', color='red')
+                bucket_stds.append(y[mask].std())
+            print(f"Bucket with center {bucket_center} has {np.sum(mask)} elements.")
+        centers_arr = np.array(bucket_centers)
+        means_arr = np.array(bucket_means)
+        stds_arr = np.array(bucket_stds)
+        upper_bound = means_arr + stds_arr
+        lower_bound = means_arr - stds_arr
+        ax.plot(centers_arr, means_arr, marker='o', color='red')
+        ax.fill_between(centers_arr, lower_bound, upper_bound, alpha=0.3, color='red')
         if log_scale[i]:
             ax.set_xscale('log')
 
@@ -98,8 +107,6 @@ parser.add_argument("--model_1", type=str, required=True)
 parser.add_argument("--dir_2", type=str, required=True)
 parser.add_argument("--model_2", type=str, required=True)
 parser.add_argument("--steps", type=int, default=50)
-parser.add_argument("--blanket_1", action="store_true")
-parser.add_argument("--blanket_2", action="store_true")
 parser.add_argument("--scatter", action="store_true")
 
 if __name__ == "__main__":
@@ -120,6 +127,4 @@ if __name__ == "__main__":
             reg_2,
             args.steps,
             f"evaluation/output/{datetime_str}/comparisons.png",
-            eval_1_on_blanket=args.blanket_1,
-            eval_2_on_blanket=args.blanket_2,
             include_scatter=args.scatter)

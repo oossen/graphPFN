@@ -26,14 +26,17 @@ def evaluate(model, prior):
         X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
         y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
         model.fit(X_train, y_train)
-        pred = model.predict(X_test, **data['graph_information'])
-        flat["R2"] = r2_score(y_test, pred)
+        prob_adj = data['graph_information']['prob_adj']
+        pred_right = model.predict(X_test, prob_adj=prob_adj)
+        pred_wrong = model.predict(X_test, prob_adj=prob_adj.T)
+        flat["R2"] = r2_score(y_test, pred_right)
+        flat["R2_wrong_orientation"] = r2_score(y_test, pred_wrong)
     return pd.DataFrame(rows)
         
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dir", type=str, required=True)
-parser.add_argument("--model", type=str, choices=["pfn", "attention", "additive"], required=True)
+parser.add_argument("--model", type=str, required=True)
 parser.add_argument("--steps", type=int, default=50)
 
 if __name__ == "__main__":
@@ -45,4 +48,5 @@ if __name__ == "__main__":
     
     prior = ObservationalDataLoader(num_steps=args.steps, batch_size=1, prior_config=prior_config, seed=42)
     df = evaluate(reg, prior)
-    print(df)
+    print(f"Mean with correct/incorrect orientation: {df['R2'].mean()}/{df['R2_wrong_orientation'].mean()}")
+    print(f"Median with correct/incorrect orientation: {df['R2'].median()}/{df['R2_wrong_orientation'].median()}")

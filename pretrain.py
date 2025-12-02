@@ -13,7 +13,7 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from graphpfn.utils import make_bar_distribution
 from visualization.make_visualization import make_all
 
-from priors.observational_dataloader import ObservationalDataLoader
+from priors.observational_dataloader_graph_prior import ObservationalDataLoader
 from configs.default_graph_prior_configs import prior_config, training_config as args
 
 
