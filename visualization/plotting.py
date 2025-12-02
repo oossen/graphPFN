@@ -51,13 +51,21 @@ def plot_correlation(X: torch.Tensor, filename: str):
     plt.close()
     
 
-def plot_prob_adj(prob_adj: torch.Tensor, filename: str):
-    plt.imshow(prob_adj, cmap='viridis', vmin=0.0, vmax=1.0)
-    plt.colorbar(label='Probability')
-    plt.title('Probabilistic adjacency matrix')
-    plt.xlabel('Feature Index')
-    plt.ylabel('Feature Index')
-    plt.savefig(filename, dpi=300)
+def plot_prob_adj(prob_adj, filename: str):
+    if not isinstance(prob_adj, list):
+        prob_adj = [prob_adj]
+        
+    n_cols = len(prob_adj)
+    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5)) # Adjust width based on N
+    for i, ax in enumerate(axes):
+        im = ax.imshow(prob_adj[i], cmap='viridis', vmin=0.0, vmax=1.0)
+        ax.set_xlabel('Feature Index')
+        if i == 0:
+            ax.set_ylabel('Feature Index') # Only show Y label on the first plot to save space
+        else:
+            ax.set_yticks([]) # Hide Y ticks on subsequent plots
+    fig.colorbar(im, ax=axes.ravel().tolist(), label='Probability')
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.close()
     
     
