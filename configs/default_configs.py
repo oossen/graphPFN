@@ -30,7 +30,7 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 15, "high": 30}
+            "distribution_parameters": {"low": 5, "high": 15}
         },
         # probability that any two nodes in the causal graph are connected
         # float
@@ -60,14 +60,12 @@ prior_config = {
         # the standard deviation of noise sampled at root nodes when propagating through the SCM
         # float
         "root_std": {
-            "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 1.0}
+            "value": 0.3
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 1.0}
+            "value": 0.3
         },
     }
 }
@@ -106,7 +104,7 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 40,
+    "epochs": 60,
     
     # number of data batches used to infer buckets for bar distribution
     # int
