@@ -4,14 +4,14 @@
 #SBATCH --partition mlhiwidlc_gpu-rtx2080    # short: -p <partition_name>
 
 # Define a name for your job
-#SBATCH --job-name run_pretraining             # short: -J <job name>
+#SBATCH --job-name run_eval           # short: -J <job name>
 
 # Define the files to write the outputs of the job to.
 # Please note the SLURM will not create this directory for you, and if it is missing, no logs will be saved.
 # You must create the directory yourself. In this case, that means you have to create the "logs" directory yourself.
 
-#SBATCH --output logs/%x-%A-pretrain.out   # STDOUT  %x and %A will be replaced by the job name and job id, respectively. short: -o logs/%x-%A-job_name.out
-#SBATCH --error logs/%x-%A-pretrain.err    # STDERR  short: -e logs/%x-%A-job_name.out
+#SBATCH --output logs/%x-%A-eval.out   # STDOUT  %x and %A will be replaced by the job name and job id, respectively. short: -o logs/%x-%A-job_name.out
+#SBATCH --error logs/%x-%A-eval.err    # STDERR  short: -e logs/%x-%A-job_name.out
 
 echo "Workingdir: $PWD";
 echo "Started at $(date)";
@@ -27,7 +27,7 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python pretrain.py --cuda --wait-time 5
+python -m evaluation.compare --dir_1 workdir/nano_tab_pfn_12_01_15_24 --model_1 pfn --dir_2 workdir/graph_prior_pfn_12_01_14_45 --model_2 graph_prior --steps 1000 --avici_2
 
 end=`date +%s`
 runtime=$((end-start))

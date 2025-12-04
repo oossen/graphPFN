@@ -45,14 +45,14 @@ def evaluate_avici(model, prior):
         rows.append(flat)
         # evaluate on model
         X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
-        y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
+        y_train = data['y'][0, :data['single_eval_pos'], :].cpu().numpy()
         X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
         y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
         all_data = np.concatenate([X_train, y_train], axis=-1)
         avici_model = avici.load_pretrained(download="scm-v0")
         prob_adj_avici = avici_model(x=all_data)
-        model.fit(X_train, y_train)
-        pred = model.predict(X_test, prob_adj=prob_adj_avici)
+        model.fit(X_train, y_train[:, 0])
+        pred = model.predict(X_test, prob_adj=torch.from_numpy(prob_adj_avici))
         flat["R2"] = r2_score(y_test, pred)
     return pd.DataFrame(rows)    
 
