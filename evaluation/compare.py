@@ -2,7 +2,7 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
-from evaluation.evaluate import evaluate, evaluate_avici
+from evaluation.evaluate import evaluate
 from priors.observational_dataloader_graph_prior import ObservationalDataLoader
 from configs.default_configs import prior_config
 from tfmplayground.utils import get_default_device
@@ -18,17 +18,11 @@ def remove_outliers(x):
     return (x >= lower) & (x <= upper)
 
 
-def compare(model_1, model_2, num_samples, filename, avici_1=False, avici_2=False, include_scatter=False):
+def compare(model_1, model_2, num_samples, filename, include_scatter=False):
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
-    if avici_1:
-        df1 = evaluate_avici(model_1, prior)
-    else:
-        df1 = evaluate(model_1, prior)
+    df1 = evaluate(model_1, prior)
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
-    if avici_2:
-        df2 = evaluate_avici(model_2, prior)
-    else:
-        df2 = evaluate(model_2, prior)
+    df2 = evaluate(model_2, prior)
     
     col_labels = ['num_nodes', 'edge_prob', 'root_std', 'non_root_std', 'number_train_samples_per_dataset']
     log_scale = [False, True, True, True, False]
@@ -108,8 +102,6 @@ parser.add_argument("--dir_2", type=str, required=True)
 parser.add_argument("--model_2", type=str, required=True)
 parser.add_argument("--steps", type=int, default=50)
 parser.add_argument("--scatter", action="store_true")
-parser.add_argument("--avici_1", action="store_true")
-parser.add_argument("--avici_2", action="store_true")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -129,6 +121,4 @@ if __name__ == "__main__":
             reg_2,
             args.steps,
             f"evaluation/output/{datetime_str}/comparisons.png",
-            avici_1=args.avici_1,
-            avici_2=args.avici_2,
             include_scatter=args.scatter)

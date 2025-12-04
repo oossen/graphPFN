@@ -5,7 +5,6 @@ visualization/output/
 logs/
 evaluation/output/
 workdir/
-cache/
 
 *.pyc
 *.h5

@@ -4,8 +4,7 @@ from datetime import datetime
 
 import torch
 
-from tfmplayground.evaluation import TOY_TASKS_REGRESSION
-from graphpfn.callbacks import EvaluationLoggerCallback, SanityCheckLoggerCallback
+from graphpfn.callbacks import SanityCheckLoggerCallback
 from graphpfn.train import train
 from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
@@ -14,7 +13,7 @@ from graphpfn.utils import make_bar_distribution
 from visualization.make_visualization import make_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.memory_configs import prior_config, training_config as args
+from configs.default_configs import prior_config, training_config as args
 
 
 device = get_default_device()
