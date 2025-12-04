@@ -66,7 +66,7 @@ prior_config = {
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "distribution": "uniform",
+            "distribution": "logarithmic",
             "distribution_parameters": {"low": 0.1, "high": 1.0}
         },
     }
