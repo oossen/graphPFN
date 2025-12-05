@@ -6,6 +6,8 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
+from sklearn.model_selection import ShuffleSplit
+from sklearn.metrics import r2_score
 
 from tfmplayground.utils import get_default_device
 from tfmplayground.interface import NanoTabPFNRegressor
@@ -119,3 +121,36 @@ class Regressor(NanoTabPFNRegressor):
             preds = preds.cpu().numpy()
 
         return preds
+    
+    
+def cross_validate(reg: NanoTabPFNRegressor, X: np.ndarray, y: np.ndarray, single_eval_pos: int, n_folds: int = 5, **kwargs):
+    """
+    Perform `n_fold`-fold cross validation using the model `reg` on the provided data.
+    
+    Parameters
+    ----------
+    reg : NanoTabPFNRegressor
+        the model to evaluate
+    X : np.ndarray (n_samples, n_features)
+        the features (train and test split) of the input data
+    y : np.ndarray (n_samples)
+        the targets (train and test split)
+    single_eval_pos : int
+        number of train samples
+    n_folds : int
+        number of cross validation folds
+    kwargs : Dict
+        additional arguments for prediction (adjacency matrix, graph...)
+    
+    """
+    cv = ShuffleSplit(n_splits=n_folds, train_size=single_eval_pos, test_size=len(X)-single_eval_pos, random_state=42)
+    scores = []
+    for train_index, test_index in cv.split(X):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
+        
+        reg.fit(X_train, y_train)
+        predictions = reg.predict(X_test, **kwargs) 
+        score = r2_score(y_test, predictions)
+        scores.append(score)
+    return np.mean(scores)

@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.metrics import r2_score
+from graphpfn.interface import cross_validate
 import argparse
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from configs.default_configs import prior_config
@@ -7,8 +7,6 @@ from priors.observational_dataloader_graph_prior import ObservationalDataLoader
 from pfns.bar_distribution import FullSupportBarDistribution
 import torch
 from tfmplayground.utils import get_default_device
-import avici
-import numpy as np
 
 
 def evaluate(model, prior): 
@@ -22,13 +20,11 @@ def evaluate(model, prior):
                 flat[k] = v
         rows.append(flat)
         # evaluate on model
-        X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
-        y_train = data['y'][0, :data['single_eval_pos'], 0].cpu().numpy()
-        X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
-        y_test = data['y'][0, data['single_eval_pos']:, 0].cpu().numpy()
-        model.fit(X_train, y_train)
-        pred = model.predict(X_test, **data['graph_information'])
-        flat["R2"] = r2_score(y_test, pred)
+        X = data['x'][0].cpu().numpy()
+        y = data['y'][0].cpu().numpy()
+        single_eval_pos = data['single_eval_pos']
+        score = cross_validate(model, X, y, single_eval_pos, 5, **data['graph_information'])
+        flat["R2"] = score
     return pd.DataFrame(rows)
 
 

@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import itertools
 import networkx as nx
-from sklearn.metrics import r2_score
+from graphpfn.interface import cross_validate
 
 def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos=None):
     if single_eval_pos is None:
@@ -51,21 +51,13 @@ def plot_correlation(X: torch.Tensor, filename: str):
     plt.close()
     
 
-def plot_prob_adj(prob_adj, filename: str):
-    if not isinstance(prob_adj, list):
-        prob_adj = [prob_adj]
-        
-    n_cols = len(prob_adj)
-    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5)) # Adjust width based on N
-    for i, ax in enumerate(axes):
-        im = ax.imshow(prob_adj[i], cmap='viridis', vmin=0.0, vmax=1.0)
-        ax.set_xlabel('Feature Index')
-        if i == 0:
-            ax.set_ylabel('Feature Index') # Only show Y label on the first plot to save space
-        else:
-            ax.set_yticks([]) # Hide Y ticks on subsequent plots
-    fig.colorbar(im, ax=axes.ravel().tolist(), label='Probability')
-    plt.savefig(filename, dpi=300, bbox_inches='tight')
+def plot_prob_adj(prob_adj: torch.Tensor, filename: str):
+    plt.imshow(prob_adj, cmap='viridis', vmin=0.0, vmax=1.0)
+    plt.colorbar(label='Probability')
+    plt.title('Probabilistic adjacency matrix')
+    plt.xlabel('Feature Index')
+    plt.ylabel('Feature Index')
+    plt.savefig(filename, dpi=300)
     plt.close()
     
     
@@ -89,15 +81,12 @@ def plot_r2(prior: DataLoader, filename: str):
     scores = {model: [] for model in models}
 
     for data in prior:
-        X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
-        y_train = data['y'][0, :data['single_eval_pos'], :].cpu().numpy()
-        X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
-        y_test = data['y'][0, data['single_eval_pos']:, :].cpu().numpy()
-        
+        X = data['x'][0].cpu().numpy()
+        y = data['y'][0].cpu().numpy()
+        single_eval_pos = data['single_eval_pos']
         for name, model in models.items():
-            model.fit(X_train, y_train.ravel())
-            pred = model.predict(X_test)
-            scores[name].append(r2_score(y_test.ravel(), pred))
+            score = cross_validate(model, X, y, single_eval_pos, 5, **data['graph_information'])
+            scores[name].append(score)
             
     n_models = len(models)
     fig, axes = plt.subplots(1, n_models, figsize=(4 * n_models, 4), sharey=True)
