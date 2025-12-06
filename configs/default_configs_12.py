@@ -81,7 +81,7 @@ training_config = {
     # the model we are training
     # NanoTabPFNModel
     "model": NanoTabPFNModel(
-        num_attention_heads=8,
+        num_attention_heads=12,
         embedding_size=192,
         mlp_hidden_size=768,
         num_layers=6,

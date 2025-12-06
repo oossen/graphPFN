@@ -127,7 +127,7 @@ class TransformerEncoderLayer(nn.Module):
                  device=None, dtype=None):
         super().__init__()
         self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph = MultiplicativeMultiheadAttention(embedding_size, 2 * nhead_graph) # 4 parent heads, 4 child heads
+        self.self_attn_graph = MultiplicativeMultiheadAttention(embedding_size, 3 * nhead_graph) # 4 parent heads, 4 child heads, 4 unrestricted heads
         self.nhead_graph = nhead_graph
 
         self.linear1 = Linear(embedding_size, mlp_hidden_size, device=device, dtype=dtype)
@@ -240,14 +240,16 @@ class MultiplicativeMultiheadAttention(nn.Module):
         output = self.out_proj(attn_output)
 
         return output, attn_weights
-
+    
 
 def calculate_mask(prob_adj, nhead):
     f = prob_adj.shape[0]
     eye = torch.eye(f, dtype=torch.bool)
     mask_1 = (prob_adj + eye).to(get_default_device())
     mask_2 = (prob_adj.T + eye).to(get_default_device())
+    mask_3 = (torch.full((f, f), 1.0)).to(get_default_device())
     mask_1 = mask_1.unsqueeze(0).expand(nhead, -1, -1)
     mask_2 = mask_2.unsqueeze(0).expand(nhead, -1, -1)
-    mask = torch.cat([mask_1, mask_2], dim=0)
+    mask_3 = mask_3.unsqueeze(0).expand(nhead, -1, -1)
+    mask = torch.cat([mask_1, mask_2, mask_3], dim=0)
     return mask

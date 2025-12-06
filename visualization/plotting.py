@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import itertools
 import networkx as nx
-from graphpfn.interface import cross_validate
+from sklearn.metrics import r2_score
 
 def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos=None):
     if single_eval_pos is None:
@@ -81,12 +81,15 @@ def plot_r2(prior: DataLoader, filename: str):
     scores = {model: [] for model in models}
 
     for data in prior:
-        X = data['x'][0].cpu().numpy()
-        y = data['y'][0].cpu().numpy()
-        single_eval_pos = data['single_eval_pos']
+        X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
+        y_train = data['y'][0, :data['single_eval_pos'], :].cpu().numpy()
+        X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
+        y_test = data['y'][0, data['single_eval_pos']:, :].cpu().numpy()
+        
         for name, model in models.items():
-            score = cross_validate(model, X, y, single_eval_pos, 5, **data['graph_information'])
-            scores[name].append(score)
+            model.fit(X_train, y_train.ravel())
+            pred = model.predict(X_test)
+            scores[name].append(r2_score(y_test.ravel(), pred))
             
     n_models = len(models)
     fig, axes = plt.subplots(1, n_models, figsize=(4 * n_models, 4), sharey=True)

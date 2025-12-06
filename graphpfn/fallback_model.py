@@ -12,7 +12,7 @@ class GraphPFNModel(NanoTabPFNModel):
     def __init__(self,
                  embedding_size: int,
                  num_attention_heads: int,
-                 num_graph_attention_heads: int,
+                 num_feature_attention_heads: int,
                  mlp_hidden_size: int,
                  num_layers: int,
                  num_outputs: int):
@@ -20,55 +20,51 @@ class GraphPFNModel(NanoTabPFNModel):
         nn.Module.__init__(self)
         self.embedding_size = embedding_size
         self.num_attention_heads = num_attention_heads
-        self.num_graph_attention_heads = num_graph_attention_heads
+        self.num_feature_attention_heads = num_feature_attention_heads
         self.mlp_hidden_size = mlp_hidden_size
         self.num_layers = num_layers
         self.num_outputs = num_outputs
         self.feature_encoder = FeatureEncoder(embedding_size)
         self.target_encoder = TargetEncoder(embedding_size)
-        self.transformer_encoder = TransformerEncoderStack(num_layers, embedding_size, num_attention_heads, num_graph_attention_heads, mlp_hidden_size)
+        self.transformer_encoder = TransformerEncoderStack(num_layers, embedding_size, num_attention_heads, num_feature_attention_heads, mlp_hidden_size)
         self.decoder = Decoder(embedding_size, mlp_hidden_size, num_outputs)
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
         """
-        Like NanoTabPFN, provides two interfaces:
-        
-        model(X_train, y_train, X_test, adjacency_matrix=adjacency_matrix)
+        Provides two interfaces:
+        model(X_train, y_train, X_test)
             Args:
-                X_train : (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, num_features)
-                y_train : (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, 1)
-                X_test : (torch.Tensor) a tensor of shape (batch_size, num_test_datapoints, num_features)
-                adjacency_matrix : (torch.Tensor) a tensor of shape (num_features+1, num_features+1)
+                X_train: (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, num_features)
+                y_train: (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, 1)
+                X_test: (torch.Tensor) a tensor of shape (batch_size, num_test_datapoints, num_features)
 
-        model((x, y), single_eval_pos, adjacency_matrix=adjacency_matrix)
+        model((x,y), single_eval_pos)
             Args:
                 x: (torch.Tensor) a tensor of shape (batch_size, num_datapoints, num_features)
                 y: (torch.Tensor) a tensor of shape (batch_size, num_train_datapoints, 1)
-                adjacency_matrix : (torch.Tensor) a tensor of shape (num_features+1, num_features+1)
-                single_eval_pos: int
+
+
+        The former is similar to the sklearn interface.
+        In the latter x is the concatenation of X_train and X_test, y is y_train and single_eval_pos is the length of X_train.
+        Our model internally works with the latter representation, so we convert the former into the latter and forward it to
+        _forward.
 
         Returns:
             (torch.Tensor) a tensor of shape (batch_size, num_test_datapoints, num_classes),
                            which represent the predicted logits
         """
         if len(args) == 3:
-            # case model(train_x, train_y, test_x, adjacency_matrix=adjacency_matrix)
+            # case model(train_x, train_y, test_x)
             x = args[0]
             if args[2] is not None:
                 x = torch.cat((x, args[2]), dim=1)
             return self._forward((x, args[1]), single_eval_pos=len(args[0]), **kwargs)
         elif len(args) == 1 and isinstance(args, tuple):
-            # case model((x,y), single_eval_pos=single_eval_pos, adjacency_matrix=adjacency_matrix)
+            # case model((x,y), single_eval_pos=None)
             return self._forward(*args, **kwargs)
-        else:
-            raise ValueError("Invalid input!")
 
-    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, prob_adj: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
+    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, num_mem_chunks: int = 1) -> torch.Tensor:
         x_src, y_src = src
-        if prob_adj is None:
-            num_cols = x_src.shape[2] + 1
-            prob_adj = torch.full((num_cols, num_cols), 0.5)
-
         # we expect the labels to look like (batches, num_train_datapoints, 1),
         # so we add the last dimension if it is missing
         if len(y_src.shape) < len(x_src.shape):
@@ -82,26 +78,26 @@ class GraphPFNModel(NanoTabPFNModel):
         y_src = self.target_encoder(y_src, num_rows)
         # concatenates the feature embeddings with the target embeddings
         # to give us the full table of embeddings (B,R,C,E))
-        input = torch.cat([x_src, y_src], 2)
+        src = torch.cat([x_src, y_src], 2)
         # repeatedly applies the transformer block on (B,R,C,E)
-        output = self.transformer_encoder(input, single_eval_pos, prob_adj)
+        output = self.transformer_encoder(src, single_eval_pos, num_mem_chunks=num_mem_chunks)
         # selects the target embeddings (B,num_targets,1,E)
         output = output[:, single_eval_pos:, -1, :]
         # runs the embeddings through the decoder to get
         # the logits of our predictions (B,num_targets,num_classes)
         output = self.decoder(output)
         return output
-    
+
 
 class TransformerEncoderStack(nn.Module):
-    def __init__(self, num_layers: int, embedding_size: int, num_attention_heads: int, num_graph_attention_heads: int, mlp_hidden_size: int):
+    def __init__(self, num_layers: int, embedding_size: int, num_attention_heads: int, num_feature_attention_heads: int, mlp_hidden_size: int):
         """ Instantiates num_layers many Transformer Blocks and stores them in a list so we can use them in the forward """
         super().__init__()
         self.transformer_blocks = nn.ModuleList()
         for _ in range(num_layers):
-            self.transformer_blocks.append(TransformerEncoderLayer(embedding_size, num_attention_heads, num_graph_attention_heads, mlp_hidden_size))
+            self.transformer_blocks.append(TransformerEncoderLayer(embedding_size, num_attention_heads, num_feature_attention_heads, mlp_hidden_size))
 
-    def forward(self, x: torch.Tensor, single_eval_position: int, prob_adj: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, single_eval_position: int) -> torch.Tensor:
         """
         Takes the embeddings of all the cells of the table as input and applies num_layers many Transformer blocks.
 
@@ -113,7 +109,7 @@ class TransformerEncoderStack(nn.Module):
             (torch.Tensor) a tensor of shape (batch_size, num_rows, num_features, embedding_size)
         """
         for block in self.transformer_blocks:
-            x = block(x, single_eval_position=single_eval_position, prob_adj=prob_adj)
+            x = block(x, single_eval_position=single_eval_position)
         return x
 
 
@@ -122,13 +118,12 @@ class TransformerEncoderLayer(nn.Module):
     Modified version of older version of https://github.com/pytorch/pytorch/blob/v2.6.0/torch/nn/modules/transformer.py#L630
     """
 
-    def __init__(self, embedding_size: int, nhead: int, nhead_graph: int, mlp_hidden_size: int,
+    def __init__(self, embedding_size: int, nhead: int, n_feature_head: int, mlp_hidden_size: int,
                  layer_norm_eps: float = 1e-5, batch_first: bool = True,
                  device=None, dtype=None):
         super().__init__()
-        self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph = MultiplicativeMultiheadAttention(embedding_size, 2 * nhead_graph) # 4 parent heads, 4 child heads
-        self.nhead_graph = nhead_graph
+        self.self_attention_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attention_between_features = MultiheadAttention(embedding_size, n_feature_head, batch_first=batch_first, device=device, dtype=dtype)
 
         self.linear1 = Linear(embedding_size, mlp_hidden_size, device=device, dtype=dtype)
         self.linear2 = Linear(mlp_hidden_size, embedding_size, device=device, dtype=dtype)
@@ -136,9 +131,8 @@ class TransformerEncoderLayer(nn.Module):
         self.norm1 = LayerNorm(embedding_size, eps=layer_norm_eps, device=device, dtype=dtype)
         self.norm2 = LayerNorm(embedding_size, eps=layer_norm_eps, device=device, dtype=dtype)
         self.norm3 = LayerNorm(embedding_size, eps=layer_norm_eps, device=device, dtype=dtype)
-        self.norm4 = LayerNorm(embedding_size, eps=layer_norm_eps, device=device, dtype=dtype)
 
-    def forward(self, src: torch.Tensor, single_eval_position: int, prob_adj: torch.Tensor) -> torch.Tensor:
+    def forward(self, src: torch.Tensor, single_eval_position: int, num_mem_chunks: int = 1) -> torch.Tensor:
         """
         Takes the embeddings of the table as input and applies self-attention between features and self-attention between datapoints
         followed by a simple 2 layer MLP.
@@ -147,16 +141,14 @@ class TransformerEncoderLayer(nn.Module):
             src: (torch.Tensor) a tensor of shape (batch_size, num_rows, num_features, embedding_size) that contains all the embeddings
                                 for all the cells in the table
             single_eval_position: (int) the length of X_train
+            num_mem_chunks: (int) Number of chunks that memory-intense operations will be split into. Higher values use less memory but are slower.
+                                  Needs to be set to 1 during training to get correct gradients.
         Returns
             (torch.Tensor) a tensor of shape (batch_size, num_rows, num_features, embedding_size)
         """
         batch_size, rows_size, col_size, embedding_size = src.shape
-
-        # adjacency based attention
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
-        # flip adjacency matrix, except for diagonal entries
-        mask = calculate_mask(prob_adj, self.nhead_graph)
-        src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
+        src = self.self_attention_between_features(src, src, src)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
         src = self.norm2(src)
         # attention between datapoints
@@ -174,80 +166,3 @@ class TransformerEncoderLayer(nn.Module):
         src = self.linear2(F.gelu(self.linear1(src))) + src
         src = self.norm4(src)
         return src
-    
-
-class MultiplicativeMultiheadAttention(nn.Module):
-    def __init__(self, embed_dim, num_heads):
-        """
-        Args:
-            embed_dim: Total dimension of the model.
-            num_heads: Number of parallel attention heads.
-        """
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
-
-        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
-
-        # Linear Projections
-        self.q_proj = nn.Linear(embed_dim, embed_dim)
-        self.k_proj = nn.Linear(embed_dim, embed_dim)
-        self.v_proj = nn.Linear(embed_dim, embed_dim)
-        self.out_proj = nn.Linear(embed_dim, embed_dim)
-
-    def forward(self, query, key, value, attn_mask):
-        """
-        Args:
-            query: (b, f, d)
-            key: (b, f, d)
-            value: (b, f, d)
-            attn_mask: (f, f)
-
-        Returns:
-            attn_output: (b, f, d)
-            attn_weights: (b, #heads, f, f)
-        """
-        b, f, d = query.size()
-
-        # 1. Project Q, K, V
-        q = self.q_proj(query)
-        k = self.k_proj(key)
-        v = self.v_proj(value)
-
-        # 2. Reshape for multi-head attention
-        q = q.view(b, f, self.num_heads, self.head_dim).transpose(1, 2)
-        k = k.view(b, f, self.num_heads, self.head_dim).transpose(1, 2)
-        v = v.view(b, f, self.num_heads, self.head_dim).transpose(1, 2)
-
-        # 3. Calculate Scaled Dot-Product Attention Scores
-        scaling = float(self.head_dim) ** -0.5
-        attn_scores = (q @ k.transpose(-2, -1)) * scaling
-        
-        # 4. mask in log space
-        log_mask = torch.log(attn_mask + 1e-30) 
-        attn_scores = attn_scores + log_mask
-
-        # 5. Softmax
-        attn_weights = F.softmax(attn_scores, dim=-1)
-        
-        # 6. Value computation
-        attn_output = attn_weights @ v
-
-        # 7. Reshape back and Output Projection
-        attn_output = attn_output.transpose(1, 2).contiguous().view(b, f, self.embed_dim)
-        
-        output = self.out_proj(attn_output)
-
-        return output, attn_weights
-
-
-def calculate_mask(prob_adj, nhead):
-    f = prob_adj.shape[0]
-    eye = torch.eye(f, dtype=torch.bool)
-    mask_1 = (prob_adj + eye).to(get_default_device())
-    mask_2 = (prob_adj.T + eye).to(get_default_device())
-    mask_1 = mask_1.unsqueeze(0).expand(nhead, -1, -1)
-    mask_2 = mask_2.unsqueeze(0).expand(nhead, -1, -1)
-    mask = torch.cat([mask_1, mask_2], dim=0)
-    return mask
