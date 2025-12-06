@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from torch.nn import MultiheadAttention, Linear, LayerNorm
 
 from tfmplayground.model import Decoder, FeatureEncoder, TargetEncoder, NanoTabPFNModel
-from tfmplayground.utils import get_default_device
 
 
 class GraphPFNModel(NanoTabPFNModel):
@@ -29,7 +28,7 @@ class GraphPFNModel(NanoTabPFNModel):
         self.transformer_encoder = TransformerEncoderStack(num_layers, embedding_size, num_attention_heads, num_feature_attention_heads, mlp_hidden_size)
         self.decoder = Decoder(embedding_size, mlp_hidden_size, num_outputs)
 
-    def forward(self, *args, **kwargs) -> torch.Tensor:
+    def forward(self, *args, **kwargs):
         """
         Provides two interfaces:
         model(X_train, y_train, X_test)
@@ -78,9 +77,9 @@ class GraphPFNModel(NanoTabPFNModel):
         y_src = self.target_encoder(y_src, num_rows)
         # concatenates the feature embeddings with the target embeddings
         # to give us the full table of embeddings (B,R,C,E))
-        src = torch.cat([x_src, y_src], 2)
+        input = torch.cat([x_src, y_src], 2)
         # repeatedly applies the transformer block on (B,R,C,E)
-        output = self.transformer_encoder(src, single_eval_pos, num_mem_chunks=num_mem_chunks)
+        output = self.transformer_encoder(input, single_eval_pos, num_mem_chunks=num_mem_chunks)
         # selects the target embeddings (B,num_targets,1,E)
         output = output[:, single_eval_pos:, -1, :]
         # runs the embeddings through the decoder to get
@@ -150,19 +149,19 @@ class TransformerEncoderLayer(nn.Module):
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
         src = self.self_attention_between_features(src, src, src)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
-        src = self.norm2(src)
+        src = self.norm1(src)
         # attention between datapoints
         src = src.transpose(1, 2)
         src = src.reshape(batch_size*col_size, rows_size, embedding_size)
         # training data attends to itself
-        src_left = self.self_attn_between_datapoints(src[:,:single_eval_position], src[:,:single_eval_position], src[:,:single_eval_position])[0]
+        src_left = self.self_attention_between_datapoints(src[:,:single_eval_position], src[:,:single_eval_position], src[:,:single_eval_position])[0]
         # test data attends to the training data
-        src_right = self.self_attn_between_datapoints(src[:,single_eval_position:], src[:,:single_eval_position], src[:,:single_eval_position])[0]
+        src_right = self.self_attention_between_datapoints(src[:,single_eval_position:], src[:,:single_eval_position], src[:,:single_eval_position])[0]
         src = torch.cat([src_left, src_right], dim=1)+src
         src = src.reshape(batch_size, col_size, rows_size, embedding_size)
         src = src.transpose(2, 1)
-        src = self.norm3(src)
+        src = self.norm2(src)
         # MLP after attention
         src = self.linear2(F.gelu(self.linear1(src))) + src
-        src = self.norm4(src)
+        src = self.norm3(src)
         return src

@@ -107,8 +107,8 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
             }
             if hasattr(model, 'num_graph_attention_heads'):
                 training_state['architecture']['num_graph_attention_heads'] = model.num_graph_attention_heads
-            if hasattr(model, 'gcn_hidden_size'):
-                training_state['architecture']['gcn_hidden_size'] = model.gcn_hidden_size
+            if hasattr(model, 'num_feature_attention_heads'):
+                training_state['architecture']['num_feature_attention_heads'] = model.gcn_hidden_size
             torch.save(training_state, work_dir+'/latest_checkpoint.pth')
 
             for callback in callbacks:

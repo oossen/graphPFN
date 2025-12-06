@@ -99,7 +99,7 @@ class TransformerEncoderStack(nn.Module):
         super().__init__()
         self.transformer_blocks = nn.ModuleList()
         for _ in range(num_layers):
-            self.transformer_blocks.append(TransformerEncoderLayer(embedding_size, num_attention_heads, 2 * num_graph_attention_heads, mlp_hidden_size))
+            self.transformer_blocks.append(TransformerEncoderLayer(embedding_size, num_attention_heads, 3 * num_graph_attention_heads, mlp_hidden_size))
 
     def forward(self, x: torch.Tensor, single_eval_position: int, adjacency_matrix: torch.Tensor) -> torch.Tensor:
         """
@@ -159,9 +159,12 @@ class TransformerEncoderLayer(nn.Module):
         adjacency_matrix = adjacency_matrix.bool()
         mask_1 = ~((adjacency_matrix | eye).to(get_default_device()))
         mask_2 = ~((adjacency_matrix.T | eye).to(get_default_device()))
+        f = adjacency_matrix.shape[0]
+        mask_3 = (torch.full((f, f), True)).to(get_default_device())
         mask_1 = mask_1.unsqueeze(0).expand(self.nhead_graph, -1, -1)
         mask_2 = mask_2.unsqueeze(0).expand(self.nhead_graph, -1, -1)
-        mask = torch.cat([mask_1, mask_2], dim=0)
+        mask_3 = mask_3.unsqueeze(0).expand(self.nhead_graph, -1, -1)
+        mask = torch.cat([mask_1, mask_2, mask_3], dim=0)
         mask = mask.unsqueeze(0).repeat(batch_size * rows_size, 1, 1, 1)
         mask = mask.view(batch_size * rows_size * self.nhead_graph, col_size, col_size)
         
