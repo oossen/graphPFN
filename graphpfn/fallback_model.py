@@ -62,7 +62,7 @@ class GraphPFNModel(NanoTabPFNModel):
             # case model((x,y), single_eval_pos=None)
             return self._forward(*args, **kwargs)
 
-    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, num_mem_chunks: int = 1) -> torch.Tensor:
+    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, **kwargs) -> torch.Tensor:
         x_src, y_src = src
         # we expect the labels to look like (batches, num_train_datapoints, 1),
         # so we add the last dimension if it is missing
@@ -79,7 +79,7 @@ class GraphPFNModel(NanoTabPFNModel):
         # to give us the full table of embeddings (B,R,C,E))
         input = torch.cat([x_src, y_src], 2)
         # repeatedly applies the transformer block on (B,R,C,E)
-        output = self.transformer_encoder(input, single_eval_pos, num_mem_chunks=num_mem_chunks)
+        output = self.transformer_encoder(input, single_eval_pos)
         # selects the target embeddings (B,num_targets,1,E)
         output = output[:, single_eval_pos:, -1, :]
         # runs the embeddings through the decoder to get
@@ -131,7 +131,7 @@ class TransformerEncoderLayer(nn.Module):
         self.norm2 = LayerNorm(embedding_size, eps=layer_norm_eps, device=device, dtype=dtype)
         self.norm3 = LayerNorm(embedding_size, eps=layer_norm_eps, device=device, dtype=dtype)
 
-    def forward(self, src: torch.Tensor, single_eval_position: int, num_mem_chunks: int = 1) -> torch.Tensor:
+    def forward(self, src: torch.Tensor, single_eval_position: int) -> torch.Tensor:
         """
         Takes the embeddings of the table as input and applies self-attention between features and self-attention between datapoints
         followed by a simple 2 layer MLP.

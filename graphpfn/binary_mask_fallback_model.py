@@ -99,7 +99,7 @@ class TransformerEncoderStack(nn.Module):
         super().__init__()
         self.transformer_blocks = nn.ModuleList()
         for _ in range(num_layers):
-            self.transformer_blocks.append(TransformerEncoderLayer(embedding_size, num_attention_heads, 3 * num_graph_attention_heads, mlp_hidden_size))
+            self.transformer_blocks.append(TransformerEncoderLayer(embedding_size, num_attention_heads, num_graph_attention_heads, mlp_hidden_size))
 
     def forward(self, x: torch.Tensor, single_eval_position: int, adjacency_matrix: torch.Tensor) -> torch.Tensor:
         """
@@ -127,7 +127,7 @@ class TransformerEncoderLayer(nn.Module):
                  device=None, dtype=None):
         super().__init__()
         self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first, device=device, dtype=dtype)
-        self.self_attn_graph = MultiheadAttention(embedding_size, nhead_graph, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn_graph = MultiheadAttention(embedding_size, 3 * nhead_graph, batch_first=batch_first, device=device, dtype=dtype)
         self.nhead_graph = nhead_graph
 
         self.linear1 = Linear(embedding_size, mlp_hidden_size, device=device, dtype=dtype)
@@ -160,13 +160,13 @@ class TransformerEncoderLayer(nn.Module):
         mask_1 = ~((adjacency_matrix | eye).to(get_default_device()))
         mask_2 = ~((adjacency_matrix.T | eye).to(get_default_device()))
         f = adjacency_matrix.shape[0]
-        mask_3 = (torch.full((f, f), True)).to(get_default_device())
+        mask_3 = (torch.full((f, f), False)).to(get_default_device())
         mask_1 = mask_1.unsqueeze(0).expand(self.nhead_graph, -1, -1)
         mask_2 = mask_2.unsqueeze(0).expand(self.nhead_graph, -1, -1)
         mask_3 = mask_3.unsqueeze(0).expand(self.nhead_graph, -1, -1)
         mask = torch.cat([mask_1, mask_2, mask_3], dim=0)
         mask = mask.unsqueeze(0).repeat(batch_size * rows_size, 1, 1, 1)
-        mask = mask.view(batch_size * rows_size * self.nhead_graph, col_size, col_size)
+        mask = mask.view(batch_size * rows_size * 3 * self.nhead_graph, col_size, col_size)
         
         src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
