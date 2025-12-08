@@ -29,57 +29,62 @@ def compare_all(models: Dict, num_steps: int, filename: str):
         X = data['x'][0].cpu().numpy()
         y = data['y'][0].cpu().numpy()
         single_eval_pos = data['single_eval_pos']
-        for name, model in models:
+        for name, model in models.items():
             score = cross_validate(model, X, y, single_eval_pos, 5, **data['graph_information'])
             flat[name] = score
-        df = pd.DataFrame(rows)
-        
-        col_labels = ['num_nodes', 'edge_prob', 'root_std', 'non_root_std', 'number_train_samples_per_dataset']
-        log_scale = [False, True, True, True, False]
-        n_cols = int(len(col_labels) ** 0.5)
-        n_rows = (len(col_labels) + n_cols - 1) // n_cols
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 6 * n_rows))
-        axes = axes.flatten()
-        for i, label in enumerate(col_labels):
-            ax = axes[i]
-            x = df[label]
-            for name, model in models:
-                y = df[name]
-                # bucketing
-                n_buckets = 10
-                bins = np.linspace(x.min(), x.max(), n_buckets + 1)
-                bucket_ids = np.digitize(x, bins) - 1
-                bucket_centers = []
-                bucket_means = []
-                bucket_stds = []
+    df = pd.DataFrame(rows)
+    df.to_csv(f"{filename}.csv")
+    
+    col_labels = ['num_nodes', 'edge_prob', 'root_std', 'non_root_std', 'number_train_samples_per_dataset']
+    log_scale = [False, True, True, True, False]
+    n_cols = int(len(col_labels) ** 0.5)
+    n_rows = (len(col_labels) + n_cols - 1) // n_cols
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 6 * n_rows))
+    axes = axes.flatten()
+    for i, label in enumerate(col_labels):
+        ax = axes[i]
+        x = df[label]
+        for name, model in models.items():
+            y = df[name]
+            # bucketing
+            n_buckets = 10
+            bins = np.linspace(x.min(), x.max(), n_buckets + 1)
+            bucket_ids = np.digitize(x, bins) - 1
+            bucket_centers = []
+            bucket_means = []
+            bucket_stds = []
 
-                for b in range(n_buckets):
-                    mask = bucket_ids == b
-                    if mask.any():
-                        bucket_center = (bins[b] + bins[b+1]) / 2
-                        bucket_centers.append(bucket_center)
-                        bucket_means.append(y[mask].mean())
-                        bucket_stds.append(y[mask].std())
-                centers_arr = np.array(bucket_centers)
-                means_arr = np.array(bucket_means)
-                stds_arr = np.array(bucket_stds)
-                upper_bound = means_arr + stds_arr
-                lower_bound = means_arr - stds_arr
-                ax.plot(centers_arr, means_arr, marker='o')
-                ax.fill_between(centers_arr, lower_bound, upper_bound, alpha=0.3)
-                if log_scale[i]:
-                    ax.set_xscale('log')
-            ax.set_xlabel(label)
-            ax.set_ylabel("R²")
-            ax.grid(True)
+            for b in range(n_buckets):
+                mask = bucket_ids == b
+                if mask.any():
+                    bucket_center = (bins[b] + bins[b+1]) / 2
+                    bucket_centers.append(bucket_center)
+                    bucket_means.append(y[mask].mean())
+                    bucket_stds.append(y[mask].std())
+            centers_arr = np.array(bucket_centers)
+            means_arr = np.array(bucket_means)
+            stds_arr = np.array(bucket_stds)
+            upper_bound = means_arr + stds_arr
+            lower_bound = means_arr - stds_arr
+            line, = ax.plot(centers_arr, means_arr, marker='o', label=name)
+            color = line.get_color()
+            # ax.plot(centers_arr, upper_bound, alpha=0.3, linestyle='--', color=color)
+            # ax.plot(centers_arr, lower_bound, alpha=0.3, linestyle='--', color=color)
+            if log_scale[i]:
+                ax.set_xscale('log')
+        ax.set_xlabel(label)
+        ax.set_ylabel("R²")
+        ax.grid(True)
 
-        # hide unused axes
-        for j in range(len(col_labels), len(axes)):
-            axes[j].set_visible(False)
+    # hide unused axes
+    for j in range(len(col_labels), len(axes)):
+        axes[j].set_visible(False)
+    # legend
+    axes[0].legend()
 
-        plt.tight_layout()
-        plt.savefig(filename, dpi=500)
-        plt.close(fig)
+    plt.tight_layout()
+    plt.savefig(f"{filename}.png", dpi=500)
+    plt.close(fig)
         
     
 parser = argparse.ArgumentParser()
@@ -103,4 +108,4 @@ if __name__ == "__main__":
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     os.makedirs(f"evaluation/output/{datetime_str}", exist_ok=True)
-    compare_all(models, args.steps, f"evaluation/output/{datetime_str}/full_comparison.png")
+    compare_all(models, args.steps, f"evaluation/output/{datetime_str}/full_comparison")
