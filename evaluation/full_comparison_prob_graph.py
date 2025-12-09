@@ -30,8 +30,8 @@ def compare_all(models: Dict, num_steps: int, filename: str):
         y = data['y'][0].cpu().numpy()
         single_eval_pos = data['single_eval_pos']
         for name, model in models.items():
-            adjacency_matrix = data['graph_information']['adjacency_matrix']
-            score = cross_validate(model, X, y, single_eval_pos, 5, adjacency_matrix=adjacency_matrix)
+            prob_adj = data['graph_information']['prob_adj']
+            score = cross_validate(model, X, y, single_eval_pos, 5, prob_adj=prob_adj)
             flat[name] = score
             flat[f"{name}_truncated"] = max([0.0, score])
     df = pd.DataFrame(rows)
@@ -110,4 +110,4 @@ if __name__ == "__main__":
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     os.makedirs(f"evaluation/output/{datetime_str}", exist_ok=True)
-    compare_all(models, args.steps, f"evaluation/output/{datetime_str}/full_comparison_binary_graph")
+    compare_all(models, args.steps, f"evaluation/output/{datetime_str}/full_comparison_prob_graph")

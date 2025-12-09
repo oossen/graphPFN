@@ -69,5 +69,5 @@ plt.legend()
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")
 os.makedirs(f"evaluation/output/{datetime_str}", exist_ok=True)
-plt.savefig(f"evaluation/output/{datetime_str}/full_comparison.png", dpi=500)
+plt.savefig(f"evaluation/output/{datetime_str}/amazon_sales.png", dpi=500)
 
