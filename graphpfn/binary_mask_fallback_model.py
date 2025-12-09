@@ -59,16 +59,22 @@ class GraphPFNModel(NanoTabPFNModel):
             return self._forward((x, args[1]), single_eval_pos=len(args[0]), **kwargs)
         elif len(args) == 1 and isinstance(args, tuple):
             # case model((x,y), single_eval_pos=single_eval_pos, adjacency_matrix=adjacency_matrix)
-            return self._forward(*args, **kwargs)
+            if 'adjacency_matrix' in kwargs:
+                return self._forward(*args, **kwargs)
+            elif 'prob_adj' in kwargs:
+                adjacency_matrix = kwargs['prob_adj'] > 0.5
+                kwargs['adjacency_matrix'] = adjacency_matrix
+                return self._forward(*args, **kwargs)
+            else:
+                x_src, y_src = src
+                num_cols = x_src.shape[2] + 1
+                kwargs['adjacency_matrix'] = torch.full((num_cols, num_cols), False)
+                return self._forward(*args, **kwargs)
         else:
             raise ValueError("Invalid input!")
 
     def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         x_src, y_src = src
-        if adjacency_matrix is None:
-            num_cols = x_src.shape[2] + 1
-            adjacency_matrix = torch.full((num_cols, num_cols), 0.5)
-
         # we expect the labels to look like (batches, num_train_datapoints, 1),
         # so we add the last dimension if it is missing
         if len(y_src.shape) < len(x_src.shape):

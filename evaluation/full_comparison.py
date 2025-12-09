@@ -32,6 +32,7 @@ def compare_all(models: Dict, num_steps: int, filename: str):
         for name, model in models.items():
             score = cross_validate(model, X, y, single_eval_pos, 5, **data['graph_information'])
             flat[name] = score
+            flat[f"{name}_truncated"] = np.max([0.0, score])
     df = pd.DataFrame(rows)
     df.to_csv(f"{filename}.csv")
     
@@ -45,7 +46,7 @@ def compare_all(models: Dict, num_steps: int, filename: str):
         ax = axes[i]
         x = df[label]
         for name, model in models.items():
-            y = df[name]
+            y = df[f"{name}_truncated"]
             # bucketing
             n_buckets = 10
             bins = np.linspace(x.min(), x.max(), n_buckets + 1)

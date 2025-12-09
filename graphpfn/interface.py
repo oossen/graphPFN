@@ -152,14 +152,24 @@ def cross_validate(reg: NanoTabPFNRegressor, X: np.ndarray, y: np.ndarray, singl
         additional arguments for prediction (adjacency matrix, graph...)
     
     """
-    cv = ShuffleSplit(n_splits=n_folds, train_size=single_eval_pos, test_size=len(X)-single_eval_pos, random_state=42)
+    cv = ShuffleSplit(n_splits=10*n_folds, train_size=single_eval_pos, test_size=len(X)-single_eval_pos, random_state=42)
     scores = []
     for train_index, test_index in cv.split(X):
+        # break out of loop once we have enough valid splits
+        if len(scores) >= n_folds:
+            break
+        
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
+        
+        # reject splits with constant features
+        if np.any(np.ptp(X_train, axis=0) == 0):
+            continue 
         
         reg.fit(X_train, y_train)
         predictions = reg.predict(X_test, **kwargs) 
         score = r2_score(y_test, predictions)
         scores.append(score)
+    if len(scores) < n_folds:
+        print(f"Warning: Only using {len(scores)} splits.")
     return np.mean(scores)
