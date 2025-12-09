@@ -66,7 +66,7 @@ class GraphPFNModel(NanoTabPFNModel):
                 kwargs['adjacency_matrix'] = adjacency_matrix
                 return self._forward(*args, **kwargs)
             else:
-                x_src, y_src = src
+                x_src, y_src = args[0]
                 num_cols = x_src.shape[2] + 1
                 kwargs['adjacency_matrix'] = torch.full((num_cols, num_cols), False)
                 return self._forward(*args, **kwargs)

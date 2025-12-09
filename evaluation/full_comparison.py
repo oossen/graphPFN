@@ -32,7 +32,7 @@ def compare_all(models: Dict, num_steps: int, filename: str):
         for name, model in models.items():
             score = cross_validate(model, X, y, single_eval_pos, 5, **data['graph_information'])
             flat[name] = score
-            flat[f"{name}_truncated"] = np.max([0.0, score])
+            flat[f"{name}_truncated"] = max([0.0, score])
     df = pd.DataFrame(rows)
     df.to_csv(f"{filename}.csv")
     
