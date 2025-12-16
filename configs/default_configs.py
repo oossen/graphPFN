@@ -68,7 +68,7 @@ prior_config = {
         # float
         "non_root_std": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 1.0}
+            "distribution_parameters": {"low": 0.1, "high": 0.5}
         },
     }
 }

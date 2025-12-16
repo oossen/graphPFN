@@ -65,7 +65,7 @@ class ObservationalDataLoader(DataLoader):
         graph = graph_builder.sample_graph(self.generator)
             
         # sample SCM
-        root_mean_tensor = torch.rand(2, generator=self.generator) * 2 - 1
+        root_mean_tensor = torch.rand(2, generator=self.generator) * 4 - 2
         root_mean_train, root_mean_test = root_mean_tensor[0].item(), root_mean_tensor[1].item()
         scm_params = sample_parameters(self.scm_samplers, "scm", self.generator)
         scm_builder = SCMBuilder(graph, root_mean=root_mean_train, **scm_params)

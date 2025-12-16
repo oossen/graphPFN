@@ -47,7 +47,7 @@ def make_all(prior_class,
                 plot_graph(confounding_g, f"{output_dir}/confounding_graph_{n}_{i}.png")
                 confounding_g = data['graph_information']['confounding_graph']
             plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
-            plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png", single_eval_pos=single_eval_pos)
+            plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png", single_eval_pos=single_eval_pos, graph=g)
             if 'prob_adj' in data['graph_information']:
                 plot_prob_adj(data['graph_information']['prob_adj'], f"{output_dir}/prob_adj_{n}_{i}.png")
             if 'prob_confounding_adj' in data['graph_information']:
@@ -67,7 +67,7 @@ def make_all(prior_class,
     
 
 if __name__ == "__main__":
-    from configs.ancestral_configs import prior_config
+    from configs.default_configs import prior_config
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")

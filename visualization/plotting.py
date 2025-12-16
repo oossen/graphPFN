@@ -7,7 +7,7 @@ import itertools
 import networkx as nx
 from sklearn.metrics import r2_score
 
-def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos: int = 0):
+def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos: int = 0, graph=None):
     pairs = list(itertools.combinations(range(X.shape[1]), 2))
     n_pairs = len(pairs)
     n_plots = n_pairs + X.shape[1] # pairs of features plus pairs involving the target
@@ -17,17 +17,28 @@ def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_ev
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(3 * n_cols, 3 * n_rows))
     axes = np.atleast_1d(axes) # in case there is only one plot
     axes = axes.flatten()
+    
+    labels = list(graph.nodes) if graph is not None else [f"feature {i}" for i in range(X.shape[1])]
+    labels.remove('y')
 
     for i, (p, q) in enumerate(pairs):
-        axes[i].scatter(X[:single_eval_pos, p].numpy(), X[:single_eval_pos, q].numpy(), s=5, c='red')
+        if graph is not None and (graph.has_edge(labels[p], labels[q]) or graph.has_edge(labels[q], labels[p])):
+            main_color = 'orange'
+        else:
+            main_color = 'red'
+        axes[i].scatter(X[:single_eval_pos, p].numpy(), X[:single_eval_pos, q].numpy(), s=5, c=main_color)
         axes[i].scatter(X[single_eval_pos:, p].numpy(), X[single_eval_pos:, q].numpy(), s=5, c='gray')
-        axes[i].set_xlabel(f"feature {p}")
-        axes[i].set_ylabel(f"feature {q}")
+        axes[i].set_xlabel(labels[p])
+        axes[i].set_ylabel(labels[q])
     for i in range(X.shape[1]):
-        axes[i + n_pairs].scatter(X[:single_eval_pos, i].numpy(), y[:single_eval_pos].numpy(), s=5, c='blue')
+        if graph is not None and (graph.has_edge(labels[i], 'y') or graph.has_edge('y', labels[i])):
+            main_color = 'cyan'
+        else:
+            main_color = 'blue'
+        axes[i + n_pairs].scatter(X[:single_eval_pos, i].numpy(), y[:single_eval_pos].numpy(), s=5, c=main_color)
         axes[i + n_pairs].scatter(X[single_eval_pos:, i].numpy(), y[single_eval_pos:].numpy(), s=5, c='gray')
-        axes[i + n_pairs].set_xlabel(f"feature {i}")
-        axes[i + n_pairs].set_ylabel(f"target")
+        axes[i + n_pairs].set_xlabel(labels[i])
+        axes[i + n_pairs].set_ylabel('y')
 
     for ax in axes[n_plots:]:
         ax.axis("off")
