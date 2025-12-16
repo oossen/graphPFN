@@ -65,7 +65,7 @@ def make_all(prior_class,
     
 
 if __name__ == "__main__":
-    from configs.default_configs import prior_config
+    from configs.ancestral_configs import prior_config
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")

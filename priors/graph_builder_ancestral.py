@@ -90,8 +90,8 @@ class GraphBuilder:
         
         # select target and rename
         visible_nodes = [v for v in graph.nodes if not graph.nodes[v]["hidden"]]
-        # resample if less than 2 visible nodes
-        if len(visible_nodes) < 2:
+        # resample if less than 3 visible nodes
+        if len(visible_nodes) < 3:
             return self.sample_graph(generator)
         hidden_nodes = [v for v in graph.nodes if graph.nodes[v]["hidden"]]
         target_node_idx = int(torch.randint(0, len(visible_nodes), (1,), generator=generator))

@@ -82,14 +82,18 @@ class ObservationalDataLoader(DataLoader):
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
-        full_data['x'] = torch.cat([data[v] for v in data.keys() if v != 'y'], dim=2)
+        nodelist = list(new_graph.nodes)
+        nodelist.remove('y')
+        full_data['x'] = torch.cat([data[v] for v in nodelist], dim=2)
         full_data['y'] = data['y']
         full_data['target_y'] = full_data['y'] # required by the current NanoTabPFN train loop
         full_data['single_eval_pos'] = num_train_samples
         
         data_type = full_data['x'].dtype
-        prob_adj = nx.to_numpy_array(new_graph)
-        prob_confounding_adj = nx.to_numpy_array(confounding_graph)
+        # the model expects the last node to be the target
+        nodelist.append('y')
+        prob_adj = nx.to_numpy_array(new_graph, nodelist=nodelist)
+        prob_confounding_adj = nx.to_numpy_array(confounding_graph, nodelist=nodelist)
         full_data['graph_information'] = {
             'prob_adj': torch.from_numpy(prob_adj).to(data_type),
             'prob_confounding_adj': torch.from_numpy(prob_confounding_adj).to(data_type),
