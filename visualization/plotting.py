@@ -7,10 +7,7 @@ import itertools
 import networkx as nx
 from sklearn.metrics import r2_score
 
-def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos=None):
-    if single_eval_pos is None:
-        # plot everything in the same color
-        single_eval_pos = X.shape[0]
+def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos: int = 0):
     pairs = list(itertools.combinations(range(X.shape[1]), 2))
     n_pairs = len(pairs)
     n_plots = n_pairs + X.shape[1] # pairs of features plus pairs involving the target
@@ -63,7 +60,7 @@ def plot_prob_adj(prob_adj: torch.Tensor, filename: str):
     
 def plot_graph(g: nx.Graph, filename: str):
     node_color = ['gray' if g.nodes[v].get('hidden', False) else 'blue' for v in g.nodes]
-    weights = [g[u][v]['weight'] for u, v in g.edges]
+    weights = [g[u][v].get('weight', 1.0) for u, v in g.edges]
     base_color = (0, 0, 0) 
     edge_color = [base_color + (w,) for w in weights] 
     nx.draw(g, with_labels=True, node_color=node_color, edge_color=edge_color)

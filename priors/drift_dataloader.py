@@ -65,8 +65,10 @@ class ObservationalDataLoader(DataLoader):
         graph = graph_builder.sample_graph(self.generator)
             
         # sample SCM
+        root_mean_tensor = torch.rand(2, generator=self.generator) * 2 - 1
+        root_mean_train, root_mean_test = root_mean_tensor[0].item(), root_mean_tensor[1].item()
         scm_params = sample_parameters(self.scm_samplers, "scm", self.generator)
-        scm_builder = SCMBuilder(graph, **scm_params)
+        scm_builder = SCMBuilder(graph, root_mean=root_mean_train, **scm_params)
         scm = scm_builder.build(self.generator)
             
         # sample dataset parameters
@@ -75,23 +77,35 @@ class ObservationalDataLoader(DataLoader):
         num_test_samples = dataset_params["number_test_samples_per_dataset"]
         
         # sample data from SCM
-        total_samples = num_train_samples + num_test_samples
-        sample_shape = (self.batch_size, total_samples)
+        sample_shape = (self.batch_size, num_train_samples)
         scm.sample_noise(sample_shape, generator=self.generator)
-        data = scm.propagate(sample_shape)
+        data_train = scm.propagate(sample_shape)
+        scm_builder.root_mean = root_mean_test
+        scm_builder.noise = scm_builder._create_noise_distribution(generator=self.generator)
+        scm = scm_builder.build(self.generator)
+        sample_shape = (self.batch_size, num_test_samples)
+        scm.sample_noise(sample_shape, generator=self.generator)
+        data_test = scm.propagate(sample_shape)
+        
+        nodelist = [v for v in graph.nodes if not graph.nodes[v].get("hidden", False)]
+        nodelist.remove('y')
+        X_train = torch.cat([data_train[v] for v in nodelist], dim=2)
+        y_train = data_train['y']
+        X_test = torch.cat([data_test[v] for v in nodelist], dim=2)
+        y_test = data_test['y']
+        X = torch.cat([X_train, X_test], dim=1)
+        y = torch.cat([y_train, y_test], dim=1)
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
-        nodelist = [v for v in graph.nodes if not graph.nodes[v].get("hidden", False)]
-        nodelist.remove('y')
-        full_data['x'] = torch.cat([data[v] for v in nodelist], dim=2)
-        full_data['y'] = data['y']
-        full_data['target_y'] = full_data['y'] # required by the current NanoTabPFN train loop
+        full_data['x'] = X
+        full_data['y'] = y
+        full_data['target_y'] = y # required by the current NanoTabPFN train loop
         full_data['single_eval_pos'] = num_train_samples
         
         nodelist.append('y')
         adjacency_matrix = nx.to_numpy_array(graph, nodelist=nodelist)
-        data_type = full_data['x'].dtype
+        data_type = X.dtype
         full_data['graph_information'] = {
             'adjacency_matrix': torch.from_numpy(adjacency_matrix).to(data_type),
             'graph': graph,

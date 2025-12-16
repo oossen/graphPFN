@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 
-from priors.observational_dataloader_ancestral import ObservationalDataLoader
+from priors.drift_dataloader import ObservationalDataLoader
 from visualization.check_seeding import compare_dataloaders
 from visualization.plotting import plot_prob_adj, plot_r2, plot_correlation, plot_graph, plot_point_clouds
 
@@ -36,16 +36,18 @@ def make_all(prior_class,
         for i, data in enumerate(prior):
             X = data['x'][0]
             y = data['y'][0]
+            single_eval_pos = data['single_eval_pos']
             g = data['graph_information']['graph']
-            new_g = data['graph_information']['new_graph']
-            confounding_g = data['graph_information']['confounding_graph']
             scm = data['graph_information']['scm']
             plot_graph(g, f"{output_dir}/graph_{n}_{i}.png")
-            plot_graph(new_g, f"{output_dir}/new_graph_{n}_{i}.png")
+            if 'new_graph' in data['graph_information']:
+                new_g = data['graph_information']['new_graph']
+                plot_graph(new_g, f"{output_dir}/new_graph_{n}_{i}.png")
             if 'confounding_graph' in data['graph_information']:
                 plot_graph(confounding_g, f"{output_dir}/confounding_graph_{n}_{i}.png")
+                confounding_g = data['graph_information']['confounding_graph']
             plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
-            plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png")
+            plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png", single_eval_pos=single_eval_pos)
             if 'prob_adj' in data['graph_information']:
                 plot_prob_adj(data['graph_information']['prob_adj'], f"{output_dir}/prob_adj_{n}_{i}.png")
             if 'prob_confounding_adj' in data['graph_information']:
