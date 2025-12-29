@@ -243,20 +243,9 @@ def visualize_chain(chain: List[Tuple[SCM, float]], output_dir: str):
         probability = count / num_samples
         average_graph.add_edge(u, v, weight=probability)
     plot_graph(average_graph, f"{output_dir}/average_graph.png")
-        
-
-if __name__ == "__main__":
-    from configs.ppd_configs import prior_config
-    from datetime import datetime
-    now = datetime.now()
-    datetime_str = now.strftime("%m_%d_%H_%M")
-    output_dir = f"evaluation/output/{datetime_str}"
-    os.makedirs(output_dir, exist_ok=True)
     
-    seed = 43
-    generator = torch.Generator()
-    generator.manual_seed(seed)
-        
+
+def mcmc_suite(generator: torch.Generator, output_dir: str):
     graph_samplers = build_samplers(prior_config['graph_config'], "graph")
     scm_samplers = build_samplers(prior_config['scm_config'], "scm")
     graph_params = sample_parameters(graph_samplers, generator)
@@ -290,5 +279,23 @@ if __name__ == "__main__":
     X_train = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=2).cpu().numpy()
     y_train = values['y'].cpu().numpy()
     plot_ppd_pfn(test_sample, X_train, y_train, reg, output_dir)
+    
+        
+if __name__ == "__main__":
+    from configs.ppd_configs import prior_config
+    from datetime import datetime
+    now = datetime.now()
+    datetime_str = now.strftime("%m_%d_%H_%M")
+    output_dir = f"evaluation/output/{datetime_str}"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    seed = 43
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    
+    for i in range(5):
+        mcmc_suite(generator, f"{output_dir}/run_{i}")
+        
+    
         
         
