@@ -131,6 +131,27 @@ class Regressor(NanoTabPFNRegressor):
 
         return preds
     
+    def log_ppd(self, X_test: np.ndarray, y_test: np.ndarray, **kwargs):
+        """
+        Computes the log predictive probability density of the provided test targets.
+        """
+        X_test_transformed = self.feature_preprocessor.transform(X_test)
+        assert isinstance(X_test_transformed, np.ndarray) and isinstance(self.X_train, np.ndarray), "Preprocessing did not produce numpy arrays!"
+        X = np.concatenate((self.X_train, X_test_transformed))
+        y = self.y_train_n
+        
+        with torch.no_grad():
+            X_tensor = torch.tensor(X, dtype=torch.float32, device=self.device).unsqueeze(0)
+            y_tensor = torch.tensor(y, dtype=torch.float32, device=self.device).unsqueeze(0)
+
+            logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs).squeeze(0)
+            y_test_n = (y_test - self.y_train_mean) / self.y_train_std
+            y_test_tensor = torch.tensor(y_test_n, dtype=torch.float32, device=self.device).unsqueeze(0)
+            self.dist.to(device=self.device)
+            log_probs = self.dist.forward(logits, y_test_tensor).squeeze(0)
+        
+        return -log_probs.cpu().numpy()
+    
     
 def cross_validate(reg: NanoTabPFNRegressor, X: np.ndarray, y: np.ndarray, single_eval_pos: int, n_folds: int = 5, **kwargs):
     """

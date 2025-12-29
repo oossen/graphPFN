@@ -106,7 +106,7 @@ class ObservationalDataLoader(DataLoader):
         }
         # p(graph, scm) = p(scm | graph) * p(graph)
         # p(scm | graph) = \int p(scm | graph, scm_params) * p(scm_params) d(scm_params)
-        # p(graph) = \int p(graph | graph_params) * p(graph_params)
+        # p(graph) = \int p(graph | graph_params) * p(graph_params) d(graph_params)
         graph_prob = self.graph_log_prob(len(graph.nodes), len(graph.edges))
         graph_dropout_prob = self.graph_dropout_log_prob(len(graph.nodes), len([v for v in graph.nodes if graph.nodes[v].get("hidden", False)]))
         scm_prob = self.noise_log_prob(scm)

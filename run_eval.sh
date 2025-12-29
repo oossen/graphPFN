@@ -27,7 +27,7 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python -m evaluation.full_comparison --steps 50000
+python -m evaluation.mcmc
 end=`date +%s`
 runtime=$((end-start))
 

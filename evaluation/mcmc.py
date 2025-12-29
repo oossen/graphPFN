@@ -13,9 +13,12 @@ import numpy as np
 import torch
 import torch.distributions as dist
 import networkx as nx
+from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from priors.prior_prob_dataloader import ObservationalDataLoader
 from visualization.plotting import plot_graph
 from itertools import combinations
+from pfns.bar_distribution import FullSupportBarDistribution
+from tfmplayground.utils import get_default_device
 
 
 @torch.no_grad()
@@ -23,7 +26,7 @@ def mcmc(values: Dict,
          prior: ObservationalDataLoader, 
          initial_scm: SCM, 
          generator: torch.Generator, 
-         steps: int = 100, 
+         steps: int = 1000, 
          burn_in: int = 0, 
          step_size: int = 2,
          jump_prob: float = 0.1) -> List[Tuple[SCM, float]]:
@@ -108,7 +111,23 @@ def plot_ppd(values: Dict, samples: List[SCM], filename: str, steps: int = 30):
     plt.grid(True)
     plt.savefig(f"{filename}/ppd.png", dpi=300)
     plt.close()
-        
+    
+
+def plot_ppd_pfn(values: Dict, X_train, y_train, model, filename: str, steps: int = 30):
+    y = np.linspace(-3, 3, steps)
+    model.fit(X_train, y_train)
+    X_test = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=2).cpu().numpy()
+    log_probs = model.log_ppd(X_test, y)
+    probs = np.exp(log_probs)
+    plt.plot(y, probs, label="p(y)")
+    plt.axvline(x=values['y'].item(), color='red', linestyle='--', linewidth=1)  # the true y-value
+    plt.xlabel("y")
+    plt.ylabel("p(y)")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f"{filename}/ppd_pfn.png", dpi=300)
+    plt.close()
+    
 
 @torch.no_grad()    
 def posterior_log_prob(scm: SCM, values: Dict, prior: ObservationalDataLoader):
@@ -227,7 +246,7 @@ def visualize_chain(chain: List[Tuple[SCM, float]], output_dir: str):
         
 
 if __name__ == "__main__":
-    from configs.test_configs import prior_config
+    from configs.ppd_configs import prior_config
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
@@ -261,6 +280,15 @@ if __name__ == "__main__":
     scm.sample_noise(test_sample_shape, generator=generator)
     test_sample = scm.propagate(test_sample_shape)
     visualize_chain(chain, output_dir)
-    plot_ppd(test_sample, [scm for scm, _ in chain], output_dir, steps=10)
+    plot_ppd(test_sample, [scm for scm, _ in chain], output_dir)
+    
+    model_path = 'workdir/ppd'
+    model = init_model_from_state_dict_file('pfn', f"{model_path}/latest_checkpoint.pth")
+    buckets = torch.load(f"{model_path}/dist.pth")
+    bar_dist = FullSupportBarDistribution(buckets)
+    reg = Regressor(model, bar_dist, get_default_device())
+    X_train = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=2).cpu().numpy()
+    y_train = values['y'].cpu().numpy()
+    plot_ppd_pfn(test_sample, X_train, y_train, reg, output_dir)
         
         
