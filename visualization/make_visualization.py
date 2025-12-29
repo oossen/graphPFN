@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 
-from priors.drift_dataloader import ObservationalDataLoader
+from priors.observational_dataloader import ObservationalDataLoader
 from visualization.check_seeding import compare_dataloaders
 from visualization.plotting import plot_prob_adj, plot_r2, plot_correlation, plot_graph, plot_point_clouds
 
@@ -10,8 +10,8 @@ def make_all(prior_class,
              prior_config: Dict,
              output_dir: str,
              n_steps: int = 5,
-             check_seeding=True,
-             include_r2=True):
+             check_seeding=False,
+             include_r2=False):
     """
     Run the complete visualization suite for the prior specified by `config`.
     This must be a string specifying a path to a configuration file.
@@ -67,7 +67,7 @@ def make_all(prior_class,
     
 
 if __name__ == "__main__":
-    from configs.default_configs import prior_config
+    from configs.test_configs import prior_config
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")

@@ -60,17 +60,17 @@ class ObservationalDataLoader(DataLoader):
     
     def batch_function(self):
         # sample graph
-        graph_params = sample_parameters(self.graph_samplers, "graph", self.generator)
+        graph_params = sample_parameters(self.graph_samplers, self.generator)
         graph_builder = GraphBuilder(**graph_params)
-        graph = graph_builder.sample_graph(self.generator)
+        graph = graph_builder.sample(self.generator)
             
         # sample SCM
-        scm_params = sample_parameters(self.scm_samplers, "scm", self.generator)
+        scm_params = sample_parameters(self.scm_samplers, self.generator)
         scm_builder = SCMBuilder(graph, **scm_params)
-        scm = scm_builder.build(self.generator)
+        scm = scm_builder.sample(self.generator)
             
         # sample dataset parameters
-        dataset_params = sample_parameters(self.dataset_samplers, "dataset", self.generator)
+        dataset_params = sample_parameters(self.dataset_samplers, self.generator)
         num_train_samples = dataset_params["number_train_samples_per_dataset"]
         num_test_samples = dataset_params["number_test_samples_per_dataset"]
         
@@ -84,7 +84,7 @@ class ObservationalDataLoader(DataLoader):
         full_data = {}
         nodelist = [v for v in graph.nodes if not graph.nodes[v].get("hidden", False)]
         nodelist.remove('y')
-        full_data['x'] = torch.cat([data[v] for v in nodelist], dim=2)
+        full_data['x'] = torch.stack([data[v] for v in nodelist], dim=2)
         full_data['y'] = data['y']
         full_data['target_y'] = full_data['y'] # required by the current NanoTabPFN train loop
         full_data['single_eval_pos'] = num_train_samples
@@ -98,4 +98,5 @@ class ObservationalDataLoader(DataLoader):
             'scm': scm,
             'sampled_params': {"graph_params": graph_params, "scm_params": scm_params, "dataset_params": dataset_params},
         }
+        
         return full_data
