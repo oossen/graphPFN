@@ -26,10 +26,10 @@ def mcmc(values: Dict,
          prior: ObservationalDataLoader, 
          initial_scm: SCM, 
          generator: torch.Generator, 
-         steps: int = 1000, 
+         steps: int = 100, 
          burn_in: int = 0, 
          step_size: int = 2,
-         jump_prob: float = 0.1) -> List[Tuple[SCM, float]]:
+         fixed_graph: bool = False) -> List[Tuple[SCM, float]]:
     """
     Perform the MCMC algorithm for the dataset specified by `values` with respect to `prior`.
 
@@ -50,8 +50,8 @@ def mcmc(values: Dict,
         The number of discarded samples at the beginning of the chain.
     step_size : int
         Only every `step_size`-th sample is returned at the end.
-    jump_prob : float
-        The probability to jump to a random new incumbent instead of perturbating the current one.
+    fixed_graph : bool
+        Whether to condition on the graph underlying `initial_scm`.
     
     Returns
     -------
@@ -62,12 +62,11 @@ def mcmc(values: Dict,
     incumbent_log_prob = posterior_log_prob(incumbent, values, prior)
     chain = [(incumbent, incumbent_log_prob)]
     for _ in range(steps):
-        if torch.rand((1,), generator=generator) < jump_prob:
-            print("Jumping to random new incumbent...")
-            proposal = next(iter(prior))['graph_information']['scm']
+        if fixed_graph:
+            proposal = perturbate(incumbent, generator, perturbation_probs=(0.0, 0.5, 0.5))
         else:
             proposal = perturbate(incumbent, generator)
-        proposal_log_prob = posterior_log_prob(proposal, values, prior)
+        proposal_log_prob = posterior_log_prob(proposal, values, prior, fixed_graph=fixed_graph)
         accept = False
         if proposal_log_prob > incumbent_log_prob:
             print(f"Improving move... ({incumbent_log_prob} -> {proposal_log_prob})")
@@ -109,18 +108,18 @@ def plot_ppd(values: Dict, samples: List[SCM], filename: str, steps: int = 30):
     plt.ylabel("p(y)")
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"{filename}/ppd.png", dpi=300)
+    plt.savefig(filename, dpi=300)
     plt.close()
     
 
-def plot_ppd_pfn(values: Dict, X_train, y_train, model, filename: str, steps: int = 30):
+def plot_ppd_pfn(values: Dict, X_train, y_train, model, filename: str, steps: int = 30, **kwargs):
     y = np.linspace(-3, 3, steps)
     model.fit(X_train, y_train)
     X_test = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=-1).cpu().numpy()
     probs = []
     for yi in y:
         y_test = np.array([yi])
-        log_prob = model.log_ppd(X_test, y_test)
+        log_prob = model.log_ppd(X_test, y_test, **kwargs)
         probs.append(np.exp(log_prob))
     plt.plot(y, probs, label="p(y)")
     plt.axvline(x=values['y'].item(), color='red', linestyle='--', linewidth=1)  # the true y-value
@@ -128,25 +127,27 @@ def plot_ppd_pfn(values: Dict, X_train, y_train, model, filename: str, steps: in
     plt.ylabel("p(y)")
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"{filename}/ppd_pfn.png", dpi=300)
+    plt.savefig(filename, dpi=300)
     plt.close()
     
 
 @torch.no_grad()    
-def posterior_log_prob(scm: SCM, values: Dict, prior: ObservationalDataLoader):
+def posterior_log_prob(scm: SCM, values: Dict, prior: ObservationalDataLoader, fixed_graph: bool = False):
     log_likelihood = scm.log_likelihood(values, 'y')
-    graph = scm.dag
-    graph_prob = prior.graph_log_prob(len(graph.nodes), len(graph.edges))
-    graph_dropout_prob = prior.graph_dropout_log_prob(len(graph.nodes), len([v for v in graph.nodes if graph.nodes[v].get("hidden", False)]))
     scm_prob = prior.noise_log_prob(scm)
-    prior_log_prob = scm_prob + graph_prob + graph_dropout_prob
+    prior_log_prob = scm_prob
+    if fixed_graph:
+        graph = scm.dag
+        graph_prob = prior.graph_log_prob(len(graph.nodes), len(graph.edges))
+        graph_dropout_prob = prior.graph_dropout_log_prob(len(graph.nodes), len([v for v in graph.nodes if graph.nodes[v].get("hidden", False)]))
+        prior_log_prob += graph_prob + graph_dropout_prob
     print(f"Proposal prior: {prior_log_prob}, proposal likelihood: {log_likelihood}")
     return log_likelihood + prior_log_prob
 
 
 @torch.no_grad()
-def perturbate(incumbent_scm: SCM, generator: torch.Generator) -> SCM:
-    graph_perturbation_prob, mechanism_perturbation_prob, noise_perturbation_prob = 1/3, 1/3, 1/3
+def perturbate(incumbent_scm: SCM, generator: torch.Generator, perturbation_probs=(1/3, 1/3, 1/3)) -> SCM:
+    graph_perturbation_prob, mechanism_perturbation_prob, noise_perturbation_prob = perturbation_probs
     selector = torch.rand((1,), generator=generator)
     if selector < graph_perturbation_prob:
         # Perturb the graph
@@ -248,44 +249,63 @@ def visualize_chain(chain: List[Tuple[SCM, float]], output_dir: str):
     plot_graph(average_graph, f"{output_dir}/average_graph.png")
     
 
-def mcmc_suite(generator: torch.Generator, output_dir: str):
+def mcmc_suite(generator: torch.Generator, output_dir: str, include_pfn: bool = True):
     os.makedirs(output_dir, exist_ok=True)
     
+    # Sample the training data D = (X, y)
     graph_samplers = build_samplers(prior_config['graph_config'], "graph")
     scm_samplers = build_samplers(prior_config['scm_config'], "scm")
     graph_params = sample_parameters(graph_samplers, generator)
     scm_params = sample_parameters(scm_samplers, generator)
-    
     graph_builder = GraphBuilder(**graph_params)
     graph = graph_builder.sample(generator)
     scm_builder = SCMBuilder(graph, **scm_params)
     scm = scm_builder.sample(generator)
-    sample_shape = (10,)
+    sample_shape = (5,)
     scm.sample_noise(sample_shape, generator=generator)
     values = scm.propagate(sample_shape)
     plot_graph(graph, f"{output_dir}/true_graph.png")
     print_mechanisms(scm, f"{output_dir}/true_scm.py")
     
+    # Perform MCMC
     prior = ObservationalDataLoader(50, 1, prior_config, seed=seed+1)
     initial_scm = next(iter(prior))['graph_information']['scm']
     chain = mcmc(values, prior, scm, generator)
     
+    # Evaluate PPD on test sample
     test_sample_shape = (1,)
     scm.sample_noise(test_sample_shape, generator=generator)
     test_sample = scm.propagate(test_sample_shape)
     visualize_chain(chain, output_dir)
-    plot_ppd(test_sample, [scm for scm, _ in chain], output_dir)
+    plot_ppd(test_sample, [scm for scm, _ in chain], f"{output_dir}/ppd.png")
     
-    model_path = 'workdir/ppd'
-    model = init_model_from_state_dict_file('pfn', f"{model_path}/latest_checkpoint.pth")
-    buckets = torch.load(f"{model_path}/dist.pth")
-    bar_dist = FullSupportBarDistribution(buckets)
-    reg = Regressor(model, bar_dist, get_default_device())
-    X_train = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=-1).cpu().numpy()
-    y_train = values['y'].cpu().numpy()
-    plot_ppd_pfn(test_sample, X_train, y_train, reg, output_dir)
+    # Perform MCMC with graph conditioning
+    fixed_graph_chain = mcmc(values, prior, scm, generator, fixed_graph=True)
+    plot_ppd(test_sample, [scm for scm, _ in fixed_graph_chain], f"{output_dir}/fixed_graph_ppd.png")
     
+    if include_pfn:
+        # Evaluate PPD with PFN
+        model_path = 'workdir/ppd'
+        model = init_model_from_state_dict_file('pfn', f"{model_path}/latest_checkpoint.pth")
+        buckets = torch.load(f"{model_path}/dist.pth")
+        bar_dist = FullSupportBarDistribution(buckets)
+        reg = Regressor(model, bar_dist, get_default_device())
+        nodelist = ['x0', 'x1', 'x2', 'x3']
+        X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
+        y_train = values['y'].cpu().numpy()
+        plot_ppd_pfn(test_sample, X_train, y_train, reg, f"{output_dir}/ppd_pfn.png")
         
+        # Evaluate with PFN incorporating graph knowledge
+        model_path = 'workdir/ppd_graph'
+        model = init_model_from_state_dict_file('binary', f"{model_path}/latest_checkpoint.pth")
+        buckets = torch.load(f"{model_path}/dist.pth")
+        bar_dist = FullSupportBarDistribution(buckets)
+        reg = Regressor(model, bar_dist, get_default_device())
+        adjacency_matrix = nx.to_numpy_array(graph, nodelist=nodelist)
+        reg = Regressor(model, bar_dist, get_default_device())
+        plot_ppd_pfn(test_sample, X_train, y_train, reg, f"{output_dir}/ppd_pfn_graph.png", adjacency_matrix=adjacency_matrix)
+        
+
 if __name__ == "__main__":
     from configs.ppd_configs import prior_config
     from datetime import datetime
@@ -293,12 +313,12 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"evaluation/output/{datetime_str}"
     
-    seed = 43
+    seed = 42
     generator = torch.Generator()
     generator.manual_seed(seed)
     
     for i in range(10):
-        mcmc_suite(generator, f"{output_dir}/run_{i}")
+        mcmc_suite(generator, f"{output_dir}/run_{i}", include_pfn=False)
         
     
         

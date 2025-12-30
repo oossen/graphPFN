@@ -7,13 +7,13 @@ prior_config = {
         # number of train samples per dataset
         # int
         "number_train_samples_per_dataset": {
-            "value" : 10
+            "value" : 5
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
         # int
         "number_test_samples_per_dataset": {  # number of test samples per dataset. Can be fixed because architecture is agnostic to the number of test samples.
-            "value": 10
+            "value": 5
         },
     },
 
@@ -43,13 +43,13 @@ prior_config = {
         # float
         "root_std": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 1.0}
+            "distribution_parameters": {"low": 0.8, "high": 1.2}
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 1.0}
+            "distribution_parameters": {"low": 0.8, "high": 1.2}
         },
     }
 }
@@ -88,7 +88,7 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 30,
+    "epochs": 40,
     
     # number of data batches used to infer buckets for bar distribution
     # int
