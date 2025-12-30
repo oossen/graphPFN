@@ -144,7 +144,7 @@ class Regressor(NanoTabPFNRegressor):
             X_tensor = torch.tensor(X, dtype=torch.float32, device=self.device).unsqueeze(0)
             y_tensor = torch.tensor(y, dtype=torch.float32, device=self.device).unsqueeze(0)
 
-            logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs).squeeze(0)
+            logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs)
             y_test_n = (y_test - self.y_train_mean) / self.y_train_std
             y_test_tensor = torch.tensor(y_test_n, dtype=torch.float32, device=self.device).unsqueeze(0)
             self.dist.to(device=self.device)

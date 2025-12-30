@@ -116,9 +116,12 @@ def plot_ppd(values: Dict, samples: List[SCM], filename: str, steps: int = 30):
 def plot_ppd_pfn(values: Dict, X_train, y_train, model, filename: str, steps: int = 30):
     y = np.linspace(-3, 3, steps)
     model.fit(X_train, y_train)
-    X_test = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=2).cpu().numpy()
-    log_probs = model.log_ppd(X_test, y)
-    probs = np.exp(log_probs)
+    X_test = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=-1).cpu().numpy()
+    probs = []
+    for yi in y:
+        y_test = np.array([yi])
+        log_prob = model.log_ppd(X_test, y_test)
+        probs.append(np.exp(log_prob))
     plt.plot(y, probs, label="p(y)")
     plt.axvline(x=values['y'].item(), color='red', linestyle='--', linewidth=1)  # the true y-value
     plt.xlabel("y")
@@ -246,6 +249,8 @@ def visualize_chain(chain: List[Tuple[SCM, float]], output_dir: str):
     
 
 def mcmc_suite(generator: torch.Generator, output_dir: str):
+    os.makedirs(output_dir, exist_ok=True)
+    
     graph_samplers = build_samplers(prior_config['graph_config'], "graph")
     scm_samplers = build_samplers(prior_config['scm_config'], "scm")
     graph_params = sample_parameters(graph_samplers, generator)
@@ -255,7 +260,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str):
     graph = graph_builder.sample(generator)
     scm_builder = SCMBuilder(graph, **scm_params)
     scm = scm_builder.sample(generator)
-    sample_shape = (5,)
+    sample_shape = (10,)
     scm.sample_noise(sample_shape, generator=generator)
     values = scm.propagate(sample_shape)
     plot_graph(graph, f"{output_dir}/true_graph.png")
@@ -276,7 +281,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str):
     buckets = torch.load(f"{model_path}/dist.pth")
     bar_dist = FullSupportBarDistribution(buckets)
     reg = Regressor(model, bar_dist, get_default_device())
-    X_train = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=2).cpu().numpy()
+    X_train = torch.stack([values[v] for v in ['x0', 'x1', 'x2', 'x3']], dim=-1).cpu().numpy()
     y_train = values['y'].cpu().numpy()
     plot_ppd_pfn(test_sample, X_train, y_train, reg, output_dir)
     
@@ -287,13 +292,12 @@ if __name__ == "__main__":
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"evaluation/output/{datetime_str}"
-    os.makedirs(output_dir, exist_ok=True)
     
     seed = 43
     generator = torch.Generator()
     generator.manual_seed(seed)
     
-    for i in range(5):
+    for i in range(10):
         mcmc_suite(generator, f"{output_dir}/run_{i}")
         
     

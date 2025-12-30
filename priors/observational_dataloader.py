@@ -85,7 +85,7 @@ class ObservationalDataLoader(DataLoader):
         nodelist = [v for v in graph.nodes if not graph.nodes[v].get("hidden", False)]
         nodelist.remove('y')
         full_data['x'] = torch.stack([data[v] for v in nodelist], dim=2)
-        full_data['y'] = data['y']
+        full_data['y'] = data['y'].unsqueeze(-1)
         full_data['target_y'] = full_data['y'] # required by the current NanoTabPFN train loop
         full_data['single_eval_pos'] = num_train_samples
         
