@@ -13,7 +13,7 @@ from graphpfn.utils import make_bar_distribution
 from visualization.make_visualization import make_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.ppd_configs import prior_config, training_config as args
+from configs.ppd_configs_graph import prior_config, training_config as args
 
 
 device = get_default_device()

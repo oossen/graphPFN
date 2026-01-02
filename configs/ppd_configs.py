@@ -7,13 +7,14 @@ prior_config = {
         # number of train samples per dataset
         # int
         "number_train_samples_per_dataset": {
-            "value" : 5
+            "distribution": "discrete_uniform",
+            "distribution_parameters": {"low": 5, "high": 20}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
         # int
         "number_test_samples_per_dataset": {  # number of test samples per dataset. Can be fixed because architecture is agnostic to the number of test samples.
-            "value": 5
+            "value": 10
         },
     },
 
@@ -43,13 +44,13 @@ prior_config = {
         # float
         "root_std": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.8, "high": 1.2}
+            "distribution_parameters": {"low": 0.5, "high": 1.0}
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.8, "high": 1.2}
+            "distribution_parameters": {"low": 0.5, "high": 1.0}
         },
     }
 }
@@ -67,7 +68,7 @@ training_config = {
         embedding_size=192,
         mlp_hidden_size=768,
         num_layers=6,
-        num_outputs=1000,
+        num_outputs=300,
     ),
     
     # batch size used during training

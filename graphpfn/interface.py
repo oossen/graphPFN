@@ -146,11 +146,15 @@ class Regressor(NanoTabPFNRegressor):
 
             logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs)
             y_test_n = (y_test - self.y_train_mean) / self.y_train_std
-            y_test_tensor = torch.tensor(y_test_n, dtype=torch.float32, device=self.device).unsqueeze(0)
+            y_test_tensor = torch.tensor(y_test_n, dtype=torch.float32, device=self.device)
             self.dist.to(device=self.device)
-            log_probs = self.dist.forward(logits, y_test_tensor).squeeze(0)
+            # expand logits so that there is one for each input y
+            logits = logits.view(1, 1, -1).expand(len(y_test), 1, -1)
+            neg_log_probs = self.dist.forward(logits, y_test_tensor).squeeze(0)
+            # divide by std to account for change of variables in normalization
+            neg_log_probs += torch.log(torch.tensor(self.y_train_std, dtype=torch.float32, device=self.device))
         
-        return -log_probs.cpu().numpy()
+        return -neg_log_probs.cpu().numpy()
     
     
 def cross_validate(reg: NanoTabPFNRegressor, X: np.ndarray, y: np.ndarray, single_eval_pos: int, n_folds: int = 5, **kwargs):
