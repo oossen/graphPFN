@@ -1,4 +1,5 @@
 from collections import Counter
+from copy import deepcopy
 import math
 import os
 from typing import Dict, List, Mapping, Tuple
@@ -26,7 +27,7 @@ def mcmc(values: Dict,
          prior: ObservationalDataLoader, 
          initial_scm: SCM, 
          generator: torch.Generator, 
-         steps: int = 500, 
+         steps: int = 10, 
          burn_in: float = 0.1, 
          step_size: int = 2,
          fixed_graph: bool = False) -> List[Tuple[SCM, float]]:
@@ -135,23 +136,30 @@ def perturbate(incumbent_scm: SCM, generator: torch.Generator, perturbation_prob
     graph_perturbation_prob, mechanism_perturbation_prob, noise_perturbation_prob = perturbation_probs
     selector = torch.rand((1,), generator=generator)
     if selector < graph_perturbation_prob:
-        # Perturb the graph
-        switch_prob = 0.1
+        # Perturb the graph by removing or switching direction of random edge
         new_dag = incumbent_scm.dag.copy()
         nodes = list(new_dag.nodes())
-        for u, v in combinations(nodes, 2):
-            if torch.rand((1,), generator=generator) < switch_prob:
-                if new_dag.has_edge(u, v):
-                    new_dag.remove_edge(u, v)
-                if new_dag.has_edge(v, u):
-                    new_dag.remove_edge(v, u)
-                choice = torch.randint(0, 3, (1,), generator=generator).item()
-                if choice == 0:
-                    pass
-                if choice == 1:
-                    new_dag.add_edge(u, v)
-                elif choice == 2:
-                    new_dag.add_edge(v, u)
+        edges = combinations(nodes, 2)
+        edge_idx = int(torch.randint(0, len(list(edges)), (1,), generator=generator).item())
+        u, v = list(edges)[edge_idx]
+        choice = torch.randint(0, 2, (1,), generator=generator).item()
+        if new_dag.has_edge(u, v):
+            if choice == 0:
+                new_dag.remove_edge(u, v)
+            else:
+                new_dag.remove_edge(u, v)
+                new_dag.add_edge(v, u)
+        elif new_dag.has_edge(v, u):
+            if choice == 0:
+                new_dag.remove_edge(v, u)
+            else:
+                new_dag.remove_edge(v, u)
+                new_dag.add_edge(u, v)
+        else:
+            if choice == 0:
+                new_dag.add_edge(u, v)
+            else:
+                new_dag.add_edge(v, u)
         # Only follow through with change if new_dag is still a valid DAG
         valid_dag = True
         if not nx.is_directed_acyclic_graph(new_dag):
@@ -165,34 +173,37 @@ def perturbate(incumbent_scm: SCM, generator: torch.Generator, perturbation_prob
             new_scm = SCM(new_dag, incumbent_scm.mechanisms, incumbent_scm.noise, generator)
             return new_scm
     elif selector < graph_perturbation_prob + mechanism_perturbation_prob:
-        # Perturb the mechanisms
-        activation_switch_prob = 0.1
-        max_weight_change = 0.1
+        # Switch a random mechanism's activation or perturb its weights
         nodes = list(incumbent_scm.dag.nodes())
-        incumbent_mechanisms: Mapping = incumbent_scm.mechanisms
+        node_idx = int(torch.randint(0, len(nodes), (1,), generator=generator).item())
+        v = nodes[node_idx]
+        choice = torch.randint(0, 2, (1,), generator=generator).item()
         new_mechanisms = {}
         for v in nodes:
-            new_mechanisms[v] = SimpleMechanism(nodes, generator=generator)
-            if torch.rand((1,), generator=generator) > activation_switch_prob:
-                new_mechanisms[v].activation._module[1] = incumbent_mechanisms[v].activation._module[1]
-            for w in new_mechanisms[v].weights:
-                incumbent = incumbent_mechanisms[v].weights[w].item()
-                proposal = uniform_proposal(incumbent, -1, 1, max_weight_change, generator)
-                new_mechanisms[v].weights[w].fill_(proposal)
+            new_mechanisms[v] = deepcopy(incumbent_scm.mechanisms[v])
+        if choice == 0: # switch activation
+            new_mechanism = SimpleMechanism(nodes, generator=generator)
+            new_mechanisms[v].activation._module[1] = new_mechanism.activation._module[1]
+        else: # perturb weight
+            parents = list(incumbent_scm.dag.predecessors(v))
+            parent_idx = int(torch.randint(0, len(parents), (1,), generator=generator).item())
+            w = parents[parent_idx]
+            incumbent = new_mechanisms[v].weights[w].item()
+            proposal = uniform_proposal(incumbent, -1, 1, 0.1, generator)
+            new_mechanisms[v].weights[w].fill_(proposal)
         print("Perturbed mechanisms...")
         new_scm = SCM(incumbent_scm.dag, new_mechanisms, incumbent_scm.noise, generator)
         return new_scm
     elif selector < graph_perturbation_prob + mechanism_perturbation_prob + noise_perturbation_prob:
-        # Perturb the noise
-        max_std_change = 0.1
+        # Perturb the noise of a node
         nodes = list(incumbent_scm.dag.nodes())
-        incumbent_noise: Mapping = incumbent_scm.noise
-        new_noise = {}
-        for v in nodes:
-            incumbent = incumbent_noise[v].distribution.scale
-            proposal = uniform_proposal(incumbent, 0, 10, max_std_change, generator)
-            loc = incumbent_noise[v].distribution.loc
-            new_noise[v] = TorchDistributionSampler(dist.Normal(loc=loc, scale=proposal))
+        new_noise = {v: incumbent_scm.noise[v] for v in nodes}
+        node_idx = int(torch.randint(0, len(nodes), (1,), generator=generator).item())
+        v = nodes[node_idx]
+        incumbent = new_noise[v].distribution.scale
+        proposal = uniform_proposal(incumbent, 0, 10, 0.1, generator)
+        loc = new_noise[v].distribution.loc
+        new_noise[v] = TorchDistributionSampler(dist.Normal(loc=loc, scale=proposal))
         print("Perturbed noise...")
         new_scm = SCM(incumbent_scm.dag, incumbent_scm.mechanisms, new_noise, generator)
         return new_scm
