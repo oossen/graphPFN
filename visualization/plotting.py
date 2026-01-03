@@ -69,12 +69,12 @@ def plot_prob_adj(prob_adj: torch.Tensor, filename: str):
     plt.close()
     
     
-def plot_graph(g: nx.Graph, filename: str):
+def plot_graph(g: nx.Graph, filename: str, **drawing_style):
     node_color = ['gray' if g.nodes[v].get('hidden', False) else 'blue' for v in g.nodes]
     weights = [g[u][v].get('weight', 1.0) for u, v in g.edges]
     base_color = (0, 0, 0) 
     edge_color = [base_color + (w,) for w in weights] 
-    nx.draw(g, with_labels=True, node_color=node_color, edge_color=edge_color)
+    nx.draw(g, node_color=node_color, edge_color=edge_color, **drawing_style)
     plt.savefig(filename, dpi=300)
     plt.close()
     

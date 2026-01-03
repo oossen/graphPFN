@@ -6,11 +6,36 @@ from dopfnprior.utils.sampling import build_samplers, sample_parameters
 from dopfnprior.causal_graph.graph_builder import GraphBuilder
 from torch import Tensor
 import matplotlib.pyplot as plt
-from typing import Dict, Any
+from typing import Dict, Any, Mapping
 import numpy as np
 import torch
+from dopfnprior.mechanisms.simple_mechanism import SimpleMechanism
+import networkx as nx
 from scipy.integrate import quad
-from visualization.plotting import plot_graph
+
+FIXED_POS = {
+    'x0': (2, 1),
+    'x1': (4, 1),
+    'x2': (5, 3),
+    'x3': (3, 4),
+    'y': (1, 3)
+}
+EXTRA_POS = {
+    'x0': (2, 0.5),
+    'x1': (4, 0.5),
+    'x2': (6, 3),
+    'x3': (3, 4.5),
+    'y': (0, 3)
+}
+DRAWING_STYLE = {
+    'node_size': 1000,
+    'font_size': 10,
+    'arrowsize': 10,
+    'width': 0,
+    'arrowstyle': 'simple',
+    'with_labels': True,
+    'pos': FIXED_POS
+}
 
 
 def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], y_var: str, filename: str, steps=200, calculate_total_mass=False):
@@ -63,11 +88,33 @@ def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], y_var: str, filename: s
         plt.savefig(f"{filename}/likelihood_{i}.png", dpi=300)
         plt.close()
         
-        plot_graph(scm.dag, f"{filename}/graph_{i}.png")
+        # extract weights and activations
+        weights = {}
+        extra_labels = {}
+        nodes = scm.dag.nodes
+        mechs: Mapping = scm.mechanisms
+        for v in nodes:
+            activation = str(mechs[v].activation._module[1])
+            noise_std = f"{scm.noise[v].distribution.scale:.2f}"
+            extra_labels[v] = f"{activation}\nNoise σ={noise_std}"
+            for w in scm.dag.predecessors(v):
+                weight = mechs[v].weights[w].item()
+                weights[(w, v)] = f"{weight:.2f}"
+        nx.draw(scm.dag, **DRAWING_STYLE)
+        nx.draw_networkx_edge_labels(scm.dag, FIXED_POS, edge_labels=weights)
+        nx.draw_networkx_labels(scm.dag, EXTRA_POS, labels=extra_labels)
+        plt.margins(0.5)
+        plt.savefig(f"{filename}/graph_{i}.png", dpi=300)
+        plt.close()
+        
+        # save values
+        with open(f"{filename}/values_{i}.txt", "w") as f:
+            for v in values_i:
+                f.write(f"{v}: {values_i[v].item()}\n")
     
 
 if __name__ == "__main__":
-    from configs.test_configs import prior_config
+    from configs.ppd_configs import prior_config
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
