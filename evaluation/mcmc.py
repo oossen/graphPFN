@@ -2,7 +2,7 @@ from collections import Counter
 from copy import deepcopy
 import math
 import os
-from typing import Dict, List, Mapping, Tuple
+from typing import Dict, List, Tuple
 from dopfnprior.scm.scm_builder import SCMBuilder
 from dopfnprior.scm.scm import SCM
 from dopfnprior.utils.sampling import build_samplers, sample_parameters
@@ -103,24 +103,21 @@ def mcmc(values: Dict,
     return chain[burn_in_index::step_size]
 
 
-def ppd(values: Dict, samples: List[SCM]) -> float:
+def ppd(values: Dict, samples: List[SCM], y: torch.Tensor) -> torch.Tensor:
     """
     Approximate the PPD of y given the features in `values`
     using Monte Carlo integration with the provided `samples`.
     """
     likelihoods = []
     for scm in samples:
-        ll = scm.log_likelihood(values, 'y')
-        likelihoods.append(math.exp(ll))
-    return sum(likelihoods) / len(likelihoods)
+        ll = scm.log_likelihood(values, y)
+        likelihoods.append(torch.exp(ll))
+    return torch.stack(likelihoods).mean(dim=0)
 
 
 def plot_ppd(ax, values: Dict, samples: List[SCM], style: Dict, steps: int = 30, bounds=[-3, 3]):    
-    y = np.linspace(bounds[0], bounds[1], steps)
-    probs = []
-    for yi in y:
-        values_y = values | {'y': torch.tensor([yi], dtype=torch.float32)}
-        probs.append(ppd(values_y, samples))
+    y = torch.linspace(bounds[0], bounds[1], steps)
+    probs = ppd(values, samples, y).cpu().numpy()
     ax.plot(y, probs, **style)
     
 
@@ -136,7 +133,7 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model, style: Dict, steps: 
 
 @torch.no_grad()    
 def posterior_log_prob(scm: SCM, values: Dict, prior: ObservationalDataLoader, fixed_graph: bool = False):
-    log_likelihood = scm.log_likelihood(values, 'y')
+    log_likelihood = scm.log_likelihood(values, values['y']).item()
     scm_prob = prior.noise_log_prob(scm)
     prior_log_prob = scm_prob
     if not fixed_graph:
@@ -284,14 +281,14 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     scm = scm_builder.sample(generator)
     sample_shape = (10,)
     scm.sample_noise(sample_shape, generator=generator)
-    values = scm.propagate(sample_shape)
+    values = scm.propagate()
     plt.figure()
     plot_graph(graph, f"{output_dir}/true_graph.png", **DRAWING_STYLE)
     print_mechanisms(scm, f"{output_dir}/true_scm.py")
     
     test_sample_shape = (1,)
     scm.sample_noise(test_sample_shape, generator=generator)
-    test_sample = scm.propagate(test_sample_shape)
+    test_sample = scm.propagate()
     
     # Plotting
     fig, ax = plt.subplots(figsize=(8, 5))

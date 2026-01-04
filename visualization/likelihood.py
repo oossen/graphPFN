@@ -9,9 +9,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, Any, Mapping
 import numpy as np
 import torch
-from dopfnprior.mechanisms.simple_mechanism import SimpleMechanism
 import networkx as nx
-from scipy.integrate import quad
 
 FIXED_POS = {
     'x0': (2, 1),
@@ -38,34 +36,29 @@ DRAWING_STYLE = {
 }
 
 
-def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], y_var: str, filename: str, steps=200, calculate_total_mass=False):
+def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], filename: str, steps=200):
     os.makedirs(filename, exist_ok=True)
     shape = values[list(values.keys())[0]].shape
     for i, idx in enumerate(np.ndindex(shape)):
         values_i = {v: values[v][idx] for v in values}
         
-        def conditional_log_likelihood(yi):
-            # yi needs to be in the same format as the other values
-            return scm.log_likelihood(values_i | {y_var: torch.tensor([[yi]], dtype=torch.float32)}, y_var)
+        def conditional_log_likelihood(y):
+            return scm.log_likelihood(values_i, y)
         
         # adaptively find good range for y
-        y_explore = np.linspace(-10.0, 10.0, steps)
-        p_explore = np.array([math.exp(conditional_log_likelihood(yi)) for yi in y_explore])
+        y_explore = torch.linspace(-10.0, 10.0, steps)
+        p_explore = torch.exp(conditional_log_likelihood(y_explore))
         eps = 1e-3
         mask = p_explore > eps
-        indices = np.where(mask)[0]
+        indices = torch.where(mask)[0]
         buffer = 1
         start_idx = max(0, indices[0] - buffer)
         end_idx = min(len(y_explore) - 1, indices[-1] + buffer)
         a = y_explore[start_idx]
         b = y_explore[end_idx]
-        y = np.linspace(a, b, steps)
+        y = torch.linspace(a, b, steps)
 
-        if calculate_total_mass:
-            total_probability_mass = quad(lambda yi: math.exp(conditional_log_likelihood(yi)), a, b)[0]
-            print(f"Total probability mass on [{a}, {b}]: {total_probability_mass}")
-
-        log_p = [conditional_log_likelihood(yi) for yi in y]
+        log_p = conditional_log_likelihood(y).cpu().numpy()
         plt.plot(y, log_p, label="log p(y)")
         plt.axhline(0, color='black', linewidth=0.5) # Adds x-axis
         plt.axvline(x=values_i['y'].item(), color='red', linestyle='--', linewidth=1)  # the true y-value
@@ -77,7 +70,7 @@ def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], y_var: str, filename: s
         plt.savefig(f"{filename}/log_likelihood_{i}.png", dpi=300)
         plt.close()
         
-        p = [math.exp(lp) for lp in log_p]
+        p = np.exp(log_p)
         plt.plot(y, p, label="p(y)")
         plt.axvline(x=values_i['y'].item(), color='red', linestyle='--', linewidth=1)  # the true y-value
         plt.xlabel("y")
@@ -134,6 +127,6 @@ if __name__ == "__main__":
         scm = scm_builder.sample(generator)
         sample_shape = (1,)
         scm.sample_noise(sample_shape, generator=generator)
-        values = scm.propagate(sample_shape)
+        values = scm.propagate()
         
-        plot_likelihood(scm, values, 'y', f"visualization/output/{datetime_str}/{i}")
+        plot_likelihood(scm, values, f"visualization/output/{datetime_str}/{i}")
