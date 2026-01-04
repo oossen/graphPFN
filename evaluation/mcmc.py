@@ -44,7 +44,7 @@ def mcmc(values: Dict,
          prior: ObservationalDataLoader, 
          initial_scm: SCM, 
          generator: torch.Generator, 
-         steps: int = 200, 
+         steps: int = 300, 
          burn_in: float = 0.1, 
          step_size: int = 2,
          fixed_graph: bool = False) -> List[Tuple[SCM, float]]:
@@ -79,7 +79,8 @@ def mcmc(values: Dict,
     incumbent = initial_scm
     incumbent_log_prob = posterior_log_prob(incumbent, values, prior)
     chain = [(incumbent, incumbent_log_prob)]
-    for _ in range(steps):
+    for i in range(steps):
+        print(f"MCMC step {i+1}/{steps}")
         if fixed_graph:
             proposal = perturbate(incumbent, generator, perturbation_probs=(0.0, 0.5, 0.5))
         else:
@@ -110,7 +111,7 @@ def ppd(values: Dict, samples: List[SCM], y: torch.Tensor) -> torch.Tensor:
     """
     likelihoods = []
     for scm in samples:
-        ll = scm.log_likelihood(values, y)
+        ll = scm.log_likelihood_batch(values, y)
         likelihoods.append(torch.exp(ll))
     return torch.stack(likelihoods).mean(dim=0)
 
@@ -133,7 +134,7 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model, style: Dict, steps: 
 
 @torch.no_grad()    
 def posterior_log_prob(scm: SCM, values: Dict, prior: ObservationalDataLoader, fixed_graph: bool = False):
-    log_likelihood = scm.log_likelihood(values, values['y']).item()
+    log_likelihood = scm.log_likelihood(values)
     scm_prob = prior.noise_log_prob(scm)
     prior_log_prob = scm_prob
     if not fixed_graph:
