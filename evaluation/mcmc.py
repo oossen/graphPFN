@@ -21,13 +21,30 @@ from itertools import combinations
 from pfns.bar_distribution import FullSupportBarDistribution
 from tfmplayground.utils import get_default_device
 
+FIXED_POS = {
+    'x0': (2, 1),
+    'x1': (4, 1),
+    'x2': (5, 3),
+    'x3': (3, 4),
+    'y': (1, 3)
+}
+DRAWING_STYLE = {
+    'node_size': 1000,
+    'font_size': 10,
+    'arrowsize': 10,
+    'width': 0,
+    'arrowstyle': 'simple',
+    'with_labels': True,
+    'pos': FIXED_POS
+}
+
 
 @torch.no_grad()
 def mcmc(values: Dict,
          prior: ObservationalDataLoader, 
          initial_scm: SCM, 
          generator: torch.Generator, 
-         steps: int = 10, 
+         steps: int = 200, 
          burn_in: float = 0.1, 
          step_size: int = 2,
          fixed_graph: bool = False) -> List[Tuple[SCM, float]]:
@@ -139,9 +156,9 @@ def perturbate(incumbent_scm: SCM, generator: torch.Generator, perturbation_prob
         # Perturb the graph by removing or switching direction of random edge
         new_dag = incumbent_scm.dag.copy()
         nodes = list(new_dag.nodes())
-        edges = combinations(nodes, 2)
-        edge_idx = int(torch.randint(0, len(list(edges)), (1,), generator=generator).item())
-        u, v = list(edges)[edge_idx]
+        edges = list(combinations(nodes, 2))
+        edge_idx = int(torch.randint(0, len(edges), (1,), generator=generator).item())
+        u, v = edges[edge_idx]
         choice = torch.randint(0, 2, (1,), generator=generator).item()
         if new_dag.has_edge(u, v):
             if choice == 0:
@@ -250,7 +267,7 @@ def visualize_chain(chain: List[Tuple[SCM, float]], output_dir: str):
         probability = count / num_samples
         average_graph.add_edge(u, v, weight=probability)
     plt.figure()
-    plot_graph(average_graph, f"{output_dir}/average_graph.png")
+    plot_graph(average_graph, f"{output_dir}/average_graph.png", **DRAWING_STYLE)
     
 
 def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool = True, include_pfn: bool = True):
@@ -269,7 +286,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     scm.sample_noise(sample_shape, generator=generator)
     values = scm.propagate(sample_shape)
     plt.figure()
-    plot_graph(graph, f"{output_dir}/true_graph.png")
+    plot_graph(graph, f"{output_dir}/true_graph.png", **DRAWING_STYLE)
     print_mechanisms(scm, f"{output_dir}/true_scm.py")
     
     test_sample_shape = (1,)
