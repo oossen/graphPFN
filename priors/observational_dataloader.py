@@ -88,6 +88,7 @@ class ObservationalDataLoader(DataLoader):
         full_data['y'] = data['y'].unsqueeze(-1)
         full_data['target_y'] = full_data['y'] # required by the current NanoTabPFN train loop
         full_data['single_eval_pos'] = num_train_samples
+        full_data['values'] = data
         
         nodelist.append('y')
         adjacency_matrix = nx.to_numpy_array(graph, nodelist=nodelist)

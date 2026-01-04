@@ -1,4 +1,3 @@
-import math
 import os
 from dopfnprior.scm.scm import SCM
 from dopfnprior.scm.scm_builder import SCMBuilder
@@ -41,13 +40,9 @@ def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], filename: str, steps=20
     shape = values[list(values.keys())[0]].shape
     for i, idx in enumerate(np.ndindex(shape)):
         values_i = {v: values[v][idx] for v in values}
-        
-        def conditional_log_likelihood(y):
-            return scm.log_likelihood(values_i, y)
-        
         # adaptively find good range for y
         y_explore = torch.linspace(-10.0, 10.0, steps)
-        p_explore = torch.exp(conditional_log_likelihood(y_explore))
+        p_explore = torch.exp(scm.log_likelihood_batch(values_i, y_explore))
         eps = 1e-3
         mask = p_explore > eps
         indices = torch.where(mask)[0]
@@ -58,7 +53,7 @@ def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], filename: str, steps=20
         b = y_explore[end_idx]
         y = torch.linspace(a, b, steps)
 
-        log_p = conditional_log_likelihood(y).cpu().numpy()
+        log_p = scm.log_likelihood_batch(values_i, y).cpu().numpy()
         plt.plot(y, log_p, label="log p(y)")
         plt.axhline(0, color='black', linewidth=0.5) # Adds x-axis
         plt.axvline(x=values_i['y'].item(), color='red', linestyle='--', linewidth=1)  # the true y-value
@@ -81,52 +76,44 @@ def plot_likelihood(scm: SCM, values: Dict[Any, Tensor], filename: str, steps=20
         plt.savefig(f"{filename}/likelihood_{i}.png", dpi=300)
         plt.close()
         
-        # extract weights and activations
-        weights = {}
-        extra_labels = {}
-        nodes = scm.dag.nodes
-        mechs: Mapping = scm.mechanisms
-        for v in nodes:
-            activation = str(mechs[v].activation._module[1])
-            noise_std = f"{scm.noise[v].distribution.scale:.2f}"
-            extra_labels[v] = f"{activation}\nNoise σ={noise_std}"
-            for w in scm.dag.predecessors(v):
-                weight = mechs[v].weights[w].item()
-                weights[(w, v)] = f"{weight:.2f}"
-        nx.draw(scm.dag, **DRAWING_STYLE)
-        nx.draw_networkx_edge_labels(scm.dag, FIXED_POS, edge_labels=weights)
-        nx.draw_networkx_labels(scm.dag, EXTRA_POS, labels=extra_labels)
-        plt.margins(0.5)
-        plt.savefig(f"{filename}/graph_{i}.png", dpi=300)
-        plt.close()
-        
         # save values
         with open(f"{filename}/values_{i}.txt", "w") as f:
             for v in values_i:
                 f.write(f"{v}: {values_i[v].item()}\n")
+        
+    # extract weights and activations
+    weights = {}
+    extra_labels = {}
+    nodes = scm.dag.nodes
+    mechs: Mapping = scm.mechanisms
+    for v in nodes:
+        activation = str(mechs[v].activation._module[1])
+        noise_std = f"{scm.noise[v].distribution.scale:.2f}"
+        extra_labels[v] = f"{activation}\nNoise σ={noise_std}"
+        for w in scm.dag.predecessors(v):
+            weight = mechs[v].weights[w].item()
+            weights[(w, v)] = f"{weight:.2f}"
+    nx.draw(scm.dag, **DRAWING_STYLE)
+    nx.draw_networkx_edge_labels(scm.dag, FIXED_POS, edge_labels=weights)
+    nx.draw_networkx_labels(scm.dag, EXTRA_POS, labels=extra_labels)
+    plt.margins(0.5)
+    plt.savefig(f"{filename}/graph.png", dpi=300)
+    plt.close()
     
 
 if __name__ == "__main__":
     from configs.ppd_configs import prior_config
+    from priors.observational_dataloader import ObservationalDataLoader
+    from priors.basic_dataloader import ObservationalDataLoader as BasicObservationalDataLoader
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     
     generator = torch.Generator()
     generator.manual_seed(43)
-        
-    graph_samplers = build_samplers(prior_config['graph_config'], "graph")
-    scm_samplers = build_samplers(prior_config['scm_config'], "scm")
-    graph_params = sample_parameters(graph_samplers, generator)
-    scm_params = sample_parameters(scm_samplers, generator)
+    prior = ObservationalDataLoader(10, 1, prior_config, 42)
     
-    for i in range(10):
-        graph_builder = GraphBuilder(**graph_params)
-        graph = graph_builder.sample(generator)
-        scm_builder = SCMBuilder(graph, **scm_params)
-        scm = scm_builder.sample(generator)
-        sample_shape = (1,)
-        scm.sample_noise(sample_shape, generator=generator)
-        values = scm.propagate()
-        
+    for i, data in enumerate(prior):
+        scm = data['graph_information']['scm']
+        values = data['values']
         plot_likelihood(scm, values, f"visualization/output/{datetime_str}/{i}")
