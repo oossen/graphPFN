@@ -5,10 +5,12 @@ from matplotlib import pyplot as plt
 import numpy as np
 import torch
 from datetime import datetime
-
+from pfns.bar_distribution import FullSupportBarDistribution
 from dopfnprior.scm.scm import SCM
+from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from priors.basic_dataloader import ObservationalDataLoader
 from visualization.plotting import plot_graph
+from tfmplayground.utils import get_default_device
 
 
 EPS = 1e-2
@@ -86,12 +88,17 @@ def plot_ppd(ax, values: Dict, samples: List[SCM], style: Dict, steps: int = 100
     ax.set_xlim(min(curr_min, a), max(curr_max, b))
     
 
-def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model, style: Dict, steps: int = 100, **kwargs):
+def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, style: Dict, steps: int = 100, **kwargs):
+    # Initialize model
+    model = init_model_from_state_dict_file('binary', f"{model_path}/latest_checkpoint.pth")
+    buckets = torch.load(f"{model_path}/dist.pth")
+    bar_dist = FullSupportBarDistribution(buckets)
+    reg = Regressor(model, bar_dist, get_default_device())
     # Find good range for y
     y_explore = np.linspace(-10.0, 10.0, steps)
     nodelist = [v for v in values.keys() if v != 'y']
     X_test = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
-    log_p_explore = model.log_ppd(X_test, y_explore, **kwargs)
+    log_p_explore = reg.log_ppd(X_test, y_explore, **kwargs)
     p_explore = np.exp(log_p_explore)
     mask = p_explore > EPS
     indices = np.where(mask)[0]
@@ -101,8 +108,8 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model, style: Dict, steps: 
     b = y_explore[end_idx]
     # Plot and change range
     y = np.linspace(a, b, steps)
-    model.fit(X_train, y_train)
-    log_probs = model.log_ppd(X_test, y, **kwargs)
+    reg.fit(X_train, y_train)
+    log_probs = reg.log_ppd(X_test, y, **kwargs)
     probs = np.exp(log_probs)
     ax.plot(y, probs, **style)
     curr_min, curr_max = ax.get_xlim()
@@ -141,7 +148,12 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         plot_ppd(ax, test_sample, [scm for scm, _ in chain], style=style)
     
     if include_pfn:
-        pass
+        nodelist = [v for v in values.keys() if v != 'y']
+        X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
+        y_train = values['y'].cpu().numpy()
+        for model_path in ["basic", "basic_graph", "basic_fixed"]:
+            style = {'label': model_path, 'color': 'red', 'linestyle': '--'}
+            plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, style=style, adjacency_matrix=data['graph_information']['adjacency_matrix'])
         
     ax.set_xlabel("y")
     ax.set_ylabel("p(y)")
