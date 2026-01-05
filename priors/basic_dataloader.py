@@ -37,9 +37,9 @@ class ObservationalDataLoader(DataLoader):
         return iter(self.batch_function() for _ in range(self.num_steps))
     
     def batch_function(self):
+        nodes = ['x0', 'x1', 'x2', 'x3', 'y']
         if self.fixed_graph:
             graph = nx.DiGraph()
-            nodes = ['x0', 'x1', 'x2', 'x3', 'y']
             graph.add_nodes_from(nodes)
             edges = [
                 ('x3', 'x2'),

@@ -10,6 +10,7 @@ from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 
 from graphpfn.utils import make_bar_distribution
+from visualization.make_visualization import plot_all
 
 from priors.basic_dataloader import ObservationalDataLoader
 from configs.ppd_configs import training_config as args
@@ -40,6 +41,8 @@ old_sanity_callback = OldSanityCheckLoggerCallback(tensorboard_dir, test_prior_f
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
 callbacks: List[Callback] = [logger_callback, sanity_callback, old_sanity_callback]
 
+visualization_prior = ObservationalDataLoader(10, 5, seed=42)
+plot_all(visualization_prior, f"{output_dir}/visualization")
 # save buckets
 with open(f"{output_dir}/buckets.txt", "w") as f:
     f.write(str(buckets))
