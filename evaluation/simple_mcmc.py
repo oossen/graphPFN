@@ -41,7 +41,12 @@ def mcmc(values: Dict, prior: ObservationalDataLoader, generator: torch.Generato
     for i, data in enumerate(prior):
         print(f"MCMC step {i+1}/{len(prior)}...")
         proposal: SCM = data['graph_information']['scm']
-        proposal_log_prob = proposal.log_likelihood(values)
+        # likelihood of D=(x_i,y_i) and new data point x'
+        proposal_log_prob = 0.0
+        shape_values = values[list(values.keys())[0]].shape
+        for idx in np.ndindex(shape_values):
+            values_i = {v: values[v][idx] for v in values}
+            proposal_log_prob += proposal.total_log_probability(values_i)
         accept = False
         if proposal_log_prob > incumbent_log_prob:
             print(f"Improving move... ({incumbent_log_prob} -> {proposal_log_prob})")
@@ -154,9 +159,9 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        model_names = ["basic_5", "basic_5_pe"]
-        model_types = {"basic_5": "pfn", "basic_5_pe": "pos_encoding"}
-        model_colors = {"basic_5": "red", "basic_5_pe": "violet"}
+        model_names = ["basic_5", "basic_5_pe", "basic_5_graph"]
+        model_types = {"basic_5": "pfn", "basic_5_pe": "pos_encoding", "basic_5_graph": "binary"}
+        model_colors = {"basic_5": "red", "basic_5_pe": "violet", "basic_5_graph": "orange"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_name, 'color': model_colors[model_name], 'linestyle': '--'}
