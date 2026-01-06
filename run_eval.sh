@@ -27,7 +27,7 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python -m evaluation.mcmc
+python -m evaluation.simple_mcmc
 end=`date +%s`
 runtime=$((end-start))
 

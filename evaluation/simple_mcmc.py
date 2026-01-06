@@ -73,7 +73,7 @@ def ppd(values: Dict, samples: List[SCM], y: torch.Tensor) -> torch.Tensor:
 def plot_ppd(ax, values: Dict, samples: List[SCM], style: Dict, steps: int = 100):
     # Find good range for y
     y_explore = torch.linspace(-10.0, 10.0, steps)
-    p_explore = ppd(values, samples, y_explore)
+    p_explore = torch.stack([torch.exp(scm.log_likelihood_batch(values, y_explore)) for scm in samples]).mean(dim=0)
     mask = p_explore > EPS
     indices = torch.where(mask)[0]
     start_idx = max(0, indices[0])
@@ -82,18 +82,22 @@ def plot_ppd(ax, values: Dict, samples: List[SCM], style: Dict, steps: int = 100
     b = y_explore[end_idx]
     # Plot and change range
     y = torch.linspace(a, b, steps)
-    probs = ppd(values, samples, y).cpu().numpy()
+    likelihoods = [torch.exp(scm.log_likelihood_batch(values, y)) for scm in samples]
+    for ll in likelihoods:
+        ax.plot(y, ll, **{k: v for k, v in style.items() if k != 'label'}, alpha=0.02)
+    probs = torch.stack(likelihoods).mean(dim=0)
     ax.plot(y, probs, **style)
     curr_min, curr_max = ax.get_xlim()
     ax.set_xlim(min(curr_min, a), max(curr_max, b))
     
 
-def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, style: Dict, steps: int = 100, **kwargs):
-    # Initialize model
-    model = init_model_from_state_dict_file('binary', f"{model_path}/latest_checkpoint.pth")
+def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, model_type: str, style: Dict, steps: int = 100, **kwargs):
+    # Initialize and fit model
+    model = init_model_from_state_dict_file(model_type, f"{model_path}/latest_checkpoint.pth")
     buckets = torch.load(f"{model_path}/dist.pth")
     bar_dist = FullSupportBarDistribution(buckets)
     reg = Regressor(model, bar_dist, get_default_device())
+    reg.fit(X_train, y_train)
     # Find good range for y
     y_explore = np.linspace(-10.0, 10.0, steps)
     nodelist = [v for v in values.keys() if v != 'y']
@@ -108,7 +112,6 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, style: Dic
     b = y_explore[end_idx]
     # Plot and change range
     y = np.linspace(a, b, steps)
-    reg.fit(X_train, y_train)
     log_probs = reg.log_ppd(X_test, y, **kwargs)
     probs = np.exp(log_probs)
     ax.plot(y, probs, **style)
@@ -141,7 +144,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     if include_mcmc:
         # Perform MCMC
-        prior = ObservationalDataLoader(500, 1, fixed_graph=True, seed=seed+1)
+        prior = ObservationalDataLoader(100, 1, fixed_graph=True, seed=seed+1)
         chain = mcmc(values, prior, generator)
         # Evaluate PPD on test sample
         style = {'label': 'ppd', 'color': 'blue', 'linestyle': '-'}
@@ -151,9 +154,13 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        for model_path in ["basic", "basic_graph", "basic_fixed"]:
-            style = {'label': model_path, 'color': 'red', 'linestyle': '--'}
-            plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, style=style, adjacency_matrix=data['graph_information']['adjacency_matrix'])
+        model_names = ["basic_5", "basic_5_pe"]
+        model_types = {"basic_5": "pfn", "basic_5_pe": "pos_encoding"}
+        model_colors = {"basic_5": "red", "basic_5_pe": "violet"}
+        for model_name in model_names:
+            model_path = f"workdir/{model_name}"
+            style = {'label': model_name, 'color': model_colors[model_name], 'linestyle': '--'}
+            plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, model_types[model_name], style=style, adjacency_matrix=data['graph_information']['adjacency_matrix'])
         
     ax.set_xlabel("y")
     ax.set_ylabel("p(y)")
@@ -168,7 +175,7 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"evaluation/output/{datetime_str}"
     
-    seed = 42
+    seed = 43
     generator = torch.Generator()
     generator.manual_seed(seed)
     

@@ -55,10 +55,16 @@ class ObservationalDataLoader(DataLoader):
         mechanisms = {v: SimpleMechanism(nodes, self.generator) for v in nodes}
         for v in nodes:
             mechanisms[v].activation._module[1] = torch.nn.ReLU()
-        noise = {v: TorchDistributionSampler(dist.Normal(loc=0, scale=0.3)) for v in nodes}
+        noise = {}
+        root_nodes = [v for v in nodes if not graph.predecessors(v)]
+        non_root_nodes = [v for v in nodes if graph.predecessors(v)]
+        for v in root_nodes:
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0))
+        for v in non_root_nodes:
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.2))
         scm = SCM(graph, mechanisms, noise, self.generator)
             
-        num_train_samples = int(torch.randint(5, 20, (1,), generator=self.generator).item())
+        num_train_samples = 5
         num_test_samples = 10
         
         total_samples = num_train_samples + num_test_samples
