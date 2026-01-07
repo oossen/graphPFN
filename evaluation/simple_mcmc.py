@@ -34,7 +34,7 @@ DRAWING_STYLE = {
 
 
 @torch.no_grad()
-def mcmc(values: Dict, prior: ObservationalDataLoader, generator: torch.Generator) -> List[Tuple[SCM, float]]:
+def mcmc(values: Dict, test_sample: Dict, prior: ObservationalDataLoader, generator: torch.Generator) -> List[Tuple[SCM, float]]:
     """Perform basic MCMC where the proposal distribution is just the prior."""
     incumbent_log_prob = float("-inf")
     chain = []
@@ -47,6 +47,8 @@ def mcmc(values: Dict, prior: ObservationalDataLoader, generator: torch.Generato
         for idx in np.ndindex(shape_values):
             values_i = {v: values[v][idx] for v in values}
             proposal_log_prob += proposal.total_log_probability(values_i)
+        values_i_x = {v: test_sample[v] for v in values if v != 'y'}
+        proposal_log_prob += proposal.marginal(values_i_x)
         accept = False
         if proposal_log_prob > incumbent_log_prob:
             print(f"Improving move... ({incumbent_log_prob} -> {proposal_log_prob})")
@@ -75,7 +77,7 @@ def ppd(values: Dict, samples: List[SCM], y: torch.Tensor) -> torch.Tensor:
     return torch.stack(likelihoods).mean(dim=0)
 
 
-def plot_ppd(ax, values: Dict, samples: List[SCM], style: Dict, steps: int = 100):
+def plot_ppd(ax, values: Dict, samples: List[SCM], style: Dict, steps: int = 200):
     # Find good range for y
     y_explore = torch.linspace(-10.0, 10.0, steps)
     p_explore = torch.stack([torch.exp(scm.log_likelihood_batch(values, y_explore)) for scm in samples]).mean(dim=0)
@@ -118,6 +120,8 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, model_type
     # Plot and change range
     y = np.linspace(a, b, steps)
     log_probs = reg.log_ppd(X_test, y, **kwargs)
+    # pred = reg.predict(X_test, **kwargs)
+    # ax.axvline(x=pred.item(), color=style.get('color', 'black'), linestyle='--')
     probs = np.exp(log_probs)
     ax.plot(y, probs, **style)
     curr_min, curr_max = ax.get_xlim()
@@ -149,11 +153,16 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     if include_mcmc:
         # Perform MCMC
-        prior = ObservationalDataLoader(100, 1, fixed_graph=True, seed=seed+1)
-        chain = mcmc(values, prior, generator)
+        prior = ObservationalDataLoader(500, 1, fixed_graph=True, seed=seed+1)
+        chain = mcmc(values, test_sample, prior, generator)
         # Evaluate PPD on test sample
         style = {'label': 'ppd', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, [scm for scm, _ in chain], style=style)
+        # Plot prior
+        # prior = ObservationalDataLoader(100, 1, fixed_graph=True, seed=seed+2)
+        # scms = [data['graph_information']['scm'] for data in prior]
+        # style = {'label': 'prior', 'color': 'cyan', 'linestyle': '-'}
+        # plot_ppd(ax, test_sample, scms, style=style)
     
     if include_pfn:
         nodelist = [v for v in values.keys() if v != 'y']
@@ -180,7 +189,7 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"evaluation/output/{datetime_str}"
     
-    seed = 43
+    seed = 41
     generator = torch.Generator()
     generator.manual_seed(seed)
     

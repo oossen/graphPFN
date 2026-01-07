@@ -93,5 +93,5 @@ training_config = {
     
     # number of data batches used to infer buckets for bar distribution
     # int
-    "n_bardist_samples": 5000,
+    "n_bardist_samples": 100000,
 }

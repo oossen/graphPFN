@@ -65,7 +65,7 @@ class ObservationalDataLoader(DataLoader):
         scm = SCM(graph, mechanisms, noise, self.generator)
             
         num_train_samples = 5
-        num_test_samples = 10
+        num_test_samples = 1
         
         total_samples = num_train_samples + num_test_samples
         sample_shape = (self.batch_size, total_samples)
