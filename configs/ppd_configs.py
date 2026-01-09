@@ -89,9 +89,9 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 30,
+    "epochs": 20,
     
     # number of data batches used to infer buckets for bar distribution
     # int
-    "n_bardist_samples": 100000,
+    "n_bardist_samples": 10000,
 }
