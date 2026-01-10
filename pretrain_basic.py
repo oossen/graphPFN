@@ -27,7 +27,7 @@ prior = ObservationalDataLoader(num_steps=args["steps"],
 
 model = args["model"]
 n_buckets = model.num_outputs
-buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-5.0, 5.0))
+buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-5.0, 5.0)).to(device)
 dist = FullSupportBarDistribution(buckets)
 
 now = datetime.now()
