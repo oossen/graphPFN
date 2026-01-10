@@ -164,7 +164,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     # Sample the training data D = (X, y)
     seed = int(torch.randint(0, 10000, (1,), generator=generator).item())
-    sample_shape = (10,)
+    sample_shape = (5,)
     test_sample_shape = (1,)
     
     prior = ObservationalDataLoader(1, 1, fixed_graph=True, seed=seed)
@@ -189,10 +189,10 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         style = {'label': 'PPD: p(y|x, D, graph)', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC ignoring context
-        prior = ObservationalDataLoader(200, 1, fixed_graph=True, seed=seed+2)
-        chain = mcmc(values, test_sample, prior, generator, likelihood_fn=ignore_context)
-        style = {'label': 'p(y|x, graph)', 'color': 'cyan', 'linestyle': '-'}
-        plot_ppd(ax, test_sample, chain, style=style)
+        # prior = ObservationalDataLoader(200, 1, fixed_graph=True, seed=seed+2)
+        # chain = mcmc(values, test_sample, prior, generator, likelihood_fn=ignore_context)
+        # style = {'label': 'p(y|x, graph)', 'color': 'cyan', 'linestyle': '-'}
+        # plot_ppd(ax, test_sample, chain, style=style)
     
     if include_pfn:
         nodelist = [v for v in values.keys() if v != 'y']
@@ -202,10 +202,10 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         model_types = {"basic_5": "pfn", "basic_5_pe": "pos_encoding", "basic_5_graph": "binary"}
         model_colors = {"basic_5": "red", "basic_5_pe": "violet", "basic_5_graph": "orange"}
         model_labels = {"basic_5": "PFN (baseline, no graph info)", "basic_5_pe": "PFN (trained on fixed graph)", "basic_5_graph": "PFN (incorporating graph info)"}
-        model_names = ["ppd_01_09_17_31", "ppd_graph_01_09_17_33", "ppd_pe_01_09_17_36"]
-        model_types = {"ppd_01_09_17_31": "pfn", "ppd_graph_01_09_17_33": "binary", "ppd_pe_01_09_17_36": "pos_encoding"}
-        model_colors = {"ppd_01_09_17_31": "red", "ppd_graph_01_09_17_33": "orange", "ppd_pe_01_09_17_36": "violet"}
-        model_labels = {"ppd_01_09_17_31": "PFN (baseline, no graph info)", "ppd_graph_01_09_17_33": "PFN (incorporating graph info)", "ppd_pe_01_09_17_36": "PFN (trained on fixed graph)"}
+        model_names = ["ppd_01_09_17_31", "ppd_graph_01_09_17_33", "ppd_pe_01_09_17_36", "ppd_transfer_01_10_18_18", "ppd_pe_01_10_16_55"]
+        model_types = {"ppd_01_09_17_31": "pfn", "ppd_graph_01_09_17_33": "binary", "ppd_pe_01_09_17_36": "pos_encoding", "ppd_transfer_01_10_18_18": "transfer", "ppd_pe_01_10_16_55": "pos_encoding"}
+        model_colors = {"ppd_01_09_17_31": "red", "ppd_graph_01_09_17_33": "orange", "ppd_pe_01_09_17_36": "violet", "ppd_transfer_01_10_18_18": "yellow", "ppd_pe_01_10_16_55": "purple"}
+        model_labels = {"ppd_01_09_17_31": "PFN (baseline, no graph info)", "ppd_graph_01_09_17_33": "PFN (incorporating graph info)", "ppd_pe_01_09_17_36": "PFN (trained on fixed graph)", "ppd_transfer_01_10_18_18": "PFN (transfer learning)", "ppd_pe_01_10_16_55": "PFN (diversity)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}

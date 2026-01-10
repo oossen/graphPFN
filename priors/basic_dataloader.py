@@ -41,7 +41,7 @@ class ObservationalDataLoader(DataLoader):
     def batch_function(self):
         nodes = ['x0', 'x1', 'x2', 'x3', 'y']
         choice = torch.rand((1,), generator=self.generator).item()
-        if self.fixed_graph and choice < 0.75:
+        if self.fixed_graph and choice < 1.0:
             graph = nx.DiGraph()
             graph.add_nodes_from(nodes)
             edges = [
@@ -64,10 +64,10 @@ class ObservationalDataLoader(DataLoader):
         for v in root_nodes:
             noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0))
         for v in non_root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.1))
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.2))
         scm = SCM(graph, mechanisms, noise, self.generator)
             
-        num_train_samples = 10
+        num_train_samples = 5
         num_test_samples = self.n_test_samples
         
         total_samples = num_train_samples + num_test_samples

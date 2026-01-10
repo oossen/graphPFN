@@ -14,7 +14,7 @@ from pfns.bar_distribution import FullSupportBarDistribution
 from visualization.make_visualization import plot_all
 
 from priors.basic_dataloader import ObservationalDataLoader
-from configs.ppd_configs_pe import training_config as args
+from configs.ppd_configs_transfer import training_config as args
 fixed_graph = True
 
 
