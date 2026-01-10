@@ -27,7 +27,7 @@ prior = ObservationalDataLoader(num_steps=args["steps"],
 
 model = args["model"]
 n_buckets = model.num_outputs
-buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-5.0, 5.0)).to(device)
+buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-10.0, 10.0)).to(device)
 dist = FullSupportBarDistribution(buckets)
 
 now = datetime.now()
@@ -43,6 +43,9 @@ callbacks: List[Callback] = [logger_callback, sanity_callback, old_sanity_callba
 
 visualization_prior = ObservationalDataLoader(10, 1, fixed_graph_ratio=fixed_graph_ratio, seed=42)
 plot_all(visualization_prior, f"{output_dir}/visualization")
+# save buckets
+with open(f"{output_dir}/buckets.txt", "w") as f:
+    f.write(str(buckets))
     
 torch.save(buckets.to('cpu'), f"{output_dir}/dist.pth")
 trained_model, loss = train(

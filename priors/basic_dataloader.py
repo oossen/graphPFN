@@ -64,7 +64,7 @@ class ObservationalDataLoader(DataLoader):
         for v in root_nodes:
             noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0))
         for v in non_root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.2))
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.1))
         scm = SCM(graph, mechanisms, noise, self.generator)
             
         num_train_samples = 5

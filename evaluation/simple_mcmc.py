@@ -167,7 +167,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     sample_shape = (5,)
     test_sample_shape = (1,)
     
-    prior = ObservationalDataLoader(1, 1, fixed_graph=True, seed=seed)
+    prior = ObservationalDataLoader(1, 1, fixed_graph_ratio=1.0, seed=seed)
     data = next(iter(prior))
     scm = data['graph_information']['scm']
     graph = data['graph_information']['graph']
@@ -178,18 +178,27 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     scm.sample_noise(test_sample_shape, generator=generator)
     test_sample = scm.propagate()
     
+    # Save y and normalized ys to file
+    ys = values['y'].cpu().numpy()
+    ys_mean, ys_std = np.mean(ys), np.std(ys) + 1e-8
+    ys_n = (ys - ys_mean) / ys_std
+    with open(f"{output_dir}/values.txt", "w") as f:
+        f.write(f"training y values: {ys}\n")
+        f.write(f"mu, sigma: {ys_mean}, {ys_std}\n")
+        f.write(f"normalized training y values: {ys_n}\n")
+    
     # Plotting
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.axvline(x=test_sample['y'].item(), color='black', linestyle='--', linewidth=1, label="True Value")
     
     if include_mcmc:
         # Perform MCMC
-        prior = ObservationalDataLoader(200, 1, fixed_graph=True, seed=seed+1)
+        prior = ObservationalDataLoader(100, 1, fixed_graph_ratio=1.0, seed=seed+1)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         style = {'label': 'PPD: p(y|x, D, graph)', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC ignoring context
-        # prior = ObservationalDataLoader(200, 1, fixed_graph=True, seed=seed+2)
+        # prior = ObservationalDataLoader(100, 1, fixed_graph_ratio=1.0, seed=seed+2)
         # chain = mcmc(values, test_sample, prior, generator, likelihood_fn=ignore_context)
         # style = {'label': 'p(y|x, graph)', 'color': 'cyan', 'linestyle': '-'}
         # plot_ppd(ax, test_sample, chain, style=style)
@@ -198,14 +207,10 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        model_names = ["basic_5", "basic_5_pe", "basic_5_graph"]
-        model_types = {"basic_5": "pfn", "basic_5_pe": "pos_encoding", "basic_5_graph": "binary"}
-        model_colors = {"basic_5": "red", "basic_5_pe": "violet", "basic_5_graph": "orange"}
-        model_labels = {"basic_5": "PFN (baseline, no graph info)", "basic_5_pe": "PFN (trained on fixed graph)", "basic_5_graph": "PFN (incorporating graph info)"}
-        model_names = ["ppd_01_09_17_31", "ppd_graph_01_09_17_33", "ppd_pe_01_09_17_36", "ppd_transfer_01_10_18_18", "ppd_pe_01_10_16_55"]
-        model_types = {"ppd_01_09_17_31": "pfn", "ppd_graph_01_09_17_33": "binary", "ppd_pe_01_09_17_36": "pos_encoding", "ppd_transfer_01_10_18_18": "transfer", "ppd_pe_01_10_16_55": "pos_encoding"}
-        model_colors = {"ppd_01_09_17_31": "red", "ppd_graph_01_09_17_33": "orange", "ppd_pe_01_09_17_36": "violet", "ppd_transfer_01_10_18_18": "yellow", "ppd_pe_01_10_16_55": "purple"}
-        model_labels = {"ppd_01_09_17_31": "PFN (baseline, no graph info)", "ppd_graph_01_09_17_33": "PFN (incorporating graph info)", "ppd_pe_01_09_17_36": "PFN (trained on fixed graph)", "ppd_transfer_01_10_18_18": "PFN (transfer learning)", "ppd_pe_01_10_16_55": "PFN (diversity)"}
+        model_names = ["ppd_01_10_20_52"]
+        model_types = {"ppd_01_10_20_52": "pfn"}
+        model_colors = {"ppd_01_10_20_52": "red"}
+        model_labels = {"ppd_01_10_20_52": "PFN (baseline, no graph info)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
