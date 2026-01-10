@@ -12,4 +12,4 @@ training_config["model"] = model = GraphPFNModel(
     num_layers=6,
     num_outputs=300,
     )
-training_config["saveweights"] = "ppd_transfer"
+training_config["saveweights"] = "ppd_transfer_pe"

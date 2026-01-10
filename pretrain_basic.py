@@ -14,15 +14,15 @@ from pfns.bar_distribution import FullSupportBarDistribution
 from visualization.make_visualization import plot_all
 
 from priors.basic_dataloader import ObservationalDataLoader
-from configs.ppd_configs_transfer import training_config as args
-fixed_graph = True
+from configs.ppd_configs import training_config as args
+fixed_graph_ratio = 0.0
 
 
 device = get_default_device()
 
 prior = ObservationalDataLoader(num_steps=args["steps"],
                                 batch_size=args["batchsize"],
-                                fixed_graph=fixed_graph,
+                                fixed_graph_ratio=fixed_graph_ratio,
                                 seed=42)
 
 model = args["model"]
@@ -35,13 +35,13 @@ datetime_str = now.strftime("%m_%d_%H_%M")
 run_name = f"{args['saveweights']}_{datetime_str}"
 output_dir = f"workdir/{run_name}"
 tensorboard_dir = f"{output_dir}/tensorboard"
-test_prior_factory = partial(ObservationalDataLoader, batch_size=1, fixed_graph=fixed_graph, n_test_samples=20, seed=43)
+test_prior_factory = partial(ObservationalDataLoader, batch_size=1, fixed_graph_ratio=fixed_graph_ratio, n_test_samples=20, seed=43)
 sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 old_sanity_callback = OldSanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
 callbacks: List[Callback] = [logger_callback, sanity_callback, old_sanity_callback]
 
-visualization_prior = ObservationalDataLoader(10, 1, fixed_graph=fixed_graph, seed=42)
+visualization_prior = ObservationalDataLoader(10, 1, fixed_graph_ratio=fixed_graph_ratio, seed=42)
 plot_all(visualization_prior, f"{output_dir}/visualization")
     
 torch.save(buckets.to('cpu'), f"{output_dir}/dist.pth")

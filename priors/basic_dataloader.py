@@ -16,13 +16,13 @@ class ObservationalDataLoader(DataLoader):
     def __init__(self,
                  num_steps: int,
                  batch_size: int,
-                 fixed_graph: bool = False, 
+                 fixed_graph_ratio: float = 0.0, 
                  n_test_samples: int = 10,
                  seed: int = 42):
         self.seed = seed
         self.num_steps: int = num_steps
         self.batch_size: int = batch_size
-        self.fixed_graph = fixed_graph
+        self.fixed_graph_ratio = fixed_graph_ratio
         self.n_test_samples = n_test_samples
         self.generator = torch.Generator()
         self.generator.manual_seed(seed)
@@ -41,7 +41,7 @@ class ObservationalDataLoader(DataLoader):
     def batch_function(self):
         nodes = ['x0', 'x1', 'x2', 'x3', 'y']
         choice = torch.rand((1,), generator=self.generator).item()
-        if self.fixed_graph and choice < 1.0:
+        if choice < self.fixed_graph_ratio:
             graph = nx.DiGraph()
             graph.add_nodes_from(nodes)
             edges = [
