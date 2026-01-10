@@ -40,7 +40,8 @@ class ObservationalDataLoader(DataLoader):
     
     def batch_function(self):
         nodes = ['x0', 'x1', 'x2', 'x3', 'y']
-        if self.fixed_graph:
+        choice = torch.rand((1,), generator=self.generator).item()
+        if self.fixed_graph and choice < 0.75:
             graph = nx.DiGraph()
             graph.add_nodes_from(nodes)
             edges = [

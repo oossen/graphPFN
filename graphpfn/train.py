@@ -42,7 +42,7 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
     work_dir = 'workdir/'+run_name
     os.makedirs(work_dir, exist_ok=True)
     model.to(device)
-    optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=lr, weight_decay=0.0)
+    optimizer = schedulefree.AdamWScheduleFree(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.0)
     if ckpt:
         optimizer.load_state_dict(ckpt['optimizer'])
     classification_task = isinstance(criterion, nn.CrossEntropyLoss)

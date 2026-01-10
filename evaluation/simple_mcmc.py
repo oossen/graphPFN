@@ -60,7 +60,7 @@ def ignore_context(values: Dict, test_sample: Dict, scm: SCM) -> float:
 
 
 @torch.no_grad()
-def mcmc(values: Dict, test_sample: Dict, prior: ObservationalDataLoader, generator: torch.Generator, likelihood_fn=likelihood) -> List[Tuple[SCM, float]]:
+def mcmc(values: Dict, test_sample: Dict, prior: ObservationalDataLoader, generator: torch.Generator, likelihood_fn=likelihood) -> List[Tuple[SCM, float, int]]:
     """Perform basic MCMC where the proposal distribution is just the prior."""
     prior_iter = iter(prior)
     incumbent = next(prior_iter)['graph_information']['scm']
@@ -108,7 +108,8 @@ def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 200):
     y_explore = torch.linspace(-10.0, 10.0, steps)
     likelihoods_explore = [torch.exp(scm.log_likelihood_batch(values, y_explore)) for scm, _, _ in samples]
     weights = [w for _, _, w in samples]
-    p_explore = sum(t * w for t, w in zip(likelihoods_explore, weights)) / sum(weights)
+    weighted_sum = torch.stack([t * w for t, w in zip(likelihoods_explore, weights)]).sum(dim=0)
+    p_explore = weighted_sum / sum(weights)
     mask = p_explore > EPS
     indices = torch.where(mask)[0]
     buffer = 1

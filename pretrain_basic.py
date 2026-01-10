@@ -9,8 +9,8 @@ from graphpfn.train import train
 from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from pfns.bar_distribution import get_bucket_limits
+from pfns.bar_distribution import FullSupportBarDistribution
 
-from graphpfn.utils import make_bar_distribution
 from visualization.make_visualization import plot_all
 
 from priors.basic_dataloader import ObservationalDataLoader
@@ -27,7 +27,8 @@ prior = ObservationalDataLoader(num_steps=args["steps"],
 
 model = args["model"]
 n_buckets = model.num_outputs
-dist = get_bucket_limits(num_outputs=n_buckets, full_range=(-5.0, 5.0))
+buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-5.0, 5.0))
+dist = FullSupportBarDistribution(buckets)
 
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")
