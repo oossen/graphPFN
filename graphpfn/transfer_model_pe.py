@@ -2,7 +2,7 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 from tfmplayground.model import NanoTabPFNModel
-from graphpfn.pos_encoding_model import Decoder
+from graphpfn.pos_encoding_model import Decoder, TransformerEncoderLayer, get_positional_encoding
 
 class GraphPFNModel(nn.Module):
     def __init__(self, embedding_size: int, 
@@ -27,6 +27,7 @@ class GraphPFNModel(nn.Module):
             param.requires_grad = False
             
         # decoder
+        self.hot_trafo_layer = TransformerEncoderLayer(embedding_size, num_attention_heads, mlp_hidden_size)
         self.decoder = Decoder(embedding_size, mlp_hidden_size, num_outputs)
         
     def forward(self, *args, **kwargs):
@@ -59,9 +60,17 @@ class GraphPFNModel(nn.Module):
         # --- ADD POSITIONAL ENCODING HERE ---
         # B = Batches, R = Rows, C = Columns, E = Embedding Dim
         B, R, C, E = input.shape
+        
+        # Generate the PE for the column dimension C
+        pe = get_positional_encoding(C, E, input.device)
 
         # repeatedly applies the transformer block on (B, R, C, E)
         output = self.backbone.transformer_encoder(input, single_eval_pos)
+        
+        output = output + pe
+        
+        # now the unfrozen part
+        output = self.hot_trafo_layer(output, single_eval_pos)
         
         # selects the target embeddings (B, num_targets, 1, E)
         output = output[:, single_eval_pos:, -1, :]

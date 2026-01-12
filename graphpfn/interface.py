@@ -11,7 +11,7 @@ from sklearn.metrics import r2_score
 
 from tfmplayground.utils import get_default_device
 from tfmplayground.interface import NanoTabPFNRegressor
-import tfmplayground.model, graphpfn.graph_prior_model, graphpfn.binary_mask_model, graphpfn.fallback_model, graphpfn.graph_prior_fallback_model, graphpfn.binary_mask_fallback_model, graphpfn.pos_encoding_model, graphpfn.transfer_model, graphpfn.transfer_model_binary
+import tfmplayground.model, graphpfn.graph_prior_model, graphpfn.binary_mask_model, graphpfn.fallback_model, graphpfn.graph_prior_fallback_model, graphpfn.binary_mask_fallback_model, graphpfn.pos_encoding_model, graphpfn.transfer_model, graphpfn.transfer_model_binary, graphpfn.transfer_model
 
 
 def init_model_from_state_dict_file(model_type: str, file_path: str):
@@ -36,6 +36,8 @@ def init_model_from_state_dict_file(model_type: str, file_path: str):
         model_class = graphpfn.transfer_model.GraphPFNModel
     elif model_type == 'transfer_binary':
         model_class = graphpfn.transfer_model_binary.GraphPFNModel
+    elif model_type == 'transfer':
+        model_class = graphpfn.transfer_model.GraphPFNModel
         
     state_dict = torch.load(file_path, map_location=torch.device('cpu'))
     model = model_class(**state_dict['architecture'])

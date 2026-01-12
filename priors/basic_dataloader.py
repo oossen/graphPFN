@@ -17,12 +17,14 @@ class ObservationalDataLoader(DataLoader):
                  num_steps: int,
                  batch_size: int,
                  fixed_graph_ratio: float = 0.0, 
-                 n_test_samples: int = 10,
+                 n_train_samples: int = 5,
+                 n_test_samples: int = 1,
                  seed: int = 42):
         self.seed = seed
         self.num_steps: int = num_steps
         self.batch_size: int = batch_size
         self.fixed_graph_ratio = fixed_graph_ratio
+        self.n_train_samples = n_train_samples
         self.n_test_samples = n_test_samples
         self.generator = torch.Generator()
         self.generator.manual_seed(seed)
@@ -62,12 +64,12 @@ class ObservationalDataLoader(DataLoader):
         root_nodes = [v for v in nodes if not graph.predecessors(v)]
         non_root_nodes = [v for v in nodes if graph.predecessors(v)]
         for v in root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=1.0))
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.5))
         for v in non_root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.1))
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.3))
         scm = SCM(graph, mechanisms, noise, self.generator)
             
-        num_train_samples = 5
+        num_train_samples = self.n_train_samples
         num_test_samples = self.n_test_samples
         
         total_samples = num_train_samples + num_test_samples

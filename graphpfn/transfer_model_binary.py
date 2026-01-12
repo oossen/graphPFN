@@ -11,7 +11,7 @@ class GraphPFNModel(nn.Module):
                  num_graph_attention_heads: int, 
                  mlp_hidden_size: int, 
                  num_layers: int, num_outputs: int, 
-                 pretrained_model: str = "ppd_01_09_17_31", 
+                 pretrained_model: str = "basic", 
                  model_class = NanoTabPFNModel):
         super().__init__()
         self.embedding_size = embedding_size
@@ -73,7 +73,7 @@ class GraphPFNModel(nn.Module):
         # to give us the full table of embeddings (B,R,C,E))
         input = torch.cat([x_src, y_src], 2)
         # repeatedly applies the transformer block on (B,R,C,E)
-        output = self.backbone.transformer_encoder(input, single_eval_pos, adjacency_matrix)
+        output = self.backbone.transformer_encoder(input, single_eval_pos)
         # non-frozen part
         output = self.hot_trafo_layer(output, single_eval_pos, adjacency_matrix)
         # selects the target embeddings (B,num_targets,1,E)
