@@ -41,5 +41,5 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 60,
+    "epochs": 30,
 }

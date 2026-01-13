@@ -40,7 +40,7 @@ datetime_str = now.strftime("%m_%d_%H_%M")
 run_name = f"{args['saveweights']}_{datetime_str}"
 output_dir = f"workdir/{run_name}"
 tensorboard_dir = f"{output_dir}/tensorboard"
-test_prior_factory = partial(ObservationalDataLoader, batch_size=1, **dataloader_args, seed=43)
+test_prior_factory = partial(ObservationalDataLoader, batch_size=1, **dataloader_args | {"n_test_samples": 20}, seed=43)
 sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 old_sanity_callback = OldSanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)

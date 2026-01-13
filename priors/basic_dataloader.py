@@ -64,9 +64,9 @@ class ObservationalDataLoader(DataLoader):
         root_nodes = [v for v in nodes if not graph.predecessors(v)]
         non_root_nodes = [v for v in nodes if graph.predecessors(v)]
         for v in root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.5))
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.4))
         for v in non_root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.3))
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.2))
         scm = SCM(graph, mechanisms, noise, self.generator)
             
         num_train_samples = self.n_train_samples
@@ -76,6 +76,15 @@ class ObservationalDataLoader(DataLoader):
         sample_shape = (self.batch_size, total_samples)
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate()
+        
+        # resample if z-normalization results in extreme values
+        bound = 10.0
+        for v in data:
+            mean = data[v].mean(dim=1, keepdim=True)
+            std = data[v].std(dim=1, keepdim=True) + 1e-8
+            z_data = (data[v] - mean) / std
+            if (z_data.abs() > bound).any():
+                return self.batch_function()
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}

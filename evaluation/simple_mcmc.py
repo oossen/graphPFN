@@ -193,7 +193,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     if include_mcmc:
         # MCMC over just one graph
-        prior = ObservationalDataLoader(1000, 1, fixed_graph_ratio=1.0, seed=seed+1)
+        prior = ObservationalDataLoader(100, 1, fixed_graph_ratio=1.0, seed=seed+1)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'PPD: p(y|x, D, graph)', 'color': 'blue', 'linestyle': '-'}
@@ -206,7 +206,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         # style = {'label': 'p(y|x, graph)', 'color': 'cyan', 'linestyle': '-'}
         # plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior
-        prior = ObservationalDataLoader(10000, 1, fixed_graph_ratio=0.0, seed=seed+3)
+        prior = ObservationalDataLoader(1000, 1, fixed_graph_ratio=0.0, seed=seed+3)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'PPD: p(y|x, D)', 'color': 'green', 'linestyle': '-'}
@@ -216,10 +216,10 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        model_names = ["ppd_01_11_16_10"]
-        model_types = {"ppd_01_11_16_10": "pfn"}
-        model_colors = {"ppd_01_11_16_10": "red"}
-        model_labels = {"ppd_01_11_16_10": "PFN (baseline, no graph info)"}
+        model_names = ["ppd_01_13_01_45"]
+        model_types = {"ppd_01_13_01_45": "pfn"}
+        model_colors = {"ppd_01_13_01_45": "red"}
+        model_labels = {"ppd_01_13_01_45": "PFN (baseline, no graph info)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
