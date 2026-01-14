@@ -59,14 +59,18 @@ class ObservationalDataLoader(DataLoader):
             graph = graph_builder.sample(self.generator)
         mechanisms = {v: SimpleMechanism(nodes, self.generator) for v in nodes}
         for v in nodes:
-            mechanisms[v].activation._module[1] = torch.nn.ReLU()
+            mechanisms[v].activation._module[1] = torch.nn.Tanh()
         noise = {}
         root_nodes = [v for v in nodes if not graph.predecessors(v)]
         non_root_nodes = [v for v in nodes if graph.predecessors(v)]
+        root_std_gen = TorchDistributionSampler(dist.Uniform(low=0.3, high=0.5))
+        non_root_std_gen = TorchDistributionSampler(dist.Uniform(low=0.1, high=0.2))
         for v in root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.4))
+            std = root_std_gen.sample(self.generator)
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=std))
         for v in non_root_nodes:
-            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=0.2))
+            std = non_root_std_gen.sample(self.generator)
+            noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=std))
         scm = SCM(graph, mechanisms, noise, self.generator)
             
         num_train_samples = self.n_train_samples
@@ -78,10 +82,11 @@ class ObservationalDataLoader(DataLoader):
         data = scm.propagate()
         
         # resample if z-normalization results in extreme values
-        bound = 10.0
+        bound = 5.0
         for v in data:
-            mean = data[v].mean(dim=1, keepdim=True)
-            std = data[v].std(dim=1, keepdim=True) + 1e-8
+            train_data = data[v][:, :num_train_samples]
+            mean = train_data.mean(dim=1, keepdim=True)
+            std = train_data.std(dim=1, keepdim=True) + 1e-8
             z_data = (data[v] - mean) / std
             if (z_data.abs() > bound).any():
                 return self.batch_function()

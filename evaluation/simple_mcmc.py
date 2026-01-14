@@ -91,18 +91,6 @@ def mcmc(values: Dict, test_sample: Dict, prior: ObservationalDataLoader, genera
     return chain
 
 
-def ppd(values: Dict, samples: List[SCM], y: torch.Tensor) -> torch.Tensor:
-    """
-    Approximate the PPD of y given the features in `values`
-    using Monte Carlo integration with the provided `samples`.
-    """
-    likelihoods = []
-    for scm in samples:
-        ll = scm.log_likelihood_batch(values, y)
-        likelihoods.append(torch.exp(ll))
-    return torch.stack(likelihoods).mean(dim=0)
-
-
 def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 200):
     # Find good range for y
     y_explore = torch.linspace(-10.0, 10.0, steps)
@@ -110,7 +98,8 @@ def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 200):
     weights = [w for _, _, w in samples]
     weighted_sum = torch.stack([t * w for t, w in zip(likelihoods_explore, weights)]).sum(dim=0)
     p_explore = weighted_sum / sum(weights)
-    mask = p_explore > EPS
+    eps = 0.01 * p_explore.max()
+    mask = p_explore > eps
     indices = torch.where(mask)[0]
     buffer = 1
     start_idx = max(0, indices[0] - buffer)
@@ -120,8 +109,8 @@ def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 200):
     # Plot and change range
     y = torch.linspace(a, b, steps)
     likelihoods = [torch.exp(scm.log_likelihood_batch(values, y)) for scm, _, _ in samples]
-    for ll in likelihoods:
-        ax.plot(y, ll, **{k: v for k, v in style.items() if k != 'label'}, alpha=0.02)
+    # for ll in likelihoods:
+    #    ax.plot(y, ll, **{k: v for k, v in style.items() if k != 'label'}, alpha=0.02)
     probs = sum(t * w for t, w in zip(likelihoods, weights)) / sum(weights)
     ax.plot(y, probs, **style)
     curr_min, curr_max = ax.get_xlim()
@@ -141,7 +130,8 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, model_type
     X_test = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
     log_p_explore = reg.log_ppd(X_test, y_explore, **kwargs)
     p_explore = np.exp(log_p_explore)
-    mask = p_explore > EPS
+    eps = 0.01 * p_explore.max()
+    mask = p_explore > eps
     indices = np.where(mask)[0]
     buffer = 1
     start_idx = max(0, indices[0] - buffer)
@@ -193,7 +183,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     if include_mcmc:
         # MCMC over just one graph
-        prior = ObservationalDataLoader(100, 1, fixed_graph_ratio=1.0, seed=seed+1)
+        prior = ObservationalDataLoader(1000, 1, fixed_graph_ratio=1.0, seed=seed+1)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'PPD: p(y|x, D, graph)', 'color': 'blue', 'linestyle': '-'}
@@ -206,7 +196,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         # style = {'label': 'p(y|x, graph)', 'color': 'cyan', 'linestyle': '-'}
         # plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior
-        prior = ObservationalDataLoader(1000, 1, fixed_graph_ratio=0.0, seed=seed+3)
+        prior = ObservationalDataLoader(10000, 1, fixed_graph_ratio=0.0, seed=seed+3)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'PPD: p(y|x, D)', 'color': 'green', 'linestyle': '-'}
@@ -216,10 +206,10 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        model_names = ["ppd_01_13_01_45"]
-        model_types = {"ppd_01_13_01_45": "pfn"}
-        model_colors = {"ppd_01_13_01_45": "red"}
-        model_labels = {"ppd_01_13_01_45": "PFN (baseline, no graph info)"}
+        model_names = ["ppd_01_14_02_04", "ppd_pe_01_14_12_02", "ppd_pe_mixed_01_14_02_06"]
+        model_types = {"ppd_01_14_02_04": "pfn", "ppd_pe_01_14_12_02": "pos_encoding", "ppd_pe_mixed_01_14_02_06": "pos_encoding"}
+        model_colors = {"ppd_01_14_02_04": "red", "ppd_pe_01_14_12_02": "orange", "ppd_pe_mixed_01_14_02_06": "purple"}
+        model_labels = {"ppd_01_14_02_04": "PFN (baseline, no graph info)", "ppd_pe_01_14_12_02": "PFN + Pos. Enc.", "ppd_pe_mixed_01_14_02_06": "PFN + Pos. Enc. (mixed training)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
@@ -238,7 +228,7 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"evaluation/output/{datetime_str}"
     
-    seed = 41
+    seed = 40
     generator = torch.Generator()
     generator.manual_seed(seed)
     

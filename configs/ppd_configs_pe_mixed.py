@@ -5,7 +5,7 @@ from graphpfn.pos_encoding_model import GraphPFNModel
 prior_config = {
     "n_train_samples": 5,
     "n_test_samples": 1,
-    "fixed_graph_ratio": 1.0,
+    "fixed_graph_ratio": 0.75,
 }
 
 
@@ -19,4 +19,4 @@ training_config["model"] = model = GraphPFNModel(
     num_layers=6,
     num_outputs=200,
     )
-training_config["saveweights"] = "ppd_pe"
+training_config["saveweights"] = "ppd_pe_mixed"

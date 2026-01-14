@@ -20,7 +20,7 @@ training_config = {
         embedding_size=192,
         mlp_hidden_size=768,
         num_layers=6,
-        num_outputs=500,
+        num_outputs=200,
     ),
     
     # batch size used during training

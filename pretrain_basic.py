@@ -14,7 +14,7 @@ from pfns.bar_distribution import FullSupportBarDistribution
 from visualization.make_visualization import plot_all
 
 from priors.basic_dataloader import ObservationalDataLoader
-from configs.ppd_configs import training_config as args, prior_config
+from configs.ppd_configs_pe import training_config as args, prior_config
 
 
 device = get_default_device()
@@ -32,7 +32,7 @@ prior = ObservationalDataLoader(num_steps=args["steps"],
 
 model = args["model"]
 n_buckets = model.num_outputs
-buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-10.0, 10.0)).to(device)
+buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-5.0, 5.0)).to(device)
 dist = FullSupportBarDistribution(buckets)
 
 now = datetime.now()
