@@ -7,13 +7,13 @@ prior_config = {
         # number of train samples per dataset
         # int
         "number_train_samples_per_dataset": {
-            "value": 50
+            "value": 25
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
         # int
         "number_test_samples_per_dataset": {  # number of test samples per dataset. Can be fixed because architecture is agnostic to the number of test samples.
-            "value": 1
+            "value": 25
         },
     },
 
@@ -42,7 +42,7 @@ prior_config = {
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "value": 0.1,
+            "value": 0.2,
         },
     }
 }
@@ -60,7 +60,7 @@ training_config = {
         embedding_size=192,
         mlp_hidden_size=768,
         num_layers=6,
-        num_outputs=1000,
+        num_outputs=400,
     ),
     
     # batch size used during training

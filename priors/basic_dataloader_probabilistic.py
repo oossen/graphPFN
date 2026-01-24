@@ -64,7 +64,7 @@ class ObservationalDataLoader(DataLoader):
             graph_params = sample_parameters(self.graph_samplers, self.generator)
             graph_builder = GraphBuilder(**graph_params)
             graph_test = graph_builder.sample(self.generator)
-            graph_train = graph_builder.perturbate_graph(graph_test, self.generator)
+            graph_train = graph_builder.perturbate_graph(graph_test, self.generator, resample_prob=1.0)
             yield self.batch_function(graph_test, graph_train)
             
     def make_iter(self, graph_test: nx.DiGraph) -> Iterator[Dict[str, Any]]:
@@ -72,7 +72,7 @@ class ObservationalDataLoader(DataLoader):
         for _ in range(self.num_steps):
             graph_params = sample_parameters(self.graph_samplers, self.generator)
             graph_builder = GraphBuilder(**graph_params)
-            graph_train = graph_builder.perturbate_graph(graph_test, self.generator)
+            graph_train = graph_builder.perturbate_graph(graph_test, self.generator, resample_prob=1.0)
             yield self.batch_function(graph_test, graph_train)
     
     def batch_function(self, graph_test: nx.DiGraph, graph_train: nx.DiGraph):

@@ -27,7 +27,8 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python -m evaluation.simple_mcmc
+python -m evaluation.simple_mcmc_probabilistic
+# python -m visualization.make_visualization_probabilistic
 end=`date +%s`
 runtime=$((end-start))
 

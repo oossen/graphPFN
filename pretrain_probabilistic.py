@@ -14,7 +14,7 @@ from pfns.bar_distribution import FullSupportBarDistribution
 from visualization.make_visualization_probabilistic import make_all
 
 from priors.basic_dataloader_probabilistic import ObservationalDataLoader
-from configs.probabilistic_configs import training_config as args, prior_config
+from configs.probabilistic_configs_gcn import training_config as args, prior_config
 
 
 device = get_default_device()
@@ -34,7 +34,7 @@ datetime_str = now.strftime("%m_%d_%H_%M")
 run_name = f"{args['saveweights']}_{datetime_str}"
 output_dir = f"workdir/{run_name}"
 tensorboard_dir = f"{output_dir}/tensorboard"
-test_prior_factory = partial(ObservationalDataLoader, batch_size=1, prior_config=prior_config | {"n_test_samples": 30}, seed=43)
+test_prior_factory = partial(ObservationalDataLoader, batch_size=1, prior_config=prior_config, seed=43)
 sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
 callbacks: List[Callback] = [logger_callback, sanity_callback]

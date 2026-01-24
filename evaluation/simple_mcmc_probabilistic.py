@@ -2,7 +2,6 @@ import math
 import os
 from typing import Dict, List, Tuple
 from matplotlib import pyplot as plt
-from matplotlib.animation import FuncAnimation
 import numpy as np
 import torch
 from datetime import datetime
@@ -123,73 +122,6 @@ def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 200):
     ax.set_xlim(min(curr_min, a), max(curr_max, b))
     
 
-def plot_ppd_animated(ax, values: Dict, samples: List, style: Dict, steps: int = 200, interval: int = 1000):
-    """
-    Plots an animation of the PPD where each frame adds one sample to the weighted average.
-    Returns a FuncAnimation object which MUST be stored in a variable to run.
-    """
-    scms = [theta['graph_information']['scm_test'] for theta, _, _ in samples]
-    weights = torch.tensor([w for _, _, w in samples])
-    
-    # 1. Determine the global range (using all samples) to keep the x-axis stable
-    y_explore = torch.linspace(-10.0, 10.0, steps)
-    all_likelihoods_explore = torch.stack([
-        torch.exp(scm.log_likelihood_batch(values, y_explore)) for scm in scms
-    ])
-    
-    total_weighted_sum = (all_likelihoods_explore * weights.view(-1, 1)).sum(dim=0)
-    p_total = total_weighted_sum / weights.sum()
-    
-    eps = 0.01 * p_total.max()
-    indices = torch.where(p_total > eps)[0]
-    buffer = 1
-    start_idx = max(0, indices[0] - buffer)
-    end_idx = min(len(y_explore) - 1, indices[-1] + buffer)
-    a, b = y_explore[start_idx], y_explore[end_idx]
-
-    # 2. Prepare the data for the final grid
-    y = torch.linspace(a, b, steps)
-    # Pre-calculate likelihoods for all samples on this grid for efficiency
-    all_l_curves = torch.stack([
-        torch.exp(scm.log_likelihood_batch(values, y)) for scm in scms
-    ])
-    
-    # 3. Setup the plot object
-    line, = ax.plot([], [], **style)
-    
-    # Update x-axis limits based on the final expected distribution
-    curr_min, curr_max = ax.get_xlim()
-    ax.set_xlim(min(curr_min, a.item()), max(curr_max, b.item()))
-    
-    # Optional: adjust y-limit dynamically or pre-set it
-    ax.set_ylim(0, p_total.max().item() * 1.1)
-
-    # 4. Define the animation update function
-    def update(frame):
-        # Calculate weighted average for samples up to 'frame'
-        # frame goes from 0 to len(samples) - 1
-        current_weights = weights[:frame + 1]
-        current_curves = all_l_curves[:frame + 1]
-        
-        weighted_sum = (current_curves * current_weights.view(-1, 1)).sum(dim=0)
-        probs = weighted_sum / current_weights.sum()
-        
-        line.set_data(y.numpy(), probs.numpy())
-        return line,
-
-    # 5. Create the animation
-    anim = FuncAnimation(
-        ax.figure, 
-        update, 
-        frames=len(samples), 
-        interval=interval, 
-        blit=True, 
-        repeat=False
-    )
-    
-    return anim
-    
-
 def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, model_type: str, style: Dict, steps: int = 200, **kwargs):
     # Initialize and fit model
     model = init_model_from_state_dict_file(model_type, f"{model_path}/latest_checkpoint.pth")
@@ -200,7 +132,7 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, model_type
     # Find good range for y
     y_explore = np.linspace(-10.0, 10.0, steps)
     nodelist = [v for v in values.keys() if v != 'y']
-    X_test = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
+    X_test = torch.stack([values[v][0] for v in nodelist], dim=-1).cpu().numpy()
     log_p_explore = reg.log_ppd(X_test, y_explore, **kwargs)
     p_explore = np.exp(log_p_explore)
     eps = 0.01 * p_explore.max()
@@ -227,6 +159,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     # Sample the training data D = (X, y)
     seed = int(torch.randint(0, 10000, (1,), generator=generator).item())
+    prior_config['dataset_config']['number_test_samples_per_dataset'] = {'value': 1}
     
     prior = ObservationalDataLoader(1, 1, prior_config, seed)
     data = next(iter(prior))
@@ -251,38 +184,33 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     # Plotting
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.axvline(x=test_sample['y'].item(), color='black', linestyle='--', linewidth=1, label="True Value")
-    fig_anim, ax_anim = plt.subplots(figsize=(8, 5))
-    ax_anim.axvline(x=test_sample['y'].item(), color='black', linestyle='--', linewidth=1, label="True Value")
     
+    # ground truth SCM
+    chain = [(data, 0.0, 1)]
+    style = {'label': 'ground truth', 'color': 'cyan', 'linestyle': '-'}
+    plot_ppd(ax, test_sample, chain, style=style)
     if include_mcmc:
-        # ground truth SCM
-        chain = [(data, 0.0, 1)]
-        style = {'label': 'ground truth', 'color': 'cyan', 'linestyle': '-'}
-        plot_ppd(ax, test_sample, chain, style=style)
-        plot_ppd(ax_anim, test_sample, chain, style=style)
         # MCMC with graph prior
-        prior = ObservationalDataLoader(1000, 1, prior_config, seed+1).make_iter(graph_test)
+        prior = ObservationalDataLoader(5000, 1, prior_config, seed+1).make_iter(graph_test)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
-        style = {'label': 'PPD: p(y|x, D, graph)', 'color': 'blue', 'linestyle': '-'}
+        style = {'label': 'p(y|x, D, graph) (MCMC)', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
-        anim = plot_ppd_animated(ax_anim, test_sample, chain, style=style)
         # MCMC with graph-agnostic prior
-        prior = ObservationalDataLoader(1000, 1, prior_config, seed+2)
+        prior = ObservationalDataLoader(5000, 1, prior_config, seed+2)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
-        style = {'label': 'PPD: p(y|x, D)', 'color': 'green', 'linestyle': '-'}
+        style = {'label': 'p(y|x, D) (MCMC)', 'color': 'green', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
-        anim2 = plot_ppd_animated(ax_anim, test_sample, chain, style=style)
     
     if include_pfn:
         nodelist = [v for v in values.keys() if v != 'y']
-        X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
-        y_train = values['y'].cpu().numpy()
-        model_names = ["ppd_01_14_02_04", "ppd_pe_01_14_12_02", "ppd_pe_mixed_01_14_02_06"]
-        model_types = {"ppd_01_14_02_04": "pfn", "ppd_pe_01_14_12_02": "pos_encoding", "ppd_pe_mixed_01_14_02_06": "pos_encoding"}
-        model_colors = {"ppd_01_14_02_04": "red", "ppd_pe_01_14_12_02": "orange", "ppd_pe_mixed_01_14_02_06": "purple"}
-        model_labels = {"ppd_01_14_02_04": "PFN (baseline, no graph info)", "ppd_pe_01_14_12_02": "PFN + Pos. Enc.", "ppd_pe_mixed_01_14_02_06": "PFN + Pos. Enc. (mixed training)"}
+        X_train = torch.stack([values[v][0] for v in nodelist], dim=-1).cpu().numpy()
+        y_train = values['y'][0].cpu().numpy()
+        model_names = ["probabilistic_gcn_01_22_01_45", "probabilistic_01_21_23_14"]
+        model_types = {"probabilistic_gcn_01_22_01_45": "gcn", "probabilistic_01_21_23_14": "pfn"}
+        model_colors = {"probabilistic_gcn_01_22_01_45": "blue", "probabilistic_01_21_23_14": "green"}
+        model_labels = {"probabilistic_gcn_01_22_01_45": "p(y|x, D, graph) (GCN)", "probabilistic_01_21_23_14": "p(y|x, D) (PFN)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
@@ -294,12 +222,6 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     ax.legend()
     ax.grid(True)
     fig.savefig(f"{output_dir}/ppds.png", dpi=300)
-    ax_anim.set_xlabel("y")
-    ax_anim.set_ylabel("p(y)")
-    ax_anim.set_title("PPD Comparison (Animated)")
-    ax_anim.legend()
-    ax_anim.grid(True)
-    anim.save(f"{output_dir}/ppds_animated.gif", writer='pillow', extra_anim=[anim2])
 
 
 if __name__ == "__main__":
@@ -307,9 +229,9 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"evaluation/output/{datetime_str}"
     
-    seed = 42
+    seed = 47
     generator = torch.Generator()
     generator.manual_seed(seed)
     
     for i in range(20):
-        mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=False)
+        mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=True)

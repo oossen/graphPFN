@@ -81,23 +81,13 @@ class GraphBuilder:
         adj = np.triu(adj, k=1)
         adj[perm[:, None], perm] = adj.copy()
 
-        graph= nx.from_numpy_array(adj, create_using=nx.DiGraph)
-            
-        # resample if there are no edges
-        if len(graph.edges) == 0:
-            return self.sample(generator)
-        
-        nodes = list(graph.nodes)
-        target_node = nodes[-1]
-        # resample if target node is isolated
-        if graph.in_degree(target_node) == 0 or graph.out_degree(target_node) == 0:
-            return self.sample(generator)
+        graph = nx.from_numpy_array(adj, create_using=nx.DiGraph)
         graph = self.rename(graph)
 
         return graph
     
     
-    def perturbate_graph(self, graph: nx.DiGraph, generator: Optional[torch.Generator],resample_prob: float = 1/3) -> nx.DiGraph:
+    def perturbate_graph(self, graph: nx.DiGraph, generator: Optional[torch.Generator], resample_prob: float = 0.5) -> nx.DiGraph:
         """
         Return a copy of `graph` with some edge weights resampled.
         """
