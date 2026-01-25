@@ -191,13 +191,13 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     plot_ppd(ax, test_sample, chain, style=style)
     if include_mcmc:
         # MCMC with graph prior
-        prior = ObservationalDataLoader(5000, 1, prior_config, seed+1).make_iter(graph_test)
+        prior = ObservationalDataLoader(1000, 1, prior_config, seed+1).make_iter(graph_test)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|x, D, graph) (MCMC)', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC with graph-agnostic prior
-        prior = ObservationalDataLoader(5000, 1, prior_config, seed+2)
+        prior = ObservationalDataLoader(1000, 1, prior_config, seed+2)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|x, D) (MCMC)', 'color': 'green', 'linestyle': '-'}
@@ -234,4 +234,4 @@ if __name__ == "__main__":
     generator.manual_seed(seed)
     
     for i in range(20):
-        mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=True)
+        mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=False)

@@ -9,6 +9,7 @@ from pfns.bar_distribution import FullSupportBarDistribution
 from dopfnprior.scm.scm import SCM
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from priors.basic_dataloader_graph_prior import ObservationalDataLoader
+from configs.likelihood_training_configs import prior_config
 from visualization.plotting import plot_graph
 from tfmplayground.utils import get_default_device
 
@@ -16,11 +17,14 @@ from tfmplayground.utils import get_default_device
 EPS = 1e-2
 
 FIXED_POS = {
-    'x0': (2, 1),
-    'x1': (4, 1),
-    'x2': (5, 3),
-    'x3': (3, 4),
-    'y': (1, 3)
+    'x0': (0, 0),
+    'x1': (1, 0),
+    'x2': (2, 1),
+    'x3': (2, 2),
+    'x4': (1, 3),
+    'x5': (0, 3),
+    'x6': (-1, 2),
+    'y': (-1, 1),
 }
 DRAWING_STYLE = {
     'node_size': 1000,
@@ -34,24 +38,17 @@ DRAWING_STYLE = {
 
 
 def likelihood(values: Dict, test_sample: Dict, scm: SCM) -> float:
-    log_prob = 0.0
-    shape_values = values[list(values.keys())[0]].shape
-    for idx in np.ndindex(shape_values):
-        values_i = {v: values[v][idx] for v in values}
-        log_prob += scm.total_log_probability(values_i)
+    log_probs = scm.total_log_probability(values)
+    log_prob = log_probs.sum().item()
     values_x = {v: test_sample[v] for v in test_sample if v != 'y'}
-    log_prob += scm.marginal(values_x)
+    log_prob += scm.marginal(values_x, steps=100, low=-10.0, high=10.0)
     return log_prob
 
 
 def cheap_likelihood(values: Dict, test_sample: Dict, scm: SCM) -> float:
     # ignore the conditioning on the new test sample x'
-    log_prob = 0.0
-    shape_values = values[list(values.keys())[0]].shape
-    for idx in np.ndindex(shape_values):
-        values_i = {v: values[v][idx] for v in values}
-        log_prob += scm.total_log_probability(values_i)
-    return log_prob
+    log_probs = scm.total_log_probability(values)
+    return log_probs.sum().item()
 
 
 def ignore_context(values: Dict, test_sample: Dict, scm: SCM) -> float:
@@ -91,7 +88,7 @@ def mcmc(values: Dict, test_sample: Dict, prior, generator: torch.Generator, lik
     return chain
 
 
-def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 200):
+def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 100):
     # Find good range for y
     y_explore = torch.linspace(-10.0, 10.0, steps)
     likelihoods_explore = [torch.exp(scm.log_likelihood_batch(values, y_explore)) for scm, _, _ in samples]
@@ -157,7 +154,9 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     sample_shape = (5,)
     test_sample_shape = (1,)
     
-    prior = ObservationalDataLoader(1, 1, 10, 1, seed=seed)
+    prior = ObservationalDataLoader(100, 1, prior_config, seed=seed)
+    prior_config['dataset_config']['number_test_samples_per_dataset'] = {'value': 1}
+    
     data = next(iter(prior))
     scm = data['graph_information']['scm']
     graph = data['graph_information']['graph']
@@ -167,6 +166,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     plot_graph(graph, f"{output_dir}/true_graph.png", **DRAWING_STYLE)
     scm.sample_noise(test_sample_shape, generator=generator)
     test_sample = scm.propagate()
+    test_sample = {v: value.item() for v, value in test_sample.items()}
     
     # Save y and normalized ys to file
     ys = values['y'].cpu().numpy()
@@ -179,27 +179,36 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     # Plotting
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.axvline(x=test_sample['y'].item(), color='black', linestyle='--', linewidth=1, label="True Value")
+    ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
     
     if include_mcmc:
         # MCMC with graph prior
-        prior = ObservationalDataLoader(1000, 1, seed=seed+1).make_iter(data['graph_information']['adjacency_matrix'])
+        prior = ObservationalDataLoader(1000, 1, prior_config, seed=seed+1).make_iter(data['graph_information']['adjacency_matrix'])
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
-        style = {'label': 'PPD: p(y|x, D, graph)', 'color': 'blue', 'linestyle': '-'}
+        style = {'label': 'p(y|D, graph)', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
-        # MCMC ignoring context
-        # prior = ObservationalDataLoader(100, 1, fixed_graph_ratio=1.0, seed=seed+2)
-        # chain = mcmc(values, test_sample, prior, generator, likelihood_fn=ignore_context)
-        #         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
-
-        # style = {'label': 'p(y|x, graph)', 'color': 'cyan', 'linestyle': '-'}
-        # plot_ppd(ax, test_sample, chain, style=style)
+        # not ignoring info from test sample
+        prior = ObservationalDataLoader(1000, 1, prior_config, seed=seed+2).make_iter(data['graph_information']['adjacency_matrix'])
+        chain = mcmc(values, test_sample, prior, generator, likelihood_fn=likelihood)
+        print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
+        style = {'label': 'p(y|D, x, graph)', 'color': 'cyan', 'linestyle': '-'}
+        plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior
-        prior = ObservationalDataLoader(10000, 1, seed=seed+3)
+        prior = ObservationalDataLoader(5000, 1, prior_config, seed=seed+3)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
-        style = {'label': 'PPD: p(y|x, D)', 'color': 'green', 'linestyle': '-'}
+        style = {'label': 'p(y|D)', 'color': 'green', 'linestyle': '-'}
+        plot_ppd(ax, test_sample, chain, style=style)
+        # MCMC over entire prior not ignoring info from test sample
+        prior = ObservationalDataLoader(5000, 1, prior_config, seed=seed+4)
+        chain = mcmc(values, test_sample, prior, generator, likelihood_fn=likelihood)
+        print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
+        style = {'label': 'p(y|x, D)', 'color': 'violet', 'linestyle': '-'}
+        plot_ppd(ax, test_sample, chain, style=style)
+        # true SCM
+        chain = [(scm, 0.0, 1)]
+        style = {'label': 'p(y|x, true SCM)', 'color': 'black', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
     
     if include_pfn:

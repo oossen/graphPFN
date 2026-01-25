@@ -58,8 +58,6 @@ class ObservationalDataLoader(DataLoader):
             graph_builder = GraphBuilder(5, 0.2, 0.0)
             graph = graph_builder.sample(self.generator)
         mechanisms = {v: SimpleMechanism(nodes, self.generator) for v in nodes}
-        for v in nodes:
-            mechanisms[v].activation._module[1] = torch.nn.Tanh()
         noise = {}
         root_nodes = [v for v in nodes if not graph.predecessors(v)]
         non_root_nodes = [v for v in nodes if graph.predecessors(v)]
@@ -71,7 +69,7 @@ class ObservationalDataLoader(DataLoader):
         for v in non_root_nodes:
             std = non_root_std_gen.sample(self.generator)
             noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=std))
-        scm = SCM(graph, mechanisms, noise, self.generator)
+        scm = SCM(graph, mechanisms, noise)
             
         num_train_samples = self.n_train_samples
         num_test_samples = self.n_test_samples

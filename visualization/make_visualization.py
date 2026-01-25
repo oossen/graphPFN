@@ -1,7 +1,7 @@
 import os
 from typing import Dict
 
-from priors.observational_dataloader import ObservationalDataLoader
+from priors.basic_dataloader_graph_prior import ObservationalDataLoader
 from visualization.check_seeding import compare_dataloaders
 from visualization.plotting import plot_prob_adj, plot_r2, plot_correlation, plot_graph, plot_point_clouds
 
@@ -74,4 +74,5 @@ if __name__ == "__main__":
     from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
-    make_all(ObservationalDataLoader, prior_config, f"visualization/output/{datetime_str}")
+    prior = ObservationalDataLoader(30, 1, 5, 1, 42)
+    plot_all(prior, f"visualization/output/{datetime_str}")
