@@ -69,9 +69,8 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: FullSupportBarDi
                 data = (data[0], y_norm)
 
                 output = model(data, single_eval_pos=single_eval_pos, **full_data['graph_information'])
-                targets = targets[:, single_eval_pos:]
                 
-                targets = targets.reshape((-1,)).to(torch.long)
+                targets = targets.view(-1, targets.shape[-1])
                 output = output.view(-1, output.shape[-1])
 
                 losses = loss_fn(output, targets)
