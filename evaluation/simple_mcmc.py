@@ -183,25 +183,31 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     if include_mcmc:
         # MCMC with graph prior
-        prior = ObservationalDataLoader(1000, 1, prior_config, seed=seed+1).make_iter(data['graph_information']['adjacency_matrix'])
+        prior = ObservationalDataLoader(10000, 1, prior_config, seed=seed+1).make_iter(data['graph_information']['adjacency_matrix'])
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, graph)', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # not ignoring info from test sample
-        prior = ObservationalDataLoader(1000, 1, prior_config, seed=seed+2).make_iter(data['graph_information']['adjacency_matrix'])
+        prior = ObservationalDataLoader(10000, 1, prior_config, seed=seed+2).make_iter(data['graph_information']['adjacency_matrix'])
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, x, graph)', 'color': 'cyan', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior
-        prior = ObservationalDataLoader(5000, 1, prior_config, seed=seed+3)
+        prior = ObservationalDataLoader(100000, 1, prior_config, seed=seed+3)
+        chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
+        print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
+        style = {'label': 'p(y|D)', 'color': 'green', 'linestyle': '-'}
+        plot_ppd(ax, test_sample, chain, style=style)
+        # MCMC over entire prior again, to see if they're the same
+        prior = ObservationalDataLoader(100000, 1, prior_config, seed=seed+4)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D)', 'color': 'green', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior not ignoring info from test sample
-        prior = ObservationalDataLoader(5000, 1, prior_config, seed=seed+4)
+        prior = ObservationalDataLoader(100000, 1, prior_config, seed=seed+5)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|x, D)', 'color': 'violet', 'linestyle': '-'}

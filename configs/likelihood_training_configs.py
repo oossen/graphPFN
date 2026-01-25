@@ -16,7 +16,7 @@ prior_config = {
         # number of train samples per dataset
         # int
         "number_train_samples_per_dataset": {
-            "value": 5,
+            "value": 10,
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -32,13 +32,13 @@ prior_config = {
         # one of these will become the target, the others (if not dropped) features of the generated data
         # int
         "num_nodes": { 
-            "value": 5,
+            "value": 4,
         },
         # probability that any two nodes in the causal graph are connected
         # float
         "edge_prob": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 0.4}
+            "distribution_parameters": {"low": 0.2, "high": 0.4}
         },
     },
 
@@ -46,14 +46,12 @@ prior_config = {
         # the standard deviation of noise sampled at root nodes when propagating through the SCM
         # float
         "root_std": {
-            "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 1.0}
+            "value": 1.0,
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std": {
-            "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 0.5}
+            "value": 0.2,
         },
     },
     
