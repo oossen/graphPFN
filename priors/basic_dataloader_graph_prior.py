@@ -125,9 +125,6 @@ class ObservationalDataLoader(DataLoader):
         mean_y = train_y.mean(dim=1, keepdim=True)
         std_y = train_y.std(dim=1, keepdim=True) + 1e-8
         scaled_bucket_mids = self.bucket_mids.unsqueeze(0).to(mean_y.device) * std_y + mean_y
-        test_data = {v: data[v][:, num_train_samples:].item() for v in data}
-        log_probs = scm.log_likelihood_batch(test_data, scaled_bucket_mids)
-        probs = torch.exp(log_probs)
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
@@ -145,6 +142,10 @@ class ObservationalDataLoader(DataLoader):
         full_data['target_y'] = full_data['y'] # required by the current NanoTabPFN train loop
         full_data['single_eval_pos'] = num_train_samples
         
-        full_data['probs'] = probs
+        if self.n_test_samples == 1:
+            test_data = {v: data[v][:, num_train_samples:].item() for v in data}
+            log_probs = scm.log_likelihood_batch(test_data, scaled_bucket_mids)
+            probs = torch.exp(log_probs)
+            full_data['probs'] = probs
         
         return full_data

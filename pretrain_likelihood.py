@@ -5,7 +5,7 @@ from datetime import datetime
 import torch
 
 from graphpfn.callbacks import SanityCheckLoggerCallback, OldSanityCheckLoggerCallback
-from graphpfn.train import train
+from graphpfn.train_cel import train
 from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from pfns.bar_distribution import FullSupportBarDistribution
@@ -32,7 +32,9 @@ datetime_str = now.strftime("%m_%d_%H_%M")
 run_name = f"{args['saveweights']}_{datetime_str}"
 output_dir = f"workdir/{run_name}"
 tensorboard_dir = f"{output_dir}/tensorboard"
-test_prior_factory = partial(ObservationalDataLoader, batch_size=1, prior_config=prior_config, seed=43)
+test_prior_config = prior_config.copy()
+test_prior_config["dataset_config"]["number_test_samples_per_dataset"]["value"] = 20
+test_prior_factory = partial(ObservationalDataLoader, batch_size=1, prior_config=test_prior_config, seed=43)
 sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 old_sanity_callback = OldSanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
