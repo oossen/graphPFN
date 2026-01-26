@@ -64,26 +64,19 @@ def mcmc(values: Dict, test_sample: Dict, prior, generator: torch.Generator, lik
     incumbent_log_prob = likelihood_fn(values, test_sample, incumbent)
     # keep track of triples: (scm, log_prob, weight)
     chain = [(incumbent, incumbent_log_prob, 1)]
-    for i, data in enumerate(prior):
+    for i, data in enumerate(prior_iter):
         print(f"MCMC step {i+1}...")
         proposal: SCM = data['graph_information']['scm']
         proposal_log_prob = likelihood_fn(values, test_sample, proposal)
-        accept = False
-        if proposal_log_prob > incumbent_log_prob:
-            print(f"Improving move... ({incumbent_log_prob} -> {proposal_log_prob})")
-            accept = True
-        else:
-            print(f"Non-improving move... ({incumbent_log_prob} -> {proposal_log_prob})")
-            acceptance_ratio = math.exp(proposal_log_prob - incumbent_log_prob)
-            if torch.rand((1,), generator=generator) < acceptance_ratio:
-                accept = True
-        if accept:
-            print("Move accepted...")
-            chain.append((proposal, proposal_log_prob, 1))
+        
+        log_acceptance_ratio = proposal_log_prob - incumbent_log_prob
+        log_sample = torch.rand((1,), generator=generator).log().item()
+        
+        if log_sample < log_acceptance_ratio:
+            chain.append([proposal, proposal_log_prob, 1])
             incumbent = proposal
             incumbent_log_prob = proposal_log_prob
         else:
-            print("Move rejected...")
             chain[-1] = (incumbent, incumbent_log_prob, chain[-1][2] + 1)
     return chain
 
@@ -124,7 +117,8 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, model_type
     # Find good range for y
     y_explore = np.linspace(-10.0, 10.0, steps)
     nodelist = [v for v in values.keys() if v != 'y']
-    X_test = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
+    X_test = np.array([values[v] for v in nodelist])
+    X_test = X_test.reshape(1, -1)
     log_p_explore = reg.log_ppd(X_test, y_explore, **kwargs)
     p_explore = np.exp(log_p_explore)
     eps = 0.01 * p_explore.max()
@@ -151,7 +145,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     # Sample the training data D = (X, y)
     seed = int(torch.randint(0, 10000, (1,), generator=generator).item())
-    sample_shape = (5,)
+    sample_shape = (prior_config['dataset_config']['number_train_samples_per_dataset']['value'],)
     test_sample_shape = (1,)
     
     prior = ObservationalDataLoader(100, 1, prior_config, seed=seed)
@@ -183,31 +177,31 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     if include_mcmc:
         # MCMC with graph prior
-        prior = ObservationalDataLoader(10000, 1, prior_config, seed=seed+1).make_iter(data['graph_information']['adjacency_matrix'])
+        prior = ObservationalDataLoader(2000, 1, prior_config, seed=seed+1).make_iter(data['graph_information']['adjacency_matrix'])
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, graph)', 'color': 'blue', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # not ignoring info from test sample
-        prior = ObservationalDataLoader(10000, 1, prior_config, seed=seed+2).make_iter(data['graph_information']['adjacency_matrix'])
+        prior = ObservationalDataLoader(2000, 1, prior_config, seed=seed+2).make_iter(data['graph_information']['adjacency_matrix'])
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, x, graph)', 'color': 'cyan', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior
-        prior = ObservationalDataLoader(100000, 1, prior_config, seed=seed+3)
+        prior = ObservationalDataLoader(20000, 1, prior_config, seed=seed+3)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D)', 'color': 'green', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior again, to see if they're the same
-        prior = ObservationalDataLoader(100000, 1, prior_config, seed=seed+4)
+        prior = ObservationalDataLoader(20000, 1, prior_config, seed=seed+4)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D)', 'color': 'green', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC over entire prior not ignoring info from test sample
-        prior = ObservationalDataLoader(100000, 1, prior_config, seed=seed+5)
+        prior = ObservationalDataLoader(20000, 1, prior_config, seed=seed+5)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|x, D)', 'color': 'violet', 'linestyle': '-'}
@@ -221,10 +215,10 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        model_names = ["ppd_01_14_02_04", "ppd_pe_01_14_12_02", "ppd_pe_mixed_01_14_02_06"]
-        model_types = {"ppd_01_14_02_04": "pfn", "ppd_pe_01_14_12_02": "pos_encoding", "ppd_pe_mixed_01_14_02_06": "pos_encoding"}
-        model_colors = {"ppd_01_14_02_04": "red", "ppd_pe_01_14_12_02": "orange", "ppd_pe_mixed_01_14_02_06": "purple"}
-        model_labels = {"ppd_01_14_02_04": "PFN (baseline, no graph info)", "ppd_pe_01_14_12_02": "PFN + Pos. Enc.", "ppd_pe_mixed_01_14_02_06": "PFN + Pos. Enc. (mixed training)"}
+        model_names = ["likelihood_training_01_26_15_45", "likelihood_training_01_26_15_56"]
+        model_types = {"likelihood_training_01_26_15_45": "pfn", "likelihood_training_01_26_15_56": "pfn"}
+        model_colors = {"likelihood_training_01_26_15_45": "red", "likelihood_training_01_26_15_56": "orange"}
+        model_labels = {"likelihood_training_01_26_15_45": "p(y|x, D)", "likelihood_training_01_26_15_56": "p(y|x, D) (CE)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
@@ -248,4 +242,4 @@ if __name__ == "__main__":
     generator.manual_seed(seed)
     
     for i in range(20):
-        mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=False)
+        mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=True)

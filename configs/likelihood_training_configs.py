@@ -16,7 +16,7 @@ prior_config = {
         # number of train samples per dataset
         # int
         "number_train_samples_per_dataset": {
-            "value": 10,
+            "value": 5,
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
