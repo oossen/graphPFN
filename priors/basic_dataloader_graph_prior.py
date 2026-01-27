@@ -24,7 +24,6 @@ class ObservationalDataLoader(DataLoader):
         self.num_steps: int = num_steps
         self.batch_size: int = batch_size
         
-        
         self.prior_config = prior_config
         self.graph_config = prior_config["graph_config"]
         self.scm_config = prior_config["scm_config"]
@@ -120,22 +119,6 @@ class ObservationalDataLoader(DataLoader):
         sample_shape = (self.batch_size, total_samples)
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate()
-        
-        # resample if z-normalization results in extreme values
-        bound = 5.0
-        for v in data:
-            train_data = data[v][:, :num_train_samples]
-            mean = train_data.mean(dim=1, keepdim=True)
-            std = train_data.std(dim=1, keepdim=True) + 1e-8
-            z_data = (data[v] - mean) / std
-            if (z_data.abs() > bound).any():
-                return self.batch_function(graph)
-            
-        # rescale buckets to model scale
-        train_y = data['y'][:, :num_train_samples]
-        mean_y = train_y.mean(dim=1, keepdim=True)
-        std_y = train_y.std(dim=1, keepdim=True) + 1e-8
-        scaled_bucket_mids = self.bucket_mids.unsqueeze(0).to(mean_y.device) * std_y + mean_y
             
         # aggregate data in the format required by NanoTabPFN
         full_data = {}
@@ -155,7 +138,7 @@ class ObservationalDataLoader(DataLoader):
         
         if self.n_test_samples == 1:
             test_data = {v: data[v][:, num_train_samples:].item() for v in data}
-            log_probs = scm.log_likelihood_batch(test_data, scaled_bucket_mids)
+            log_probs = scm.log_likelihood_batch(test_data, self.bucket_mids.to(data['y'].device))
             probs = torch.exp(log_probs)
             full_data['probs'] = probs
         

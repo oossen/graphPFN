@@ -204,7 +204,7 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         prior = ObservationalDataLoader(20000, 1, prior_config, seed=seed+5)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
-        style = {'label': 'p(y|x, D)', 'color': 'violet', 'linestyle': '-'}
+        style = {'label': 'p(y|x, D)', 'color': 'lime', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # true SCM
         chain = [(scm, 0.0, 1)]
@@ -215,10 +215,10 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        model_names = ["likelihood_training_01_26_15_45", "likelihood_training_01_26_15_56"]
-        model_types = {"likelihood_training_01_26_15_45": "pfn", "likelihood_training_01_26_15_56": "pfn"}
-        model_colors = {"likelihood_training_01_26_15_45": "red", "likelihood_training_01_26_15_56": "orange"}
-        model_labels = {"likelihood_training_01_26_15_45": "p(y|x, D)", "likelihood_training_01_26_15_56": "p(y|x, D) (CE)"}
+        model_names = ["likelihood_training_01_26_23_56", "likelihood_training_01_26_23_59", "likelihood_training_binary_01_27_01_18"]
+        model_types = {"likelihood_training_01_26_23_56": "pfn", "likelihood_training_01_26_23_59": "pfn", "likelihood_training_binary_01_27_01_18": "binary"}
+        model_colors = {"likelihood_training_01_26_23_56": "red", "likelihood_training_01_26_23_59": "orange", "likelihood_training_binary_01_27_01_18": "violet"}
+        model_labels = {"likelihood_training_01_26_23_56": "p(y|x, D) (CE)", "likelihood_training_01_26_23_59": "p(y|x, D)", "likelihood_training_binary_01_27_01_18": "p(y|x, D, graph) (CE)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}

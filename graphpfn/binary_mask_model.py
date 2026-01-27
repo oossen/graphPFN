@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn import MultiheadAttention, Linear, LayerNorm
 
-from tfmplayground.model import Decoder, FeatureEncoder, TargetEncoder, NanoTabPFNModel
+from tfmplayground.model import Decoder, TargetEncoder, NanoTabPFNModel
 from tfmplayground.utils import get_default_device
 
 
@@ -97,6 +97,18 @@ class GraphPFNModel(NanoTabPFNModel):
         # the logits of our predictions (B,num_targets,num_classes)
         output = self.decoder(output)
         return output
+    
+
+class FeatureEncoder(nn.Module):
+    def __init__(self, embedding_size: int):
+        """ Creates the linear layer that we will use to embed our features. """
+        super().__init__()
+        self.linear_layer = nn.Linear(1, embedding_size)
+
+    def forward(self, x: torch.Tensor, single_eval_pos: int) -> torch.Tensor:
+        x = x.unsqueeze(-1)  # (B,R,C-1) -> (B,R,C-1,1)
+        x = torch.clip(x, min=-100, max=100)
+        return self.linear_layer(x)
     
 
 class TransformerEncoderStack(nn.Module):

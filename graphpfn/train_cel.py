@@ -63,11 +63,6 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: FullSupportBarDi
                     continue
                 targets = full_data['probs'].to(device)
 
-                y_mean = data[1].mean(dim=1, keepdim=True)
-                y_std = data[1].std(dim=1, keepdim=True) + 1e-8
-                y_norm = (data[1] - y_mean) / y_std
-                data = (data[0], y_norm)
-
                 output = model(data, single_eval_pos=single_eval_pos, **full_data['graph_information'])
                 
                 targets = targets.view(-1, targets.shape[-1])
