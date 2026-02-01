@@ -7,10 +7,7 @@ import itertools
 import networkx as nx
 from sklearn.metrics import r2_score
 
-def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos=None):
-    if single_eval_pos is None:
-        # plot everything in the same color
-        single_eval_pos = X.shape[0]
+def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos: int = 0, graph=None):
     pairs = list(itertools.combinations(range(X.shape[1]), 2))
     n_pairs = len(pairs)
     n_plots = n_pairs + X.shape[1] # pairs of features plus pairs involving the target
@@ -20,17 +17,28 @@ def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_ev
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(3 * n_cols, 3 * n_rows))
     axes = np.atleast_1d(axes) # in case there is only one plot
     axes = axes.flatten()
+    
+    labels = list(graph.nodes) if graph is not None else [f"feature {i}" for i in range(X.shape[1])]
+    labels.remove('y')
 
     for i, (p, q) in enumerate(pairs):
-        axes[i].scatter(X[:single_eval_pos, p].numpy(), X[:single_eval_pos, q].numpy(), s=5, c='red')
+        if graph is not None and (graph.has_edge(labels[p], labels[q]) or graph.has_edge(labels[q], labels[p])):
+            main_color = 'orange'
+        else:
+            main_color = 'red'
+        axes[i].scatter(X[:single_eval_pos, p].numpy(), X[:single_eval_pos, q].numpy(), s=5, c=main_color)
         axes[i].scatter(X[single_eval_pos:, p].numpy(), X[single_eval_pos:, q].numpy(), s=5, c='gray')
-        axes[i].set_xlabel(f"feature {p}")
-        axes[i].set_ylabel(f"feature {q}")
+        axes[i].set_xlabel(labels[p])
+        axes[i].set_ylabel(labels[q])
     for i in range(X.shape[1]):
-        axes[i + n_pairs].scatter(X[:single_eval_pos, i].numpy(), y[:single_eval_pos].numpy(), s=5, c='blue')
+        if graph is not None and (graph.has_edge(labels[i], 'y') or graph.has_edge('y', labels[i])):
+            main_color = 'cyan'
+        else:
+            main_color = 'blue'
+        axes[i + n_pairs].scatter(X[:single_eval_pos, i].numpy(), y[:single_eval_pos].numpy(), s=5, c=main_color)
         axes[i + n_pairs].scatter(X[single_eval_pos:, i].numpy(), y[single_eval_pos:].numpy(), s=5, c='gray')
-        axes[i + n_pairs].set_xlabel(f"feature {i}")
-        axes[i + n_pairs].set_ylabel(f"target")
+        axes[i + n_pairs].set_xlabel(labels[i])
+        axes[i + n_pairs].set_ylabel('y')
 
     for ax in axes[n_plots:]:
         ax.axis("off")
@@ -51,70 +59,47 @@ def plot_correlation(X: torch.Tensor, filename: str):
     plt.close()
     
 
-def plot_prob_adj(prob_adj, filename: str):
-    if not isinstance(prob_adj, list):
-        prob_adj = [prob_adj]
-        
-    n_cols = len(prob_adj)
-    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5)) # Adjust width based on N
-    for i, ax in enumerate(axes):
-        im = ax.imshow(prob_adj[i], cmap='viridis', vmin=0.0, vmax=1.0)
-        ax.set_xlabel('Feature Index')
-        if i == 0:
-            ax.set_ylabel('Feature Index') # Only show Y label on the first plot to save space
-        else:
-            ax.set_yticks([]) # Hide Y ticks on subsequent plots
-    fig.colorbar(im, ax=axes.ravel().tolist(), label='Probability')
-    plt.savefig(filename, dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    
-def plot_graph(g: nx.DiGraph, filename: str):
-    node_color = ['gray' if g.nodes[v].get('dropped', False) else 'blue' for v in g.nodes]
-    edge_color = ['gray' if g.edges[e].get('contracted', False) else 'black' for e in g.edges]
-    nx.draw(g, with_labels=True, node_color=node_color, edge_color=edge_color)
+def plot_adj(prob_adj: torch.Tensor, adj: torch.Tensor, filename: str):
+    plt.imshow(prob_adj.detach().cpu(), cmap='viridis', vmin=0.0, vmax=1.0)
+    plt.colorbar(label='Probability')
+    rows, cols = torch.where(adj == 1)
+    plt.scatter(cols.cpu(), rows.cpu(), 
+                marker='x', 
+                color='red', 
+                s=20,          # Size of the cross
+                linewidths=1)  # Thickness of the cross lines
+    plt.xlabel('Feature Index')
+    plt.ylabel('Feature Index')
     plt.savefig(filename, dpi=300)
     plt.close()
     
-
-def plot_r2(prior: DataLoader, filename: str):
-    models = {}
-    from sklearn.ensemble import RandomForestRegressor
-    models["rf_10"] = RandomForestRegressor(10)
-    from sklearn.svm import SVR
-    models["svr"] = SVR()
-    from sklearn.linear_model import Ridge
-    models["ridge"] = Ridge()
     
-    scores = {model: [] for model in models}
-
-    for data in prior:
-        X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
-        y_train = data['y'][0, :data['single_eval_pos'], :].cpu().numpy()
-        X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
-        y_test = data['y'][0, data['single_eval_pos']:, :].cpu().numpy()
-        
-        for name, model in models.items():
-            model.fit(X_train, y_train.ravel())
-            pred = model.predict(X_test)
-            scores[name].append(r2_score(y_test.ravel(), pred))
-            
-    n_models = len(models)
-    fig, axes = plt.subplots(1, n_models, figsize=(4 * n_models, 4), sharey=True)
-    for i, name in enumerate(models.keys()):
-        axes[i].boxplot(scores[name], label=name, showfliers=False)
-        axes[i].set_title(name)
-    plt.tight_layout()
+def plot_graph(g: nx.Graph, filename: str, **drawing_style):
+    node_color = ['gray' if g.nodes[v].get('hidden', False) else 'blue' for v in g.nodes]
+    weights = [g[u][v].get('weight', 1.0) for u, v in g.edges]
+    base_color = (0, 0, 0) 
+    edge_color = [base_color + (w,) for w in weights]
+    drawing_style.setdefault('with_labels', True) 
+    nx.draw(g, node_color=node_color, edge_color=edge_color, **drawing_style)
     plt.savefig(filename, dpi=300)
     plt.close()
     
-
-def plot_scores(scores: Dict, filename: str):
-    plt.grid(True)
-    for name, values in scores.items():
-        plt.scatter(range(len(values)), values, label=name)
-    plt.xlabel("Index")
-    plt.ylabel("R²")
+def plot_likelihoods(bucket_mids: torch.Tensor, probs: torch.Tensor, true_y: float, filename: str):
+    eps = 1e-3
+    max_prob = torch.max(probs)
+    mask = probs > eps * max_prob
+    indices = torch.where(mask)[0]
+    buffer = 1
+    start_idx = max(0, indices[0] - buffer)
+    end_idx = min(len(bucket_mids) - 1, indices[-1] + buffer)
+    probs = probs[start_idx:end_idx+1].cpu()
+    bucket_mids = bucket_mids[start_idx:end_idx+1].cpu()
+    
+    plt.plot(bucket_mids, probs, label="p(y)")
+    plt.axvline(x=true_y, color='red', linestyle='--', linewidth=1)  # the true y-value
+    plt.xlabel("y")
+    plt.ylabel("p(y)")
     plt.legend()
+    plt.grid(True)
     plt.savefig(filename, dpi=300)
     plt.close()

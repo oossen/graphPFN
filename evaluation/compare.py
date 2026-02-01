@@ -2,7 +2,8 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
-from evaluation.evaluate import evaluate, evaluate_avici
+from scipy.stats import wilcoxon
+from evaluation.evaluate import evaluate
 from priors.observational_dataloader_graph_prior import ObservationalDataLoader
 from configs.default_configs import prior_config
 from tfmplayground.utils import get_default_device
@@ -18,17 +19,11 @@ def remove_outliers(x):
     return (x >= lower) & (x <= upper)
 
 
-def compare(model_1, model_2, num_samples, filename, avici_1=False, avici_2=False, include_scatter=False):
+def compare(model_1, model_2, num_samples, filename, include_scatter=False):
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
-    if avici_1:
-        df1 = evaluate_avici(model_1, prior)
-    else:
-        df1 = evaluate(model_1, prior)
+    df1 = evaluate(model_1, prior)
     prior = ObservationalDataLoader(num_steps=num_samples, batch_size=1, prior_config=prior_config, seed=42)
-    if avici_2:
-        df2 = evaluate_avici(model_2, prior)
-    else:
-        df2 = evaluate(model_2, prior)
+    df2 = evaluate(model_2, prior)
     
     col_labels = ['num_nodes', 'edge_prob', 'root_std', 'non_root_std', 'number_train_samples_per_dataset']
     log_scale = [False, True, True, True, False]
@@ -38,15 +33,27 @@ def compare(model_1, model_2, num_samples, filename, avici_1=False, avici_2=Fals
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 6 * n_rows))
     axes = axes.flatten()
     
+    diff = df2['R2'] - df1['R2']
+    
     print(f"Mean difference is {df2['R2'].mean() - df1['R2'].mean()}.")
     print(f"Median difference is {(df2['R2'] - df1['R2']).median()}.")
+    print(f"Difference of medians is {df2['R2'].median() - df1['R2'].median()}.")
+    print(f"Proportion of wins of model 2 is {(diff > 0).mean()}.")
+    statistic, p_value = wilcoxon(df1['R2'], df2['R2'])
+    print(f"p-value of Wilcoxon signed rank test is {p_value}.")
     
+    # plot datasets where the two models differ the most
+    top_rows = diff.abs().nlargest(20).index
+    res = df1.loc[top_rows].copy()
+    res.rename(columns={'R2': 'R2_1'}, inplace=True)
+    res['R2_2'] = df2.loc[top_rows, 'R2']
+    res['difference'] = diff[top_rows]
+    print("Top differences")
+    print(res)
         
     for i, label in enumerate(col_labels):
-        print(label)
+        # print(label)
         ax = axes[i]
-
-        diff = df2['R2'] - df1['R2']
         outlier_mask = remove_outliers(diff)
 
         x = df1[label][outlier_mask]
@@ -72,7 +79,7 @@ def compare(model_1, model_2, num_samples, filename, avici_1=False, avici_2=Fals
                 bucket_centers.append(bucket_center)
                 bucket_means.append(y[mask].mean())
                 bucket_stds.append(y[mask].std())
-            print(f"Bucket with center {bucket_center} has {np.sum(mask)} elements.")
+            # print(f"Bucket with center {bucket_center} has {np.sum(mask)} elements.")
         centers_arr = np.array(bucket_centers)
         means_arr = np.array(bucket_means)
         stds_arr = np.array(bucket_stds)
@@ -108,8 +115,6 @@ parser.add_argument("--dir_2", type=str, required=True)
 parser.add_argument("--model_2", type=str, required=True)
 parser.add_argument("--steps", type=int, default=50)
 parser.add_argument("--scatter", action="store_true")
-parser.add_argument("--avici_1", action="store_true")
-parser.add_argument("--avici_2", action="store_true")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -129,6 +134,4 @@ if __name__ == "__main__":
             reg_2,
             args.steps,
             f"evaluation/output/{datetime_str}/comparisons.png",
-            avici_1=args.avici_1,
-            avici_2=args.avici_2,
             include_scatter=args.scatter)

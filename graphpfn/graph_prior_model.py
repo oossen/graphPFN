@@ -59,16 +59,21 @@ class GraphPFNModel(NanoTabPFNModel):
             return self._forward((x, args[1]), single_eval_pos=len(args[0]), **kwargs)
         elif len(args) == 1 and isinstance(args, tuple):
             # case model((x,y), single_eval_pos=single_eval_pos, adjacency_matrix=adjacency_matrix)
-            return self._forward(*args, **kwargs)
+            if 'prob_adj' in kwargs:
+                return self._forward(*args, **kwargs)
+            elif 'adjacency_matrix' in kwargs:
+                kwargs['prob_adj'] = kwargs['adjacency_matrix']
+                return self._forward(*args, **kwargs)
+            else:
+                x_src, y_src = args[0]
+                num_cols = x_src.shape[2] + 1
+                kwargs['prob_adj'] = torch.full((num_cols, num_cols), 0.5)
+                return self._forward(*args, **kwargs)
         else:
             raise ValueError("Invalid input!")
 
     def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, prob_adj: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         x_src, y_src = src
-        if prob_adj is None:
-            num_cols = x_src.shape[2] + 1
-            prob_adj = torch.full((num_cols, num_cols), 0.5)
-
         # we expect the labels to look like (batches, num_train_datapoints, 1),
         # so we add the last dimension if it is missing
         if len(y_src.shape) < len(x_src.shape):
@@ -155,7 +160,7 @@ class TransformerEncoderLayer(nn.Module):
         # adjacency based attention
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
         # flip adjacency matrix, except for diagonal entries
-        mask = calculate_mask_2(prob_adj, self.nhead_graph)
+        mask = calculate_mask(prob_adj, self.nhead_graph)
         src = self.self_attn_graph(src, src, src, attn_mask=mask)[0]+src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
         src = self.norm2(src)
@@ -240,22 +245,9 @@ class MultiplicativeMultiheadAttention(nn.Module):
         output = self.out_proj(attn_output)
 
         return output, attn_weights
-    
+
 
 def calculate_mask(prob_adj, nhead):
-    f = prob_adj.shape[0]
-    eye = torch.eye(f, dtype=torch.bool)
-    mask_1 = (prob_adj + eye).to(get_default_device())
-    mask_2 = (prob_adj.T + eye).to(get_default_device())
-    mask_3 = (torch.full((f, f), 1.0)).to(get_default_device())
-    mask_1 = mask_1.unsqueeze(0).expand(nhead, -1, -1)
-    mask_2 = mask_2.unsqueeze(0).expand(nhead, -1, -1)
-    mask_3 = mask_3.unsqueeze(0).expand(nhead, -1, -1)
-    mask = torch.cat([mask_1, mask_2, mask_3], dim=0)
-    return mask
-
-
-def calculate_mask_2(prob_adj, nhead):
     f = prob_adj.shape[0]
     eye = torch.eye(f, dtype=torch.bool)
     mask_1 = (prob_adj + eye).to(get_default_device())

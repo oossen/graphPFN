@@ -1,67 +1,35 @@
 import os
-from typing import Dict
+from datetime import datetime
 
+from configs.default_configs import prior_config
 from priors.observational_dataloader import ObservationalDataLoader
-from visualization.check_seeding import compare_dataloaders
-from visualization.plotting import plot_prob_adj, plot_r2, plot_correlation, plot_graph, plot_point_clouds
+from visualization.plotting import plot_graph, plot_point_clouds, plot_correlation, plot_adj, plot_likelihoods
 
 
-def make_all(prior_class,
-             prior_config: Dict,
-             output_dir: str,
-             n_steps: int = 5,
-             check_seeding=True,
-             include_r2=True):
-    """
-    Run the complete visualization suite for the prior specified by `config`.
-    This must be a string specifying a path to a configuration file.
-    """
-    if check_seeding:
-        prior_1 = prior_class(n_steps, 5, prior_config, 42)
-        prior_2 = prior_class(n_steps, 5, prior_config, 42)
-        compare_dataloaders(prior_1, prior_2)
-    
+def plot_all(prior, output_dir: str):
     os.makedirs(output_dir, exist_ok=True)
+    for i, data in enumerate(prior):
+        X = data['x'][0]
+        y = data['y'][0]
+        single_eval_pos = data['single_eval_pos']
+        graph = data['graph_information']['graph']
+        prob_adj = data['graph_information']['prob_adj']
+        adj = data['graph_information']['adj']
+        probs = data['probs'][0][0]
+        bucket_mids = prior.bucket_mids
+        test_y = y[single_eval_pos][0].item()
+        plot_graph(graph, f"{output_dir}/graph_{i}_test.png")
+        plot_point_clouds(X, y, f"{output_dir}/point_clouds_{i}.png", single_eval_pos=single_eval_pos, graph=graph)
+        plot_correlation(X, f"{output_dir}/correlation_{i}.png")
+        plot_adj(prob_adj, adj, f"{output_dir}/prob_adj_{i}.png")
+        plot_likelihoods(bucket_mids, probs, test_y, f"{output_dir}/likelihoods_{i}.png")
+        # write SCM to file
+        with open(f"{output_dir}/scm_{i}.txt", "w") as f:
+            f.write(str(data['graph_information']['scm']))
     
-    # save the configs we used
-    with open(f"{output_dir}/configs.py", "w") as f:
-        f.write(f"prior_config = {repr(prior_config)}\n")
     
-    if include_r2:
-        big_prior = prior_class(10 * n_steps, 1, prior_config, 42)
-        plot_r2(big_prior, f"{output_dir}/r2.png")
-    
-    prior = prior_class(n_steps, 1, prior_config, 42)
-    def plot_all_(prior, n: int):
-        for i, data in enumerate(prior):
-            X = data['x'][0]
-            y = data['y'][0]
-            g = data['graph_information']['graph']
-            new_g = data['graph_information']['new_graph']
-            scm = data['graph_information']['scm']
-            plot_graph(g, f"{output_dir}/graph_{n}_{i}.png")
-            plot_graph(new_g, f"{output_dir}/new_graph_{n}_{i}.png")
-            plot_correlation(X, f"{output_dir}/correlation_{n}_{i}.png")
-            plot_point_clouds(X, y, f"{output_dir}/point_clouds_{n}_{i}.png")
-            if 'prob_adj' in data['graph_information']:
-                plot_prob_adj(data['graph_information']['prob_adj'], f"{output_dir}/prob_adj_{n}_{i}.png")
-            
-            # write sampled parameters to file
-            with open(f"{output_dir}/sampled_params_{n}_{i}.py", "w") as f:
-                for name, param_dict in data['graph_information']["sampled_params"].items():
-                    f.write(f"{name} = {repr(param_dict)}\n")
-            # write SCM mechanisms to file
-            with open(f"{output_dir}/scm_{n}_{i}.py", "w") as f:
-                f.write(f"mechanisms = {repr(scm.mechanisms)}")
-                    
-    # call the plotting two times to check if subsequent iterators are different
-    plot_all_(prior, 0)
-    plot_all_(prior, 1)
-    
-
 if __name__ == "__main__":
-    from configs.memory_configs import prior_config
-    from datetime import datetime
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
-    make_all(ObservationalDataLoader, prior_config, f"visualization/output/{datetime_str}")
+    prior = ObservationalDataLoader(20, 1, prior_config, seed=42)
+    plot_all(prior, f"visualization/output/{datetime_str}")

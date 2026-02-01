@@ -27,8 +27,8 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python -m evaluation.compare --dir_1 workdir/nano_tab_pfn_12_01_15_24 --model_1 pfn --dir_2 workdir/graph_prior_pfn_12_01_14_45 --model_2 graph_prior --steps 1000 --avici_2
-
+python -m evaluation.simple_mcmc
+# python -m visualization.make_visualization_probabilistic
 end=`date +%s`
 runtime=$((end-start))
 

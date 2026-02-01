@@ -1,61 +1,58 @@
 from functools import partial
 from typing import List
 from datetime import datetime
-import networkx as nx
 
 import torch
 
-from graphpfn.callbacks import SanityCheckPerGraphLoggerCallback
+from graphpfn.callbacks import SanityCheckLoggerCallback, OldSanityCheckLoggerCallback
 from graphpfn.train import train
 from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
+from pfns.bar_distribution import get_bucket_limits
+from pfns.bar_distribution import FullSupportBarDistribution
 
-from graphpfn.utils import make_bar_distribution
-from priors.basic_dataloader import BasicDataLoader
+from visualization.make_visualization import plot_all
 
-
-from configs.default_configs_attention import training_config as args
-
-g_0 = nx.DiGraph()
-g_0.add_nodes_from([0, 1, 2, 3, 4])
-g_0.add_edges_from([(0, 4)])
-g_1 = nx.DiGraph()
-g_1.add_nodes_from([0, 1, 2, 3, 4])
-g_1.add_edges_from([(0, 4), (1, 4)])
-g_2 = nx.DiGraph()
-g_2.add_nodes_from([0, 1, 2, 3, 4])
-g_2.add_edges_from([(0, 4), (1, 4), (2, 4)])
-g_3 = nx.DiGraph()
-g_3.add_nodes_from([0, 1, 2, 3, 4])
-g_3.add_edges_from([(0, 4), (1, 4), (2, 4), (3, 4)])
-graphs = [g_0, g_1, g_2, g_3]
-graph_subset = [g_0]
+from priors.basic_dataloader import ObservationalDataLoader
+from configs.ppd_configs_pe import training_config as args, prior_config
 
 
 device = get_default_device()
 
-prior = BasicDataLoader(num_steps=args["steps"], batch_size=args["batchsize"], graphs=graph_subset, seed=42)
+dataloader_args = {
+    "fixed_graph_ratio": prior_config["fixed_graph_ratio"],
+    "n_train_samples": prior_config["n_train_samples"],
+    "n_test_samples": prior_config["n_test_samples"],
+}
+
+prior = ObservationalDataLoader(num_steps=args["steps"],
+                                batch_size=args["batchsize"],
+                                **dataloader_args,
+                                seed=42,)
 
 model = args["model"]
 n_buckets = model.num_outputs
-
-prior_factory = partial(BasicDataLoader, batch_size=10, graphs=graph_subset, seed=42)
-dist, buckets = make_bar_distribution(prior_factory, n_buckets=n_buckets, n_samples=args["n_bardist_samples"])
+buckets = get_bucket_limits(num_outputs=n_buckets, full_range=(-5.0, 5.0)).to(device)
+dist = FullSupportBarDistribution(buckets)
 
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")
-output_dir = f"{args['output']}/{datetime_str}"
+run_name = f"{args['saveweights']}_{datetime_str}"
+output_dir = f"workdir/{run_name}"
 tensorboard_dir = f"{output_dir}/tensorboard"
-test_prior_factory = partial(BasicDataLoader, batch_size=1, graphs=graphs, seed=42)
-sanity_callback_per_graph = SanityCheckPerGraphLoggerCallback(tensorboard_dir, test_prior_factory)
+test_prior_factory = partial(ObservationalDataLoader, batch_size=1, **dataloader_args | {"n_test_samples": 20}, seed=43)
+sanity_callback = SanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
+old_sanity_callback = OldSanityCheckLoggerCallback(tensorboard_dir, test_prior_factory)
 logger_callback = TensorboardLoggerCallback(tensorboard_dir)
-callbacks: List[Callback] = [logger_callback, sanity_callback_per_graph]
+callbacks: List[Callback] = [logger_callback, sanity_callback, old_sanity_callback]
 
+visualization_prior = ObservationalDataLoader(10, 1, **dataloader_args, seed=44)
+plot_all(visualization_prior, f"{output_dir}/visualization")
 # save buckets
 with open(f"{output_dir}/buckets.txt", "w") as f:
     f.write(str(buckets))
     
-
+torch.save(buckets.to('cpu'), f"{output_dir}/dist.pth")
 trained_model, loss = train(
     model=model,
     prior=prior,
@@ -65,18 +62,5 @@ trained_model, loss = train(
     lr=args["lr"],
     device=torch.device(device),
     callbacks=callbacks,
+    run_name=run_name,
 )
-
-
-model_params = {'architecture': {
-                    'num_layers': int(model.num_layers),
-                    'embedding_size': int(model.embedding_size),
-                    'num_attention_heads': int(model.num_attention_heads),
-                    'num_graph_attention_heads': model.num_graph_attention_heads if hasattr(model, 'num_graph_attention_heads') else None,
-                    'gcn_hidden_size': model.gcn_hidden_size if hasattr(model, 'gcn_hidden_size') else None,
-                    'mlp_hidden_size': int(model.mlp_hidden_size),
-                    'num_outputs': int(model.num_outputs)
-                },
-                'model': model.state_dict(),}
-torch.save(model_params, f"{args['saveweights']}_model.pth")
-torch.save(buckets.to('cpu'), f"{args['saveweights']}_dist.pth")

@@ -2,16 +2,15 @@ from typing import Tuple
 import torch
 from torch import nn
 import torch.nn.functional as F
+from tfmplayground.utils import get_default_device
 
 from tfmplayground.model import Decoder, FeatureEncoder, TargetEncoder, NanoTabPFNModel, TransformerEncoderStack
-from tfmplayground.utils import get_default_device
 
 
 class GraphPFNModel(NanoTabPFNModel):
     def __init__(self,
                  embedding_size: int,
                  num_attention_heads: int,
-                 gcn_hidden_size: int,
                  mlp_hidden_size: int,
                  num_layers: int,
                  num_outputs: int):
@@ -19,7 +18,6 @@ class GraphPFNModel(NanoTabPFNModel):
         nn.Module.__init__(self)
         self.embedding_size = embedding_size
         self.num_attention_heads = num_attention_heads
-        self.gcn_hidden_size = gcn_hidden_size
         self.mlp_hidden_size = mlp_hidden_size
         self.num_layers = num_layers
         self.num_outputs = num_outputs
@@ -27,7 +25,6 @@ class GraphPFNModel(NanoTabPFNModel):
         self.target_encoder = TargetEncoder(embedding_size)
         self.transformer_encoder = TransformerEncoderStack(num_layers, embedding_size, num_attention_heads, mlp_hidden_size)
         self.decoder = Decoder(embedding_size, mlp_hidden_size, num_outputs)
-        self.graph_encoder = GraphEncoder(3, gcn_hidden_size, embedding_size)
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
         """
@@ -59,16 +56,21 @@ class GraphPFNModel(NanoTabPFNModel):
             return self._forward((x, args[1]), single_eval_pos=len(args[0]), **kwargs)
         elif len(args) == 1 and isinstance(args, tuple):
             # case model((x,y), single_eval_pos=single_eval_pos, adjacency_matrix=adjacency_matrix)
-            return self._forward(*args, **kwargs)
+            if 'prob_adj' in kwargs:
+                return self._forward(*args, **kwargs)
+            elif 'adjacency_matrix' in kwargs:
+                kwargs['prob_adj'] = kwargs['adjacency_matrix']
+                return self._forward(*args, **kwargs)
+            else:
+                x_src, y_src = args[0]
+                num_cols = x_src.shape[2] + 1
+                kwargs['prob_adj'] = torch.full((num_cols, num_cols), 0.5)
+                return self._forward(*args, **kwargs)
         else:
             raise ValueError("Invalid input!")
 
-    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, adjacency_matrix: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
+    def _forward(self, src: Tuple[torch.Tensor, torch.Tensor], single_eval_pos: int, prob_adj: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         x_src, y_src = src
-        if adjacency_matrix is None:
-            num_cols = x_src.shape[2] + 1
-            adjacency_matrix = torch.full((num_cols, num_cols), 0.5)
-
         # we expect the labels to look like (batches, num_train_datapoints, 1),
         # so we add the last dimension if it is missing
         if len(y_src.shape) < len(x_src.shape):
@@ -83,10 +85,9 @@ class GraphPFNModel(NanoTabPFNModel):
         # concatenates the feature embeddings with the target embeddings
         # to give us the full table of embeddings (B,R,C,E))
         input = torch.cat([x_src, y_src], 2)
-        # add adjacency matrix encoding
-        # encoding has shape (C, E) before unsqueezing, (1, 1, C, E) after
-        adj_encoding = self.graph_encoder(adjacency_matrix).unsqueeze(0).unsqueeze(0)
-        input += adj_encoding
+        # add graph encoding
+        graph_embeddings = power_series_dag_embedding(prob_adj, self.embedding_size)  # (C, E)
+        input += graph_embeddings.unsqueeze(0).unsqueeze(0)  # (1, 1, C, E)
         # repeatedly applies the transformer block on (B,R,C,E)
         output = self.transformer_encoder(input, single_eval_pos)
         # selects the target embeddings (B,num_targets,1,E)
@@ -95,51 +96,38 @@ class GraphPFNModel(NanoTabPFNModel):
         # the logits of our predictions (B,num_targets,num_classes)
         output = self.decoder(output)
         return output
-    
 
-class GraphEncoder(nn.Module):
-    def __init__(self, n_layers, hidden_dim, out_dim):
-        super().__init__()
-        self.hidden_dim = hidden_dim
-        self.gcn_layers = nn.ModuleList()
-        for _ in range(n_layers - 1):
-            self.gcn_layers.append(GCNLayer(hidden_dim, hidden_dim))
-        self.gcn_layers.append(GCNLayer(hidden_dim, out_dim))
+
+def power_series_dag_embedding(adj, dim, alpha=0.5, max_depth=3, seed=42):
+    """
+    Embeds a DAG using a power series of its adjacency matrix with a fixed seed.
+    """
+    adj = adj.to(get_default_device())
+    
+    N = adj.size(0)
+    device = adj.device
+    if max_depth is None:
+        max_depth = N 
+
+    # Use a local generator to ensure R is deterministic based on the seed
+    # This avoids messing with the global torch.manual_seed()
+    gen = torch.Generator(device=device)
+    gen.manual_seed(seed)
+    
+    # Initialize Random Projection Matrix R ~ N(0, 1/D)
+    # R is the "base" mapping; keeping this fixed ensures nodes 
+    # are projected into a consistent latent space.
+    R = torch.randn(N, dim, device=device, generator=gen) / (dim ** 0.5)
+    
+    embedding = R.clone()
+    current_term = R
+    
+    for k in range(1, max_depth):
+        current_term = torch.mm(adj, current_term)
         
-    def forward(self, adjacency_matrix: torch.Tensor) -> torch.Tensor:
-        # initial encoding, like a positional encoding
-        f = adjacency_matrix.shape[0]
-        pe = torch.zeros(f, self.hidden_dim)
-        pos = torch.arange(0, f).unsqueeze(1)
-        degrees = adjacency_matrix.sum(dim=1).unsqueeze(1)
-        i = torch.arange(0, self.hidden_dim).unsqueeze(0)
-        angle_rates = 1 / torch.pow(10000, (2 * (i // 2)) / self.hidden_dim)
-        angles = pos * angle_rates
-        pe[:, 0::2] = torch.sin(angles[:, 0::2])
-        pe[:, 1::2] = torch.cos(angles[:, 1::2])
+        if torch.norm(current_term) < 1e-9:
+            break
+            
+        embedding += (alpha ** k) * current_term
         
-        x = pe
-        for layer in self.gcn_layers:
-            x = layer(x, adjacency_matrix)
-        return x
-
-    
-class GCNLayer(nn.Module):
-    def __init__(self, in_features, out_features):
-        super().__init__()
-        self.weight = nn.Parameter(torch.empty(in_features, out_features, device=get_default_device()))
-        self.bias = nn.Parameter(torch.empty(out_features, device=get_default_device()))
-        nn.init.xavier_uniform_(self.weight)
-        nn.init.zeros_(self.bias)
-
-    def forward(self, input, adjacency_matrix):
-        input = input.to(get_default_device())
-        adj = adjacency_matrix.to(get_default_device())
-        I = torch.eye(adj.size(0), device=get_default_device())
-        adj_hat = adj + I
-        D_hat = torch.diag(torch.pow(adj_hat.sum(1), -0.5))
-        adj_norm = D_hat @ adj_hat @ D_hat
-
-        output = adj_norm @ input @ self.weight + self.bias
-        return F.relu(output)
-    
+    return embedding
