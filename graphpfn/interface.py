@@ -11,37 +11,12 @@ from sklearn.metrics import r2_score
 
 from tfmplayground.utils import get_default_device
 from tfmplayground.interface import NanoTabPFNRegressor
-import tfmplayground.model, graphpfn.graph_prior_model, graphpfn.binary_mask_model, graphpfn.fallback_model, graphpfn.graph_prior_fallback_model, graphpfn.binary_mask_fallback_model, graphpfn.pos_encoding_model, graphpfn.transfer_model, graphpfn.transfer_model_binary, graphpfn.transfer_model, graphpfn.gcn_model
 
 
-def init_model_from_state_dict_file(model_type: str, file_path: str):
-    """
-    reads model architecture from state dict, instantiates the architecture and loads the weights
-    """
-    if model_type == "pfn":
-        model_class = tfmplayground.model.NanoTabPFNModel
-    elif model_type == 'graph_prior':
-        model_class = graphpfn.graph_prior_model.GraphPFNModel
-    elif model_type == 'binary':
-        model_class = graphpfn.binary_mask_model.GraphPFNModel
-    elif model_type == 'fallback':
-        model_class = graphpfn.fallback_model.GraphPFNModel
-    elif model_type == 'graph_prior_fallback':
-        model_class = graphpfn.graph_prior_fallback_model.GraphPFNModel
-    elif model_type == 'binary_fallback':
-        model_class = graphpfn.binary_mask_fallback_model.GraphPFNModel
-    elif model_type == 'pos_encoding':
-        model_class = graphpfn.pos_encoding_model.GraphPFNModel
-    elif model_type == 'transfer_pe':
-        model_class = graphpfn.transfer_model.GraphPFNModel
-    elif model_type == 'transfer_binary':
-        model_class = graphpfn.transfer_model_binary.GraphPFNModel
-    elif model_type == 'transfer':
-        model_class = graphpfn.transfer_model.GraphPFNModel
-    elif model_type == 'gcn':
-        model_class = graphpfn.gcn_model.GraphPFNModel
-        
+def init_model_from_state_dict_file(file_path: str):
+    """Read model architecture from state dict, instantiates the architecture and loads the weights."""
     state_dict = torch.load(file_path, map_location=torch.device('cpu'))
+    model_class = state_dict['model_class']
     model = model_class(**state_dict['architecture'])
     model.load_state_dict(state_dict['model'])
     return model

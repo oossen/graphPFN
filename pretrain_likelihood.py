@@ -5,14 +5,14 @@ from datetime import datetime
 import torch
 
 from graphpfn.callbacks import SanityCheckLoggerCallback, OldSanityCheckLoggerCallback
-from graphpfn.train_cel import train
+from graphpfn.train import train
 from tfmplayground.utils import get_default_device
 from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from pfns.bar_distribution import FullSupportBarDistribution
 
 from visualization.make_visualization import plot_all
 
-from priors.basic_dataloader_graph_prior import ObservationalDataLoader
+from priors.observational_dataloader import ObservationalDataLoader
 from configs.likelihood_training_configs_binary import training_config as args, prior_config
 
 

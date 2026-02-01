@@ -11,7 +11,7 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from pfns.bar_distribution import get_bucket_limits
 from pfns.bar_distribution import FullSupportBarDistribution
 
-from visualization.make_visualization_probabilistic import make_all
+from visualization.make_visualization import make_all
 
 from priors.basic_dataloader_probabilistic import ObservationalDataLoader
 from configs.probabilistic_configs_gcn import training_config as args, prior_config

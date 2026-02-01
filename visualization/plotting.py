@@ -59,10 +59,15 @@ def plot_correlation(X: torch.Tensor, filename: str):
     plt.close()
     
 
-def plot_prob_adj(prob_adj: torch.Tensor, filename: str):
-    plt.imshow(prob_adj, cmap='viridis', vmin=0.0, vmax=1.0)
+def plot_adj(prob_adj: torch.Tensor, adj: torch.Tensor, filename: str):
+    plt.imshow(prob_adj.detach().cpu(), cmap='viridis', vmin=0.0, vmax=1.0)
     plt.colorbar(label='Probability')
-    plt.title('Probabilistic adjacency matrix')
+    rows, cols = torch.where(adj == 1)
+    plt.scatter(cols.cpu(), rows.cpu(), 
+                marker='x', 
+                color='red', 
+                s=20,          # Size of the cross
+                linewidths=1)  # Thickness of the cross lines
     plt.xlabel('Feature Index')
     plt.ylabel('Feature Index')
     plt.savefig(filename, dpi=300)
@@ -79,45 +84,22 @@ def plot_graph(g: nx.Graph, filename: str, **drawing_style):
     plt.savefig(filename, dpi=300)
     plt.close()
     
-
-def plot_r2(prior: DataLoader, filename: str):
-    models = {}
-    from sklearn.ensemble import RandomForestRegressor
-    models["rf_10"] = RandomForestRegressor(10)
-    from sklearn.svm import SVR
-    models["svr"] = SVR()
-    from sklearn.linear_model import Ridge
-    models["ridge"] = Ridge()
+def plot_likelihoods(bucket_mids: torch.Tensor, probs: torch.Tensor, true_y: float, filename: str):
+    eps = 1e-3
+    max_prob = torch.max(probs)
+    mask = probs > eps * max_prob
+    indices = torch.where(mask)[0]
+    buffer = 1
+    start_idx = max(0, indices[0] - buffer)
+    end_idx = min(len(bucket_mids) - 1, indices[-1] + buffer)
+    probs = probs[start_idx:end_idx+1].cpu()
+    bucket_mids = bucket_mids[start_idx:end_idx+1].cpu()
     
-    scores = {model: [] for model in models}
-
-    for data in prior:
-        X_train = data['x'][0, :data['single_eval_pos'], :].cpu().numpy()
-        y_train = data['y'][0, :data['single_eval_pos'], :].cpu().numpy()
-        X_test = data['x'][0, data['single_eval_pos']:, :].cpu().numpy()
-        y_test = data['y'][0, data['single_eval_pos']:, :].cpu().numpy()
-        
-        for name, model in models.items():
-            model.fit(X_train, y_train.ravel())
-            pred = model.predict(X_test)
-            scores[name].append(r2_score(y_test.ravel(), pred))
-            
-    n_models = len(models)
-    fig, axes = plt.subplots(1, n_models, figsize=(4 * n_models, 4), sharey=True)
-    for i, name in enumerate(models.keys()):
-        axes[i].boxplot(scores[name], label=name, showfliers=False)
-        axes[i].set_title(name)
-    plt.tight_layout()
-    plt.savefig(filename, dpi=300)
-    plt.close()
-    
-
-def plot_scores(scores: Dict, filename: str):
-    plt.grid(True)
-    for name, values in scores.items():
-        plt.scatter(range(len(values)), values, label=name)
-    plt.xlabel("Index")
-    plt.ylabel("R²")
+    plt.plot(bucket_mids, probs, label="p(y)")
+    plt.axvline(x=true_y, color='red', linestyle='--', linewidth=1)  # the true y-value
+    plt.xlabel("y")
+    plt.ylabel("p(y)")
     plt.legend()
+    plt.grid(True)
     plt.savefig(filename, dpi=300)
     plt.close()

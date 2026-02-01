@@ -1,57 +1,56 @@
 import torch
 from torch import nn
 import time
-from torch.utils.data import DataLoader
-from typing import Dict, Optional
-from pfns.bar_distribution import FullSupportBarDistribution
 import schedulefree
 import os
-
+from pfns.bar_distribution import FullSupportBarDistribution
 from tfmplayground.callbacks import Callback
-from tfmplayground.model import NanoTabPFNModel
+from priors.observational_dataloader import ObservationalDataLoader
+from graphpfn.base_model import GraphPFNModel
 from tfmplayground.utils import get_default_device
 
 
-"""
-Describe how this differs from the normal NanoTabPFN training loop!
-- adjacency matrix gets added to data
-"""
-
-
-def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyLoss | FullSupportBarDistribution,
-          epochs: int, accumulate_gradients: int = 1, lr: float = 1e-4, device: torch.device = torch.device(get_default_device()),
-          callbacks: list[Callback] = [], ckpt: Optional[Dict] = None, run_name: str = 'graphPFN'):
+def train(model: GraphPFNModel,
+          prior: ObservationalDataLoader, 
+          buckets: torch.Tensor,
+          epochs: int,
+          lr: float = 1e-4,
+          nll: bool = False,
+          callbacks: list[Callback] = [], 
+          run_name: str = 'graphPFN'):
     """
     Trains our model on the given prior using the given criterion.
 
-    Args:
-        model: (NanoTabPFNModel) our PyTorch model
-        prior: (DataLoader) torch-compatible dataloader
-        criterion: (nn.CrossEntropyLoss | FullSupportBarDistribution) our loss criterion
-        epochs: (int) the number of epochs we train for, the number of steps that constitute an epoch are decided by the prior
-        accumulate_gradients: (int) the number of gradients to accumulate before updating the weights
-        device: (torch.device) the device we are using
-        callbacks: A list of callback instances to execute at the end of each epoch. These can be used for
-            logging, validation, or other custom actions.
-        ckpt (Dict[str, torch.Tensor], optional): A checkpoint dictionary containing the model and optimizer states,
-            as well as the last completed epoch. If provided, training resumes from this checkpoint.
-
-    Returns:
-        (torch.Tensor) a tensor of shape (num_rows, batch_size, num_features, embedding_size)
+    Parameters
+    ----------
+    model : GraphPFNModel
+        The model to train.
+    prior: ObservationalDataLoader
+        A dataloader providing training data in the necessary format.
+    buckets: torch.Tensor
+        The buckets to which the model's outputs will be fit.
+    epochs : int
+        The number of epochs to train for. One epoch consists of on iteration over `prior`.
+    lr : float
+        The learning rate.
+    nll : bool
+        Whether to train against just one class label per dataset and test sample (corresponding to the value of `y`).
+        In other words, train using NLL instead of cross-entropy loss with class proabilities.
+    callbacks : List[Callback]
+        A list of callback instances to execute at the end of each epoch (e.g. logging, validation).
+    run_name : str
+        The name of this training run. Used to create a folder saving the trained model.
     """
     work_dir = 'workdir/'+run_name
     os.makedirs(work_dir, exist_ok=True)
+    device = get_default_device()
     model.to(device)
     optimizer = schedulefree.AdamWScheduleFree(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.0)
-    if ckpt:
-        optimizer.load_state_dict(ckpt['optimizer'])
-    classification_task = isinstance(criterion, nn.CrossEntropyLoss)
-    regression_task = not classification_task
-
-    assert len(prior) % accumulate_gradients == 0, 'num_steps must be divisible by accumulate_gradients'
+    loss_fn = nn.CrossEntropyLoss()
+    bar_dist = FullSupportBarDistribution(buckets)
 
     try:
-        for epoch in range(ckpt['epoch'] + 1 if ckpt else 1, epochs + 1):
+        for epoch in range(1, epochs + 1):
             epoch_start_time = time.time()
             model.train()  # Turn on the train mode
             optimizer.train()
@@ -62,23 +61,28 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
                         full_data['y'][:, :single_eval_pos].to(device))
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
                     continue
-                targets = full_data['y'].to(device)
-
+                
                 output = model(data, single_eval_pos=single_eval_pos, **full_data['graph_information'])
-                targets = targets[:, single_eval_pos:]
-                if classification_task:
-                    targets = targets.reshape((-1,)).to(torch.long)
-                    output = output.view(-1, output.shape[-1])
+                output = output.view(-1, output.shape[-1])
+                
+                if nll:
+                    y_values = full_data['y'][:, single_eval_pos:].to(device)
+                    y_values = y_values.reshape((-1,))
+                    targets = torch.bucketize(y_values, buckets.to(device)) - 1
+                else:
+                    targets = full_data['probs'].to(device)
+                    # renormalize targets from density values to discrete probabilities
+                    targets = targets / targets.sum(dim=-1, keepdim=True)
+                    targets = targets.view(-1, targets.shape[-1])
 
-                losses = criterion(output, targets)
-                loss = losses.mean() / accumulate_gradients
+                losses = loss_fn(output, targets)
+                loss = losses.mean()
                 loss.backward()
-                total_loss += loss.cpu().detach().item() * accumulate_gradients
+                total_loss += loss.cpu().detach().item()
 
-                if (i + 1) % accumulate_gradients == 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
-                    optimizer.step()
-                    optimizer.zero_grad()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
+                optimizer.step()
+                optimizer.zero_grad()
 
             end_time = time.time()
             mean_loss = total_loss / len(prior)
@@ -87,27 +91,15 @@ def train(model: NanoTabPFNModel, prior: DataLoader, criterion: nn.CrossEntropyL
 
             training_state = {
                 'epoch': epoch,
-                'architecture': {
-                    'num_layers': int(model.num_layers),
-                    'embedding_size': int(model.embedding_size),
-                    'num_attention_heads': int(model.num_attention_heads),
-                    'mlp_hidden_size': int(model.mlp_hidden_size),
-                    'num_outputs': int(model.num_outputs)
-                },
+                'model_class': type(model),
+                'architecture': model.architecture,
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict()
             }
-            if hasattr(model, 'num_graph_attention_heads'):
-                training_state['architecture']['num_graph_attention_heads'] = model.num_graph_attention_heads
-            if hasattr(model, 'num_feature_attention_heads'):
-                training_state['architecture']['num_feature_attention_heads'] = model.num_feature_attention_heads
             torch.save(training_state, work_dir+'/latest_checkpoint.pth')
 
             for callback in callbacks:
-                if type(criterion) is FullSupportBarDistribution:
-                    callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model, dist=criterion)
-                else:
-                    callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model)
+                callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model, dist=bar_dist)
     except KeyboardInterrupt:
         pass
     finally:

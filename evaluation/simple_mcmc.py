@@ -8,7 +8,7 @@ from datetime import datetime
 from pfns.bar_distribution import FullSupportBarDistribution
 from dopfnprior.scm.scm import SCM
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
-from priors.basic_dataloader_graph_prior import ObservationalDataLoader
+from priors.observational_dataloader import ObservationalDataLoader
 from configs.likelihood_training_configs import prior_config
 from visualization.plotting import plot_graph
 from tfmplayground.utils import get_default_device

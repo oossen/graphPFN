@@ -2,7 +2,7 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 from tfmplayground.model import NanoTabPFNModel
-from graphpfn.binary_mask_model import TransformerEncoderLayer
+from graphpfn.binary_attention_model import TransformerEncoderLayer
 from tfmplayground.model import Decoder
 
 class GraphPFNModel(nn.Module):
