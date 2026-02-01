@@ -27,7 +27,7 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python pretrain_likelihood.py --cuda --wait-time 5
+python pretrain.py --cuda --wait-time 5
 
 end=`date +%s`
 runtime=$((end-start))
