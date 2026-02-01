@@ -15,12 +15,12 @@ class BinaryAttentionModel(GraphPFNModel):
                  mlp_hidden_size: int,
                  num_layers: int,
                  num_outputs: int):
+        self.num_graph_attention_heads = num_graph_attention_heads
         super().__init__(embedding_size,
                          num_attention_heads,
                          mlp_hidden_size,
                          num_layers,
                          num_outputs)
-        self.num_graph_attention_heads = num_graph_attention_heads
         self.architecture['num_graph_attention_heads'] = num_graph_attention_heads
 
     def _make_transformer_encoder(self) -> nn.Module:
