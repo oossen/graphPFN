@@ -108,7 +108,11 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 40,
+    "epochs": 60,
+    
+    # whether to train with NLL
+    # bool
+    "nll": False,
     
     # the buckets used for the bar distribution
     # torch.Tensor

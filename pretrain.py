@@ -10,7 +10,7 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from visualization.make_visualization import plot_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.binary_attention_fallback_configs import prior_config, training_config as args
+from configs.soft_attention_fallback_configs import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -42,6 +42,7 @@ trained_model, loss = train(
     buckets=args["buckets"].to(device),
     epochs=args["epochs"],
     lr=args["lr"],
+    nll=args["nll"],
     callbacks=callbacks,
     run_name=run_name,
 )
