@@ -10,7 +10,7 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from visualization.make_visualization import plot_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.soft_attention_fallback_configs import prior_config, training_config as args
+from configs.default_configs import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -18,7 +18,7 @@ device = get_default_device()
 prior = ObservationalDataLoader(num_steps=args["steps"],
                                 batch_size=args["batchsize"],
                                 prior_config=prior_config,
-                                seed=42)
+                                seed=43)
 
 model = args["model"]
 

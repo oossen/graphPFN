@@ -1,21 +1,20 @@
 import numpy as np
 import pandas as pd
 import torch
-from pfns.bar_distribution import FullSupportBarDistribution
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer
 from sklearn.model_selection import ShuffleSplit
 from sklearn.metrics import r2_score
-
+from pfns.bar_distribution import FullSupportBarDistribution
 from tfmplayground.utils import get_default_device
 from tfmplayground.interface import NanoTabPFNRegressor
 
 
 def init_model_from_state_dict_file(file_path: str):
     """Read model architecture from state dict, instantiates the architecture and loads the weights."""
-    state_dict = torch.load(file_path, map_location=torch.device('cpu'))
+    state_dict = torch.load(file_path, map_location=torch.device('cpu'), weights_only=False)
     model_class = state_dict['model_class']
     model = model_class(**state_dict['architecture'])
     model.load_state_dict(state_dict['model'])
@@ -73,28 +72,23 @@ def get_feature_preprocessor(X: np.ndarray | pd.DataFrame) -> ColumnTransformer:
 
 
 class Regressor(NanoTabPFNRegressor):
-    """ scikit-learn like interface """
-    def __init__(self, model, dist: FullSupportBarDistribution, device: str|torch.device|None = None):
-        if device is None:
-            device = get_default_device()
-        self.model = model.to(device)
-        self.device = device
-        self.dist = dist
+    """This class implements a scikit-learn like interface for our models."""
+    def __init__(self, model, buckets: torch.Tensor):
+        self.device = get_default_device()
+        self.model = model.to(self.device)
+        buckets = buckets.to(self.device)
+        self.dist = FullSupportBarDistribution(buckets)
 
     def fit(self, X_train: np.ndarray, y_train: np.ndarray):
-        """
-        Stores X_train and y_train for later use.
-        Computes target normalization.
-        """
+        """Stores X_train and y_train for later use."""
         self.feature_preprocessor = get_feature_preprocessor(X_train)
         self.X_train = self.feature_preprocessor.fit_transform(X_train)
         self.y_train = y_train
 
     def predict(self, X_test: np.ndarray, **kwargs):
         """
-        Performs in-context learning using X_train and y_train.
-        Predicts the means of the output distributions for X_test.
-        Renormalizes the predictions back to the original target scale.
+        Perform in-context learning using X_train and y_train by
+        predicting the means of the output distributions for X_test.
         """
         X_test_transformed = self.feature_preprocessor.transform(X_test)
         assert isinstance(X_test_transformed, np.ndarray) and isinstance(self.X_train, np.ndarray), "Preprocessing did not produce numpy arrays!"

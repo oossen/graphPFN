@@ -7,11 +7,15 @@ import torch.nn as nn
 
 # activation functions
 class ArcsinhWrapper(nn.Module):
-    def __init__(self, activation: nn.Module):
+    def __init__(self, activation: nn.Module, swap_sign=False):
         super().__init__()
         self.activation = activation
+        self.swap_sign = swap_sign
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.asinh(self.activation(x))
+        x = self.activation(x)
+        if self.swap_sign:
+            x = -x
+        return torch.asinh(x)
     
 class Square(nn.Module):
     def forward(self, x):
@@ -37,7 +41,7 @@ prior_config = {
         # can be fixed because architecture is agnostic to the number of test samples
         # int
         "number_test_samples_per_dataset": {  # number of test samples per dataset. Can be fixed because architecture is agnostic to the number of test samples.
-            "value": 5
+            "value": 20
         },
     },
 
@@ -73,7 +77,12 @@ prior_config = {
         },
     },
     
-    "activations": [ArcsinhWrapper(nn.Identity()), ArcsinhWrapper(nn.LeakyReLU(negative_slope=0.1)), ArcsinhWrapper(Square())],
+    "activations": [ArcsinhWrapper(nn.Identity()), 
+                    ArcsinhWrapper(nn.LeakyReLU(negative_slope=0.1)), 
+                    ArcsinhWrapper(Square()),
+                    ArcsinhWrapper(nn.Identity(), swap_sign=True), 
+                    ArcsinhWrapper(nn.LeakyReLU(negative_slope=0.1), swap_sign=True), 
+                    ArcsinhWrapper(Square(), swap_sign=True)],
     
     "bucket_mids": bucket_mids,
 }
@@ -108,7 +117,7 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 60,
+    "epochs": 100,
     
     # whether to train with NLL
     # bool

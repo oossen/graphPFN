@@ -47,7 +47,6 @@ def train(model: GraphPFNModel,
     model.to(device)
     optimizer = schedulefree.AdamWScheduleFree(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.0)
     loss_fn = nn.CrossEntropyLoss()
-    bar_dist = FullSupportBarDistribution(buckets)
 
     try:
         for epoch in range(1, epochs + 1):
@@ -68,7 +67,8 @@ def train(model: GraphPFNModel,
                 if nll:
                     y_values = full_data['y'][:, single_eval_pos:].to(device)
                     y_values = y_values.reshape((-1,))
-                    targets = torch.bucketize(y_values, buckets.to(device)) - 1
+                    # if there are 1001 bucket borders (1000 buckets), clamp to [0, 999]
+                    targets = (torch.bucketize(y_values, buckets) - 1).clamp(0, buckets.size(0) - 2)
                 else:
                     targets = full_data['probs'].to(device)
                     # renormalize targets from density values to discrete probabilities
@@ -99,7 +99,7 @@ def train(model: GraphPFNModel,
             torch.save(training_state, work_dir+'/latest_checkpoint.pth')
 
             for callback in callbacks:
-                callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model, dist=bar_dist)
+                callback.on_epoch_end(epoch, end_time - epoch_start_time, mean_loss, model, buckets=buckets)
     except KeyboardInterrupt:
         pass
     finally:
