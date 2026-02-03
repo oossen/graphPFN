@@ -25,7 +25,6 @@ class Square(nn.Module):
 num_outputs = 1000
 low, high = -5.0, 5.0
 buckets = get_bucket_limits(num_outputs=num_outputs, full_range=(low, high))
-bucket_mids = (buckets[:-1] + buckets[1:]) / 2.0
 
 
 prior_config = {
@@ -83,8 +82,6 @@ prior_config = {
                     ArcsinhWrapper(nn.Identity(), swap_sign=True), 
                     ArcsinhWrapper(nn.LeakyReLU(negative_slope=0.1), swap_sign=True), 
                     ArcsinhWrapper(Square(), swap_sign=True)],
-    
-    "bucket_mids": bucket_mids,
 }
 
 

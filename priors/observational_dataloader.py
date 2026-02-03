@@ -34,7 +34,6 @@ class ObservationalDataLoader(DataLoader):
         self.generator = torch.Generator()
         self.generator.manual_seed(seed)
         
-        self.bucket_mids = prior_config["bucket_mids"]
         self.activations = prior_config["activations"]
         
     def __len__(self) -> int:
@@ -132,13 +131,9 @@ class ObservationalDataLoader(DataLoader):
             'scm': scm,
         }
         full_data['x'] = torch.stack([data[v] for v in graph.nodes if v != 'y'], dim=2)
-        full_data['y'] = data['y'].unsqueeze(-1)
+        full_data['y'] = data['y']
         full_data['values'] = data
         full_data['single_eval_pos'] = num_train_samples
-        
-        test_data = {v: data[v][:, num_train_samples:] for v in data}
-        log_probs = scm.log_likelihood_batch(test_data, self.bucket_mids)
-        probs = torch.exp(log_probs)
-        full_data['probs'] = probs
+        full_data['data'] = data
         
         return full_data

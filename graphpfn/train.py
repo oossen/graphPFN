@@ -47,6 +47,8 @@ def train(model: GraphPFNModel,
     model.to(device)
     optimizer = schedulefree.AdamWScheduleFree(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.0)
     loss_fn = nn.CrossEntropyLoss()
+    
+    bucket_mids = (buckets[:-1] + buckets[1:]) / 2.0
 
     try:
         for epoch in range(1, epochs + 1):
@@ -61,16 +63,28 @@ def train(model: GraphPFNModel,
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
                     continue
                 
+                # normalize y values on train split
+                y_mean = data[1].mean(dim=1, keepdim=True)
+                y_std = data[1].std(dim=1, keepdim=True) + 1e-8
+                y_norm = (data[1] - y_mean) / y_std
+                data = (data[0], y_norm)
+                
                 output = model(data, single_eval_pos=single_eval_pos, **full_data['graph_information'])
                 output = output.view(-1, output.shape[-1])
                 
                 if nll:
                     y_values = full_data['y'][:, single_eval_pos:].to(device)
+                    y_values = (y_values - y_mean) / y_std
                     y_values = y_values.reshape((-1,))
                     # if there are 1001 bucket borders (1000 buckets), clamp to [0, 999]
                     targets = (torch.bucketize(y_values, buckets) - 1).clamp(0, buckets.size(0) - 2)
                 else:
-                    targets = full_data['probs'].to(device)
+                    scaled_bucket_mids = bucket_mids.unsqueeze(0) * y_std + y_mean
+                    test_data = {v: full_data['data'][v][:, single_eval_pos:] for v in full_data['data']}
+                    scm = full_data['graph_information']['scm']
+                    log_probs = scm.log_likelihood_batch(test_data, scaled_bucket_mids)
+                    probs = torch.exp(log_probs)
+                    targets = probs.to(device)
                     # renormalize targets from density values to discrete probabilities
                     targets = targets / targets.sum(dim=-1, keepdim=True)
                     targets = targets.view(-1, targets.shape[-1])

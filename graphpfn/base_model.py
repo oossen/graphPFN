@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import torch
 from torch import nn
 
-from tfmplayground.model import Decoder, TargetEncoder
+from tfmplayground.model import Decoder, TargetEncoder, FeatureEncoder
 
 
 class GraphPFNModel(nn.Module, ABC):
@@ -89,18 +89,3 @@ class GraphPFNModel(nn.Module, ABC):
     @abstractmethod
     def _make_transformer_encoder(self) -> nn.Module:
         pass
-    
-
-class FeatureEncoder(nn.Module):
-    def __init__(self, embedding_size: int):
-        """
-        Creates the linear layer that we will use to embed our features.
-        For now, the normalization is removed.
-        """
-        super().__init__()
-        self.linear_layer = nn.Linear(1, embedding_size)
-
-    def forward(self, x: torch.Tensor, single_eval_pos: int) -> torch.Tensor:
-        x = x.unsqueeze(-1)  # (B, R, C-1) -> (B, R, C-1, 1)
-        x = torch.clip(x, min=-100, max=100)
-        return self.linear_layer(x)
