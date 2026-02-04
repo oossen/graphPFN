@@ -1,3 +1,4 @@
+import math
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -36,41 +37,68 @@ class BinaryGCNModel(GraphPFNModel):
 class GCN(nn.Module):
     def __init__(self, out_dim: int, hidden_dim: int = 64):
         super().__init__()
+        self.hidden_dim = hidden_dim
         
-        # Features: (in-degree, out-degree)
-        self.input_proj = nn.Linear(2, hidden_dim)
-        self.layer1 = nn.Linear(hidden_dim, hidden_dim)
-        self.layer2 = nn.Linear(hidden_dim, out_dim)
+        # 1. Learned starting features
+        self.node_type_embed = nn.Embedding(2, hidden_dim)
+        
+        # 2. Layer 1: Processing both Forward (A) and Reverse (A^T) flows
+        self.fwd_layer1 = nn.Linear(hidden_dim, hidden_dim)
+        self.rev_layer1 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln1 = nn.LayerNorm(hidden_dim)
+        
+        # 3. Layer 2
+        self.fwd_layer2 = nn.Linear(hidden_dim, out_dim)
+        self.rev_layer2 = nn.Linear(hidden_dim, out_dim)
+        self.ln2 = nn.LayerNorm(out_dim)
 
-    def _get_structural_features(self, adj: torch.Tensor) -> torch.Tensor:
-        out_degree = adj.sum(dim=1, keepdim=True) 
-        in_degree = adj.sum(dim=0, keepdim=True).t()
-        return torch.cat([in_degree, out_degree], dim=1)
+    def _get_positional_encoding(self, n: int, d: int, device: torch.device) -> torch.Tensor:
+        pe = torch.zeros(n, d, device=device)
+        position = torch.arange(0, n, device=device).unsqueeze(1).float()
+        div_term = torch.exp(torch.arange(0, d, 2, device=device).float() * -(math.log(10000.0) / d))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        return pe
 
-    def _normalize_adj(self, adj: torch.Tensor) -> torch.Tensor:
-        N = adj.shape[0]
-        # Add self-loops and row-normalize
-        adj_hat = adj + torch.eye(N, device=adj.device)
-        row_sum = adj_hat.sum(1)
-        d_inv = torch.pow(row_sum, -1).flatten()
-        d_inv[torch.isinf(d_inv)] = 0.
-        return torch.diag(d_inv) @ adj_hat
+    def _normalize_directed_adj(self, adj: torch.Tensor) -> torch.Tensor:
+        """
+        Row-normalize a directed adjacency matrix. 
+        For A, this aggregates 'parent' info. For A.T, this aggregates 'child' info.
+        """
+        # Add self-loops to ensure nodes retain their own features
+        adj_hat = adj + torch.eye(adj.shape[0], device=adj.device)
+        row_sum = adj_hat.sum(dim=1, keepdim=True)
+        # Avoid division by zero
+        mask = row_sum == 0
+        row_sum[mask] = 1.0
+        return adj_hat / row_sum
 
     def forward(self, adj: torch.Tensor) -> torch.Tensor:
-        adj = adj.to(get_default_device())
+        device = get_default_device()
+        adj = adj.to(device)
+        N = adj.shape[0]
         
-        # 1. Structural features (N, 2)
-        x = self._get_structural_features(adj)
+        # --- Feature Construction ---
+        node_indices = torch.zeros(N, dtype=torch.long, device=device)
+        node_indices[-1] = 1 # Mark final node
         
-        # 2. Adjacency normalization
-        norm_adj = self._normalize_adj(adj)
+        x = self.node_type_embed(node_indices) + self._get_positional_encoding(N, self.hidden_dim, device)
         
-        # 3. Message Passing
-        x = F.relu(self.input_proj(x))
+        # --- Normalized Adjacencies ---
+        # A: represents flow from parents to children
+        # AT: represents flow from children to parents
+        norm_adj_fwd = self._normalize_directed_adj(adj)
+        norm_adj_rev = self._normalize_directed_adj(adj.t())
         
-        # Neighborhood Aggregation (Matrix Mult) -> Linear Layer -> Activation
-        x = norm_adj @ x
-        x = F.relu(self.layer1(x))
+        # --- Layer 1 ---
+        # Aggregate from parents and children separately then combine
+        out_fwd = self.fwd_layer1(norm_adj_fwd @ x)
+        out_rev = self.rev_layer1(norm_adj_rev @ x)
+        x = F.relu(self.ln1(out_fwd + out_rev))
         
-        x = norm_adj @ x
-        return self.layer2(x)
+        # --- Layer 2 ---
+        out_fwd = self.fwd_layer2(norm_adj_fwd @ x)
+        out_rev = self.rev_layer2(norm_adj_rev @ x)
+        x = self.ln2(out_fwd + out_rev)
+        
+        return x

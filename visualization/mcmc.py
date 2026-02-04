@@ -82,8 +82,9 @@ def mcmc(values: Dict, test_sample: Dict, prior, generator: torch.Generator, lik
 
 def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 100):
     # Find good range for y
+    values = {v: values[v].unsqueeze(0) for v in values}
     y_explore = torch.linspace(-10.0, 10.0, steps)
-    likelihoods_explore = [torch.exp(scm.log_likelihood_batch(values, y_explore))[0] for scm, _, _ in samples]
+    likelihoods_explore = [torch.exp(scm.log_likelihood_batch(values, y_explore.unsqueeze(0)))[0][0] for scm, _, _ in samples]
     weights = [w for _, _, w in samples]
     weighted_sum = torch.stack([t * w for t, w in zip(likelihoods_explore, weights)]).sum(dim=0)
     p_explore = weighted_sum / sum(weights)
@@ -97,7 +98,7 @@ def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 100):
     b = y_explore[end_idx]
     # Plot and change range
     y = torch.linspace(a, b, steps)
-    likelihoods = [torch.exp(scm.log_likelihood_batch(values, y))[0] for scm, _, _ in samples]
+    likelihoods = [torch.exp(scm.log_likelihood_batch(values, y.unsqueeze(0)))[0][0] for scm, _, _ in samples]
     # for ll in likelihoods:
     #    ax.plot(y, ll, **{k: v for k, v in style.items() if k != 'label'}, alpha=0.02)
     probs = sum(t * w for t, w in zip(likelihoods, weights)) / sum(weights)
@@ -167,13 +168,13 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     
     if include_mcmc:
         # MCMC with graph prior
-        prior = ObservationalDataLoader(1000, 1, prior_config, seed=seed+1).make_iter(adj)
+        prior = ObservationalDataLoader(100, 1, prior_config, seed=seed+1).make_iter(adj)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, graph) (MCMC)', 'color': 'orange', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC with graph prior
-        prior = ObservationalDataLoader(1000, 1, prior_config, seed=seed+2).make_iter(adj)
+        prior = ObservationalDataLoader(100, 1, prior_config, seed=seed+2).make_iter(adj)
         chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, graph) (MCMC)', 'color': 'orange', 'linestyle': '-'}
@@ -183,9 +184,9 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'].cpu().numpy()
-        model_names = ["baseline_02_03_00_37", "baseline_02_03_01_29", "baseline_nll_02_03_00_37", "binary_attention_fallback_02_03_00_36", "binary_gcn_02_03_00_35"]
-        model_colors = {"baseline_02_03_00_37": "red", "baseline_02_03_01_29": "blue", "baseline_nll_02_03_00_37": "green", "binary_attention_fallback_02_03_00_36": "orange", "binary_gcn_02_03_00_35": "purple"}
-        model_labels = {"baseline_02_03_00_37": "p(y|x, D) (PFN)", "baseline_02_03_01_29": "p(y|x, D) (PFN)", "baseline_nll_02_03_00_37": "p(y|x, D) (PFN-NLL)", "binary_attention_fallback_02_03_00_36": "p(y|x, D, graph) (PFN-Att)", "binary_gcn_02_03_00_35": "p(y|x, D) (PFN-GCN)"}
+        model_names = ["baseline_02_03_17_45", "baseline_nll_02_03_17_45", "binary_attention_02_03_17_46"]
+        model_colors = {"baseline_02_03_17_45": "red", "baseline_nll_02_03_17_45": "green", "binary_attention_02_03_17_46": "orange"}
+        model_labels = {"baseline_02_03_17_45": "p(y|x, D) (PFN)", "baseline_nll_02_03_17_45": "p(y|x, D) (PFN-NLL)", "binary_attention_02_03_17_46": "p(y|x, D, graph) (PFN-Att)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
@@ -204,9 +205,9 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"visualization/output/{datetime_str}"
     
-    seed = 42
+    seed = 43
     generator = torch.Generator()
     generator.manual_seed(seed)
     
-    for i in range(20):
+    for i in range(50):
         mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=True)

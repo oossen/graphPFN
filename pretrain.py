@@ -10,7 +10,7 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from visualization.make_visualization import plot_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.default_configs import prior_config, training_config as args
+from configs.binary_gcn_configs import prior_config, training_config as args
 
 
 device = get_default_device()
