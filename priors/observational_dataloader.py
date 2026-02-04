@@ -1,9 +1,12 @@
+import math
 from typing import Any, Dict, Iterator
+from collections import Counter
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import networkx as nx
 from dopfnprior.scm.scm_builder import SCMBuilder
+from dopfnprior.scm.scm import SCM
 from dopfnprior.utils.sampling import build_samplers, sample_parameters
 
 
@@ -50,7 +53,7 @@ class ObservationalDataLoader(DataLoader):
             prob_adj = self.sample_prob_adj()
             graph = self.make_graph(prob_adj)
             # skip if graph is no good
-            if not nx.is_directed_acyclic_graph(graph) or graph.in_degree('y') == 0 and graph.out_degree('y') == 0:
+            if not self.is_valid_graph(graph):
                 continue
             counter += 1
             yield self.batch_function(graph, prob_adj)
@@ -61,10 +64,14 @@ class ObservationalDataLoader(DataLoader):
         while counter < self.num_steps:
             graph = self.make_graph(prob_adj)
             # skip if graph is no good
-            if not nx.is_directed_acyclic_graph(graph) or graph.in_degree('y') == 0 and graph.out_degree('y') == 0:
+            if not self.is_valid_graph(graph):
                 continue
             counter += 1
             yield self.batch_function(graph, prob_adj)
+            
+    def is_valid_graph(self, graph: nx.DiGraph) -> bool:
+        """Check if the given graph is a valid DAG with 'y' as the target node."""
+        return nx.is_directed_acyclic_graph(graph) and not (graph.in_degree('y') == 0 and graph.out_degree('y') == 0)
             
     def sample_prob_adj(self) -> torch.Tensor:
         graph_params = sample_parameters(self.graph_samplers, self.generator)
@@ -137,3 +144,72 @@ class ObservationalDataLoader(DataLoader):
         full_data['data'] = data
         
         return full_data
+    
+    def _make_statistics(self, steps=1000000):
+        """Sample a large number of SCMs from `self` to estimate densities of DAGs and noise."""
+        print("Computing prior statistics...")
+        graph_counts = Counter()
+        for _ in range(steps):
+            prob_adj = self.sample_prob_adj()
+            graph = self.make_graph(prob_adj)
+            if not self.is_valid_graph(graph):
+                continue
+            adj = nx.to_numpy_array(graph)
+            sample = tuple(map(tuple, adj.tolist()))
+            graph_counts[sample] += 1
+        self.graph_counts = graph_counts
+        
+        num_buckets = 1000
+        start_root, stop_root = 0.0, 20.0
+        start_non_root, stop_non_root = 0.0, 5.0
+        step_root = (stop_root - start_root) / num_buckets
+        step_non_root = (stop_non_root - start_non_root) / num_buckets
+        noise_buckets_root = np.linspace(start_root, stop_root, num_buckets + 1)
+        bucket_centers_root = (noise_buckets_root[:-1] + noise_buckets_root[1:]) / 2
+        root_noise_counts = {bc: 0 for bc in bucket_centers_root}
+        noise_buckets_non_root = np.linspace(start_non_root, stop_non_root, num_buckets + 1)
+        bucket_centers_non_root = (noise_buckets_non_root[:-1] + noise_buckets_non_root[1:]) / 2
+        non_root_noise_counts = {bc: 0 for bc in bucket_centers_non_root}
+        for _ in range(steps):
+            root_std_dist, non_root_std_dist = self.noise_samplers["root_std_dist"], self.noise_samplers["non_root_std_dist"]
+            for _ in range(10):
+                root_std = root_std_dist.sample(generator=self.generator)
+                non_root_std = non_root_std_dist.sample(generator=self.generator)
+                root_idx = int((root_std - start_root) / step_root)
+                if root_idx < 0 or root_idx >= num_buckets:
+                    print("Warning: root std out of bounds")
+                    continue
+                root_center_key = bucket_centers_root[root_idx]
+                root_noise_counts[root_center_key] += 1
+                non_root_idx = int((non_root_std - start_non_root) / step_non_root)
+                if non_root_idx < 0 or non_root_idx >= num_buckets:
+                    print("Warning: non-root std out of bounds")
+                    continue
+                non_root_center_key = bucket_centers_non_root[non_root_idx]
+                non_root_noise_counts[non_root_center_key] += 1
+        self.root_noise_counts = {bc: count for bc, count in root_noise_counts.items() if count > 0}
+        self.non_root_noise_counts = {bc: count for bc, count in non_root_noise_counts.items() if count > 0}
+        
+    def log_likelihood(self, scm: SCM):
+        """
+        Return the log likelihood of the given SCM under this prior, up to an additive constant.
+        Since each mechanism is equally likely, this only takes into account DAG and noise.
+        """
+        if not hasattr(self, 'graph_counts') or not hasattr(self, 'root_noise_counts') or not hasattr(self, 'non_root_noise_counts'):
+            self._make_statistics()
+        adj = nx.to_numpy_array(scm.dag)
+        adj_key = tuple(map(tuple, adj.tolist()))
+        graph_count = self.graph_counts.get(adj_key, 1)
+        graph_ll = math.log(graph_count)
+        noise_ll = 0.0
+        for v in scm.dag.nodes:
+            if scm.dag.in_degree(v) == 0:
+                count = self.root_noise_counts
+            else:
+                count = self.non_root_noise_counts
+            std = scm.noise[v].std()
+            # find closest bucket
+            closest_bucket = min(count.keys(), key=lambda x: abs(x - std))
+            bucket_count = count.get(closest_bucket, 1)
+            noise_ll += math.log(bucket_count)
+        return graph_ll + noise_ll

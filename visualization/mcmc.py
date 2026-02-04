@@ -1,16 +1,21 @@
+from itertools import combinations
 import os
 from typing import Dict, List, Tuple
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
 from datetime import datetime
-from pfns.bar_distribution import FullSupportBarDistribution
+import networkx as nx
+from copy import deepcopy
 from dopfnprior.scm.scm import SCM
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from priors.observational_dataloader import ObservationalDataLoader
 from configs.default_configs import prior_config, training_config
 from visualization.plotting import plot_graph
 from tfmplayground.utils import get_default_device
+import torch.distributions as dist
+from dopfnprior.utils.sampling import TorchDistributionSampler
+from dopfnprior.scm.simple_mechanism import SimpleMechanism
 
 
 EPS = 1e-2
@@ -55,6 +60,93 @@ def ignore_context(values: Dict, test_sample: Dict, scm: SCM) -> float:
     return scm.marginal(values_x)
 
 
+def perturbate(incumbent_scm: SCM, prior, generator: torch.Generator, perturbation_probs=(1/3, 1/3, 1/3)) -> SCM:
+    graph_perturbation_prob, mechanism_perturbation_prob, noise_perturbation_prob = perturbation_probs
+    selector = torch.rand((1,), generator=generator)
+    if selector < graph_perturbation_prob:
+        # Perturb the graph by removing or switching direction of random edge
+        new_dag = incumbent_scm.dag.copy()
+        nodes = list(new_dag.nodes())
+        edges = list(combinations(nodes, 2))
+        edge_idx = int(torch.randint(0, len(edges), (1,), generator=generator).item())
+        u, v = edges[edge_idx]
+        choice = torch.randint(0, 2, (1,), generator=generator).item()
+        if new_dag.has_edge(u, v):
+            if choice == 0:
+                new_dag.remove_edge(u, v)
+            else:
+                new_dag.remove_edge(u, v)
+                new_dag.add_edge(v, u)
+        elif new_dag.has_edge(v, u):
+            if choice == 0:
+                new_dag.remove_edge(v, u)
+            else:
+                new_dag.remove_edge(v, u)
+                new_dag.add_edge(u, v)
+        else:
+            if choice == 0:
+                new_dag.add_edge(u, v)
+            else:
+                new_dag.add_edge(v, u)
+        # Only follow through with change if new_dag is still a valid DAG
+        if prior.is_valid_graph(new_dag):
+            print("Perturbed graph...")
+            new_scm = SCM(new_dag, incumbent_scm.mechanisms, incumbent_scm.noise)
+            return new_scm
+    elif selector < graph_perturbation_prob + mechanism_perturbation_prob:
+        # Switch a random mechanism's activation or perturb its weights
+        nodes = list(incumbent_scm.dag.nodes())
+        node_idx = int(torch.randint(0, len(nodes), (1,), generator=generator).item())
+        v = nodes[node_idx]
+        choice = torch.randint(0, 2, (1,), generator=generator).item()
+        new_mechanisms = {}
+        for v in nodes:
+            new_mechanisms[v] = deepcopy(incumbent_scm.mechanisms[v])
+        if choice == 0: # switch activation
+            activations = prior.activations
+            activation_idx = int(torch.randint(0, len(activations), (1,), generator=generator))
+            activation = activations[activation_idx]
+            device = incumbent_scm.device
+            mech = SimpleMechanism(nodes, activation, device, generator)
+            new_mechanisms[v] = mech
+        else: # perturb weight
+            parents = list(incumbent_scm.dag.predecessors(v))
+            if len(parents) == 0:
+                print("Returning original SCM...")
+                return incumbent_scm
+            parent_idx = int(torch.randint(0, len(parents), (1,), generator=generator).item())
+            w = parents[parent_idx]
+            incumbent = new_mechanisms[v].weights[w].item()
+            proposal = uniform_proposal(incumbent, -1, 1, 0.1, generator)
+            new_mechanisms[v].weights[w].fill_(proposal)
+        print("Perturbed mechanisms...")
+        new_scm = SCM(incumbent_scm.dag, new_mechanisms, incumbent_scm.noise)
+        return new_scm
+    elif selector < graph_perturbation_prob + mechanism_perturbation_prob + noise_perturbation_prob:
+        # Perturb the noise of a node
+        nodes = list(incumbent_scm.dag.nodes())
+        new_noise = {v: incumbent_scm.noise[v] for v in nodes}
+        node_idx = int(torch.randint(0, len(nodes), (1,), generator=generator).item())
+        v = nodes[node_idx]
+        incumbent = new_noise[v].std()
+        proposal = uniform_proposal(incumbent, 0.1, 20.0, 0.1, generator)
+        new_noise[v] = TorchDistributionSampler(dist.Normal(loc=0.0, scale=proposal))
+        print("Perturbed noise...")
+        new_scm = SCM(incumbent_scm.dag, incumbent_scm.mechanisms, new_noise)
+        return new_scm
+    print("Returning original SCM...")
+    return incumbent_scm
+
+
+def uniform_proposal(incumbent: float, low: float, high: float, max_change: float, generator: torch.Generator) -> float:
+    change = torch.rand((1,), generator=generator).item() * 2 * max_change - max_change
+    proposal = incumbent + change
+    if proposal >= low and proposal < high:
+        return proposal
+    else:
+        return incumbent
+
+
 @torch.no_grad()
 def mcmc(values: Dict, test_sample: Dict, prior, generator: torch.Generator, likelihood_fn=likelihood) -> List[Tuple[SCM, float, int]]:
     """Perform basic MCMC where the proposal distribution is just the prior."""
@@ -72,7 +164,44 @@ def mcmc(values: Dict, test_sample: Dict, prior, generator: torch.Generator, lik
         log_sample = torch.rand((1,), generator=generator).log().item()
         
         if log_sample < log_acceptance_ratio:
-            chain.append([proposal, proposal_log_prob, 1])
+            chain.append((proposal, proposal_log_prob, 1))
+            incumbent = proposal
+            incumbent_log_prob = proposal_log_prob
+        else:
+            chain[-1] = (incumbent, incumbent_log_prob, chain[-1][2] + 1)
+    return chain
+
+
+@torch.no_grad()
+def fancy_mcmc(values: Dict, 
+               test_sample: Dict, 
+               prior,
+               initial_scm: SCM, 
+               steps: int, 
+               generator: torch.Generator, 
+               likelihood_fn=likelihood,
+               fixed_graph=False) -> List[Tuple[SCM, float, int]]:
+    """Perform MCMC with a symmetric proposal distribution."""
+    perturbation_probs = (0.0, 0.5, 0.5) if fixed_graph else (1/3, 1/3, 1/3)
+    incumbent = initial_scm
+    incumbent_log_prob = likelihood_fn(values, test_sample, incumbent)
+    incumbent_log_prob += prior.log_likelihood(incumbent)
+    # keep track of triples: (scm, log_prob, weight)
+    chain = [(incumbent, incumbent_log_prob, 1)]
+    for i in range(steps):
+        print(f"MCMC step {i+1}...")
+        proposal: SCM = perturbate(incumbent,
+                                   prior,
+                                   generator,
+                                   perturbation_probs)
+        proposal_log_prob = likelihood_fn(values, test_sample, proposal)
+        proposal_log_prob += prior.log_likelihood(proposal)
+        
+        log_acceptance_ratio = proposal_log_prob - incumbent_log_prob
+        log_sample = torch.rand((1,), generator=generator).log().item()
+        
+        if log_sample < log_acceptance_ratio:
+            chain.append((proposal, proposal_log_prob, 1))
             incumbent = proposal
             incumbent_log_prob = proposal_log_prob
         else:
@@ -139,17 +268,12 @@ def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, style: Dic
     ax.set_xlim(min(curr_min, a), max(curr_max, b))
 
 
-def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool = True, include_pfn: bool = True):
+def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc: bool = True, include_pfn: bool = True):
     os.makedirs(output_dir, exist_ok=True)
     
     # Sample the training data D = (X, y)
-    seed = int(torch.randint(0, 10000, (1,), generator=generator).item())
     sample_shape = (5,)
     test_sample_shape = (1,)
-    
-    # restrict prior to small graphs
-    prior_config['graph_config']['num_nodes'] = {'value': 5}
-    prior = ObservationalDataLoader(100, 1, prior_config, seed=seed)
     
     data = next(iter(prior))
     scm = data['graph_information']['scm']
@@ -166,16 +290,17 @@ def mcmc_suite(generator: torch.Generator, output_dir: str, include_mcmc: bool =
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
     
+    prior_iter = prior.make_iter(adj)
     if include_mcmc:
         # MCMC with graph prior
-        prior = ObservationalDataLoader(100, 1, prior_config, seed=seed+1).make_iter(adj)
-        chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
+        scm = next(prior_iter)['graph_information']['scm']
+        chain = fancy_mcmc(values, test_sample, prior, scm, 50000, generator, cheap_likelihood, fixed_graph=True)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, graph) (MCMC)', 'color': 'orange', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
         # MCMC with graph prior
-        prior = ObservationalDataLoader(100, 1, prior_config, seed=seed+2).make_iter(adj)
-        chain = mcmc(values, test_sample, prior, generator, likelihood_fn=cheap_likelihood)
+        scm = next(prior_iter)['graph_information']['scm']
+        chain = fancy_mcmc(values, test_sample, prior, scm, 50000, generator, cheap_likelihood, fixed_graph=True)
         print(f"Sampled {len(chain)} unique SCMS: {[(p, w) for _, p, w in chain]}")
         style = {'label': 'p(y|D, graph) (MCMC)', 'color': 'orange', 'linestyle': '-'}
         plot_ppd(ax, test_sample, chain, style=style)
@@ -205,9 +330,12 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"visualization/output/{datetime_str}"
     
-    seed = 43
+    seed = 42
     generator = torch.Generator()
     generator.manual_seed(seed)
     
+    prior_config['graph_config']['num_nodes'] = {'value': 4}
+    prior = ObservationalDataLoader(100, 1, prior_config, seed=seed)
+    
     for i in range(50):
-        mcmc_suite(generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=True)
+        mcmc_suite(prior, generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=False)
