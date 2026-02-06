@@ -145,7 +145,7 @@ class ObservationalDataLoader(DataLoader):
         
         return full_data
     
-    def _make_statistics(self, steps=1000000):
+    def _make_statistics(self, steps):
         """Sample a large number of SCMs from `self` to estimate densities of DAGs and noise."""
         print("Computing prior statistics...")
         graph_counts = Counter()
@@ -159,34 +159,29 @@ class ObservationalDataLoader(DataLoader):
             graph_counts[sample] += 1
         self.graph_counts = graph_counts
         
-        num_buckets = 1000
-        start_root, stop_root = 0.0, 20.0
-        start_non_root, stop_non_root = 0.0, 5.0
-        step_root = (stop_root - start_root) / num_buckets
-        step_non_root = (stop_non_root - start_non_root) / num_buckets
-        noise_buckets_root = np.linspace(start_root, stop_root, num_buckets + 1)
-        bucket_centers_root = (noise_buckets_root[:-1] + noise_buckets_root[1:]) / 2
-        root_noise_counts = {bc: 0 for bc in bucket_centers_root}
-        noise_buckets_non_root = np.linspace(start_non_root, stop_non_root, num_buckets + 1)
-        bucket_centers_non_root = (noise_buckets_non_root[:-1] + noise_buckets_non_root[1:]) / 2
-        non_root_noise_counts = {bc: 0 for bc in bucket_centers_non_root}
+        num_buckets = 500
+        start, stop = 0.0, 10.0
+        step = (stop - start) / num_buckets
+        noise_buckets = np.linspace(start, stop, num_buckets + 1)
+        bucket_centers = (noise_buckets[:-1] + noise_buckets[1:]) / 2
+        root_noise_counts = {bc: 0 for bc in bucket_centers}
+        non_root_noise_counts = {bc: 0 for bc in bucket_centers}
+        root_std_dist, non_root_std_dist = self.noise_samplers["root_std_dist"], self.noise_samplers["non_root_std_dist"]
         for _ in range(steps):
-            root_std_dist, non_root_std_dist = self.noise_samplers["root_std_dist"], self.noise_samplers["non_root_std_dist"]
-            for _ in range(10):
-                root_std = root_std_dist.sample(generator=self.generator)
-                non_root_std = non_root_std_dist.sample(generator=self.generator)
-                root_idx = int((root_std - start_root) / step_root)
-                if root_idx < 0 or root_idx >= num_buckets:
-                    print("Warning: root std out of bounds")
-                    continue
-                root_center_key = bucket_centers_root[root_idx]
-                root_noise_counts[root_center_key] += 1
-                non_root_idx = int((non_root_std - start_non_root) / step_non_root)
-                if non_root_idx < 0 or non_root_idx >= num_buckets:
-                    print("Warning: non-root std out of bounds")
-                    continue
-                non_root_center_key = bucket_centers_non_root[non_root_idx]
-                non_root_noise_counts[non_root_center_key] += 1
+            root_std = root_std_dist.sample(generator=self.generator)
+            non_root_std = non_root_std_dist.sample(generator=self.generator)
+            root_idx = int((root_std - start) / step)
+            if root_idx < 0 or root_idx >= num_buckets:
+                print("Warning: root std out of bounds")
+                continue
+            root_center_key = bucket_centers[root_idx]
+            root_noise_counts[root_center_key] += 1
+            non_root_idx = int((non_root_std - start) / step)
+            if non_root_idx < 0 or non_root_idx >= num_buckets:
+                print("Warning: non-root std out of bounds")
+                continue
+            non_root_center_key = bucket_centers[non_root_idx]
+            non_root_noise_counts[non_root_center_key] += 1
         self.root_noise_counts = {bc: count for bc, count in root_noise_counts.items() if count > 0}
         self.non_root_noise_counts = {bc: count for bc, count in non_root_noise_counts.items() if count > 0}
         
@@ -196,7 +191,7 @@ class ObservationalDataLoader(DataLoader):
         Since each mechanism is equally likely, this only takes into account DAG and noise.
         """
         if not hasattr(self, 'graph_counts') or not hasattr(self, 'root_noise_counts') or not hasattr(self, 'non_root_noise_counts'):
-            self._make_statistics()
+            self._make_statistics(steps=100000)
         adj = nx.to_numpy_array(scm.dag)
         adj_key = tuple(map(tuple, adj.tolist()))
         graph_count = self.graph_counts.get(adj_key, 1)
