@@ -72,7 +72,7 @@ prior_config = {
         # float
         "non_root_std_dist": {
             "distribution": "shifted_exponential",
-            "distribution_parameters": {"rate": 1 / 0.1, "shift": 0.1}
+            "distribution_parameters": {"rate": 1 / 0.5, "shift": 0.1}
         },
     },
     

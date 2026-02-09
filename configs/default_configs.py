@@ -21,9 +21,12 @@ class Square(nn.Module):
     def forward(self, x):
         return torch.square(x)
     
+non_linearities = [nn.Identity(), nn.LeakyReLU(negative_slope=0.1), Square()]
+activations = [ArcsinhWrapper(activation) for activation in non_linearities] + [ArcsinhWrapper(activation, swap_sign=True) for activation in non_linearities]
+    
 
 num_outputs = 1000
-low, high = -5.0, 5.0
+low, high = -10.0, 10.0
 buckets = get_bucket_limits(num_outputs=num_outputs, full_range=(low, high))
 
 
@@ -34,13 +37,13 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 5, "high": 100}
+            "distribution_parameters": {"low": 5, "high": 1000}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
         # int
         "number_test_samples_per_dataset": {  # number of test samples per dataset. Can be fixed because architecture is agnostic to the number of test samples.
-            "value": 20
+            "value": 200
         },
     },
 
@@ -51,7 +54,7 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 5, "high": 25}
+            "distribution_parameters": {"low": 3, "high": 30}
         },
         # probability that any two nodes in the causal graph are connected
         # float
@@ -76,12 +79,7 @@ prior_config = {
         },
     },
     
-    "activations": [ArcsinhWrapper(nn.Identity()), 
-                    ArcsinhWrapper(nn.LeakyReLU(negative_slope=0.1)), 
-                    ArcsinhWrapper(Square()),
-                    ArcsinhWrapper(nn.Identity(), swap_sign=True), 
-                    ArcsinhWrapper(nn.LeakyReLU(negative_slope=0.1), swap_sign=True), 
-                    ArcsinhWrapper(Square(), swap_sign=True)],
+    "activations": activations,
 }
 
 
@@ -102,7 +100,7 @@ training_config = {
     
     # batch size used during training
     # int
-    "batchsize": 2,
+    "batchsize": 1,
     
     # learning rate
     # float
@@ -110,7 +108,7 @@ training_config = {
     
     # number of data batches contained in each epoch
     # int
-    "steps": 5000,
+    "steps": 10000,
     
     # number of epochs to train for
     # int

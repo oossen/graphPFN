@@ -159,38 +159,12 @@ class ObservationalDataLoader(DataLoader):
             graph_counts[sample] += 1
         self.graph_counts = graph_counts
         
-        num_buckets = 500
-        start, stop = 0.0, 10.0
-        step = (stop - start) / num_buckets
-        noise_buckets = np.linspace(start, stop, num_buckets + 1)
-        bucket_centers = (noise_buckets[:-1] + noise_buckets[1:]) / 2
-        root_noise_counts = {bc: 0 for bc in bucket_centers}
-        non_root_noise_counts = {bc: 0 for bc in bucket_centers}
-        root_std_dist, non_root_std_dist = self.noise_samplers["root_std_dist"], self.noise_samplers["non_root_std_dist"]
-        for _ in range(steps):
-            root_std = root_std_dist.sample(generator=self.generator)
-            non_root_std = non_root_std_dist.sample(generator=self.generator)
-            root_idx = int((root_std - start) / step)
-            if root_idx < 0 or root_idx >= num_buckets:
-                print("Warning: root std out of bounds")
-                continue
-            root_center_key = bucket_centers[root_idx]
-            root_noise_counts[root_center_key] += 1
-            non_root_idx = int((non_root_std - start) / step)
-            if non_root_idx < 0 or non_root_idx >= num_buckets:
-                print("Warning: non-root std out of bounds")
-                continue
-            non_root_center_key = bucket_centers[non_root_idx]
-            non_root_noise_counts[non_root_center_key] += 1
-        self.root_noise_counts = {bc: count for bc, count in root_noise_counts.items() if count > 0}
-        self.non_root_noise_counts = {bc: count for bc, count in non_root_noise_counts.items() if count > 0}
-        
     def log_likelihood(self, scm: SCM):
         """
         Return the log likelihood of the given SCM under this prior, up to an additive constant.
         Since each mechanism is equally likely, this only takes into account DAG and noise.
         """
-        if not hasattr(self, 'graph_counts') or not hasattr(self, 'root_noise_counts') or not hasattr(self, 'non_root_noise_counts'):
+        if not hasattr(self, 'graph_counts'):
             self._make_statistics(steps=100000)
         adj = nx.to_numpy_array(scm.dag)
         adj_key = tuple(map(tuple, adj.tolist()))
@@ -198,13 +172,9 @@ class ObservationalDataLoader(DataLoader):
         graph_ll = math.log(graph_count)
         noise_ll = 0.0
         for v in scm.dag.nodes:
-            if scm.dag.in_degree(v) == 0:
-                count = self.root_noise_counts
-            else:
-                count = self.non_root_noise_counts
             std = scm.noise[v].std()
-            # find closest bucket
-            closest_bucket = min(count.keys(), key=lambda x: abs(x - std))
-            bucket_count = count.get(closest_bucket, 1)
-            noise_ll += math.log(bucket_count)
+            if scm.dag.in_degree(v) == 0:
+                noise_ll += self.noise_samplers["root_std_dist"].log_prob(torch.tensor(std)).item()
+            else:
+                noise_ll += self.noise_samplers["non_root_std_dist"].log_prob(torch.tensor(std)).item()
         return graph_ll + noise_ll
