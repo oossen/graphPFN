@@ -6,7 +6,7 @@ import torch.nn as nn
 
 
 # activation functions
-class ArcsinhWrapper(nn.Module):
+class AsinhWrapper(nn.Module):
     def __init__(self, activation: nn.Module, swap_sign=False):
         super().__init__()
         self.activation = activation
@@ -22,7 +22,7 @@ class Square(nn.Module):
         return torch.square(x)
     
 non_linearities = [nn.Identity(), nn.LeakyReLU(negative_slope=0.1), Square()]
-activations = [ArcsinhWrapper(activation) for activation in non_linearities] + [ArcsinhWrapper(activation, swap_sign=True) for activation in non_linearities]
+activations = [AsinhWrapper(activation) for activation in non_linearities] + [AsinhWrapper(activation, swap_sign=True) for activation in non_linearities]
     
 
 num_outputs = 1000
@@ -37,13 +37,13 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 5, "high": 1000}
+            "distribution_parameters": {"low": 5, "high": 500}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
         # int
         "number_test_samples_per_dataset": {  # number of test samples per dataset. Can be fixed because architecture is agnostic to the number of test samples.
-            "value": 200
+            "value": 100
         },
     },
 

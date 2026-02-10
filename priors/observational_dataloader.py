@@ -165,7 +165,7 @@ class ObservationalDataLoader(DataLoader):
         Since each mechanism is equally likely, this only takes into account DAG and noise.
         """
         if not hasattr(self, 'graph_counts'):
-            self._make_statistics(steps=100000)
+            self._make_statistics(steps=10000)
         adj = nx.to_numpy_array(scm.dag)
         adj_key = tuple(map(tuple, adj.tolist()))
         graph_count = self.graph_counts.get(adj_key, 1)

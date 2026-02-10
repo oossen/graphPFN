@@ -196,7 +196,7 @@ def fancy_mcmc(values: Dict,
                fixed_graph=False) -> List[Tuple[SCM, float, int]]:
     """Perform MCMC with a symmetric proposal distribution."""
     # don't switch graphs for now, this will have to happen when resampling from prior
-    perturbation_probs = (0.0, 0.5, 0.5)
+    perturbation_probs = (0.0, 0.5, 0.0)
     incumbent = initial_scm
     incumbent_log_prob = likelihood_fn(values, test_sample, incumbent)
     incumbent_prior_log_prob = prior.log_likelihood(incumbent)
@@ -408,7 +408,7 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
     prior_iter = prior.make_iter(adj)
     prior_iter_full = iter(prior)
     if include_mcmc:
-        steps, burn_in, thinning = 100000, 50000, 5
+        steps, burn_in, thinning = 10000, 1000, 1
         # MCMC with graph prior
         initial_scm = next(prior_iter)['graph_information']['scm']
         chain = fancy_mcmc(values, test_sample, prior, initial_scm, steps, burn_in, thinning, generator, cheap_likelihood, fixed_graph=True)
@@ -478,9 +478,8 @@ if __name__ == "__main__":
     generator = torch.Generator()
     generator.manual_seed(seed)
     
-    prior_config['graph_config']['num_nodes'] = {'value': 5}
     prior = ObservationalDataLoader(10000, 1, prior_config, seed=seed)
-    prior._make_statistics(steps=100000)
+    prior._make_statistics(steps=10000)
     
     for i in range(20):
         mcmc_suite(prior, generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=False)
