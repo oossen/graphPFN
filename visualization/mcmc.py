@@ -11,6 +11,7 @@ from collections import defaultdict
 import networkx as nx
 from copy import deepcopy
 from dopfnprior.scm.scm import SCM
+from dopfnprior.scm.simple_mechanism import SimpleMechanism
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from priors.observational_dataloader import ObservationalDataLoader
 from configs.simple_configs import prior_config, training_config
@@ -56,71 +57,40 @@ def cheap_likelihood(values: Dict, test_sample: Dict, scm: SCM) -> float:
     return log_probs.sum().item()
 
 
-def ignore_context(values: Dict, test_sample: Dict, scm: SCM) -> float:
-    values_x = {v: test_sample[v] for v in test_sample if v != 'y'}
-    return scm.marginal(values_x)
+def evidence(values: Dict, test_sample: Dict, graph: nx.DiGraph, prior, likelihood_fn=likelihood) -> float:
+    """Estimate p(x, D | graph) by sampling from the prior."""
+    log_evidence = float('-inf')
+    for data in prior.make_iter(nx.to_numpy_array(graph)):
+        scm = data['graph_information']['scm']
+        log_prob = likelihood_fn(values, test_sample, scm)
+        log_evidence = torch.logaddexp(torch.tensor(log_evidence), torch.tensor(log_prob)).item()
+    log_evidence -= math.log(len(prior))
+    return log_evidence
 
 
-def perturbate(incumbent_scm: SCM, prior, generator: torch.Generator, perturbation_probs=(1/3, 1/3, 1/3)) -> SCM:
-    graph_perturbation_prob, mechanism_perturbation_prob, noise_perturbation_prob = perturbation_probs
+def perturbate(incumbent_scm: SCM, generator: torch.Generator) -> SCM:
     selector = torch.rand((1,), generator=generator)
-    if selector < graph_perturbation_prob:
-        # Perturb the graph by removing or switching direction of random edge
-        new_dag = incumbent_scm.dag.copy()
-        nodes = list(new_dag.nodes())
-        edges = list(combinations(nodes, 2))
-        edge_idx = int(torch.randint(0, len(edges), (1,), generator=generator).item())
-        u, v = edges[edge_idx]
-        choice = torch.randint(0, 2, (1,), generator=generator).item()
-        if new_dag.has_edge(u, v):
-            if choice == 0:
-                new_dag.remove_edge(u, v)
-            else:
-                new_dag.remove_edge(u, v)
-                new_dag.add_edge(v, u)
-        elif new_dag.has_edge(v, u):
-            if choice == 0:
-                new_dag.remove_edge(v, u)
-            else:
-                new_dag.remove_edge(v, u)
-                new_dag.add_edge(u, v)
-        else:
-            if choice == 0:
-                new_dag.add_edge(u, v)
-            else:
-                new_dag.add_edge(v, u)
-        # Only follow through with change if new_dag is still a valid DAG
-        if prior.is_valid_graph(new_dag):
-            print("Perturbed graph...")
-            new_scm = SCM(new_dag, incumbent_scm.mechanisms, incumbent_scm.noise)
-            return new_scm
-    elif selector < graph_perturbation_prob + mechanism_perturbation_prob:
+    if selector < 0.5:
+        # perturb a mechanism
         nodes = list(incumbent_scm.dag.nodes())
-        new_mechanisms = {}
-        for v in nodes:
-            new_mechanisms[v] = deepcopy(incumbent_scm.mechanisms[v])
+        new_mechanisms = {v: incumbent_scm.mechanisms[v] for v in nodes}
         node_idx = int(torch.randint(0, len(nodes), (1,), generator=generator).item())
         changed_v = nodes[node_idx]
-        """
-        # no activation change for now, this will have to happen when resampling from prior
-        activations = prior.activations
-        activation_idx = int(torch.randint(0, len(activations), (1,), generator=generator).item())
-        activation = activations[activation_idx]
-        new_mechanisms[changed_v].activation = activation
-        """
+        new_mech: SimpleMechanism = deepcopy(new_mechanisms[changed_v])
         # perturb bias
-        incumbent = new_mechanisms[changed_v].bias.item()
+        incumbent = new_mech.bias.item()
         proposal = normal_proposal(incumbent, -1.0, 1.0, 0.1, generator)
-        new_mechanisms[changed_v].bias.fill_(proposal)
+        new_mech.bias.fill_(proposal)
         parents = list(incumbent_scm.dag.predecessors(changed_v))
         for w in parents:
-            incumbent = new_mechanisms[changed_v].weights[w].item()
+            incumbent = new_mech.weights[w].item()
             proposal = normal_proposal(incumbent, -1.0, 1.0, 0.1, generator)
-            new_mechanisms[changed_v].weights[w].fill_(proposal)
+            new_mech.weights[w].fill_(proposal)
         print("Perturbed mechanisms...")
+        new_mechanisms[changed_v] = new_mech
         new_scm = SCM(incumbent_scm.dag, new_mechanisms, incumbent_scm.noise)
         return new_scm
-    elif selector < graph_perturbation_prob + mechanism_perturbation_prob + noise_perturbation_prob:
+    else:
         nodes = list(incumbent_scm.dag.nodes())
         node_idx = int(torch.randint(0, len(nodes), (1,), generator=generator).item())
         changed_v = nodes[node_idx]
@@ -131,8 +101,6 @@ def perturbate(incumbent_scm: SCM, prior, generator: torch.Generator, perturbati
         print("Perturbed noise...")
         new_scm = SCM(incumbent_scm.dag, incumbent_scm.mechanisms, new_noise)
         return new_scm
-    print("Returning original SCM...")
-    return incumbent_scm
 
 
 def uniform_proposal(incumbent: float, low: float, high: float, max_change: float, generator: torch.Generator) -> float:
@@ -192,11 +160,8 @@ def fancy_mcmc(values: Dict,
                burn_in: int,
                thinning: int,
                generator: torch.Generator, 
-               likelihood_fn=likelihood,
-               fixed_graph=False) -> List[Tuple[SCM, float, int]]:
+               likelihood_fn=likelihood) -> List[Tuple[SCM, float, int]]:
     """Perform MCMC with a symmetric proposal distribution."""
-    # don't switch graphs for now, this will have to happen when resampling from prior
-    perturbation_probs = (0.0, 0.5, 0.0)
     incumbent = initial_scm
     incumbent_log_prob = likelihood_fn(values, test_sample, incumbent)
     incumbent_prior_log_prob = prior.log_likelihood(incumbent)
@@ -204,29 +169,13 @@ def fancy_mcmc(values: Dict,
     chain = [(incumbent, (incumbent_log_prob, incumbent_prior_log_prob), 1)]
     for i in range(steps):
         print(f"MCMC step {i+1}...")
-        choice = torch.rand((1,), generator=generator).item()
-        if choice < 0.5:
-            if fixed_graph:
-                prior_iter = prior.make_iter(nx.to_numpy_array(incumbent.dag))
-            else:
-                prior_iter = iter(prior)
-            proposal: SCM = next(prior_iter)['graph_information']['scm']
-            proposal_log_prob = likelihood_fn(values, test_sample, proposal)
-            proposal_prior_log_prob = prior.log_likelihood(proposal)
-            incumbent_log_prob, incumbent_prior_log_prob = chain[-1][1]
-            log_acceptance_ratio = proposal_log_prob - incumbent_log_prob
-            print(f"Jump, log likelihoods: {incumbent_log_prob} -> {proposal_log_prob}")
-        else:
-            incumbent = chain[-1][0]
-            proposal: SCM = perturbate(incumbent,
-                                    prior,
-                                    generator,
-                                    perturbation_probs)
-            proposal_log_prob = likelihood_fn(values, test_sample, proposal)
-            proposal_prior_log_prob = prior.log_likelihood(proposal)
-            incumbent_log_prob, incumbent_prior_log_prob = chain[-1][1]
-            log_acceptance_ratio = proposal_log_prob + proposal_prior_log_prob - incumbent_log_prob - incumbent_prior_log_prob
-            print(f"Perturbation, log likelihoods: {incumbent_log_prob} -> {proposal_log_prob}, log priors: {incumbent_prior_log_prob} -> {proposal_prior_log_prob}")
+        incumbent = chain[-1][0]
+        proposal: SCM = perturbate(incumbent, generator)
+        proposal_log_prob = likelihood_fn(values, test_sample, proposal)
+        proposal_prior_log_prob = prior.log_likelihood(proposal)
+        incumbent_log_prob, incumbent_prior_log_prob = chain[-1][1]
+        log_acceptance_ratio = proposal_log_prob + proposal_prior_log_prob - incumbent_log_prob - incumbent_prior_log_prob
+        print(f"Perturbation, log likelihoods: {incumbent_log_prob} -> {proposal_log_prob}, log priors: {incumbent_prior_log_prob} -> {proposal_prior_log_prob}")
         
         log_sample = torch.rand((1,), generator=generator).log().item()
         
@@ -256,7 +205,6 @@ def process_mcmc_rle(sequence, burn_in=0, k=1):
 
 def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 100):
     # Find good range for y
-    values = {v: values[v] for v in values}
     y_explore = torch.linspace(-10.0, 10.0, steps)
     likelihoods_explore = [torch.exp(scm.log_likelihood_batch(values, y_explore.unsqueeze(0)))[0][0] for scm, _, _ in samples]
     weights = [w for _, _, w in samples]
@@ -401,14 +349,63 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
     scm.sample_noise(test_sample_shape, generator=generator)
     test_sample = scm.propagate()
     
+    true_graph_tuple = (tuple(graph.nodes()), tuple(graph.edges()))
+    print(f"True graph: {true_graph_tuple}")
+    graph_posteriors = {}
+    for graph_tuple in prior.graph_counts:
+        g = nx.DiGraph()
+        g.add_nodes_from(graph_tuple[0])
+        g.add_edges_from(graph_tuple[1])
+        log_prob = evidence(values, test_sample, g, prior)
+        prior_prob = math.log(prior.graph_counts.get(graph_tuple, 1))
+        print(f"Graph {graph_tuple}:")
+        print(f"Evidence log: {log_prob}, prior prob: {prior_prob}")
+        graph_posteriors[graph_tuple] = log_prob + prior_prob
+    max_log_posterior = max(graph_posteriors.values())
+    shifted_exp = {g: math.exp(prob - max_log_posterior) for g, prob in graph_posteriors.items()}
+    total_sum = sum(shifted_exp.values())
+    probs = {g: prob / total_sum for g, prob in shifted_exp.items()}
+    print(probs.items())
+    
     # Plotting
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
     
+    steps, burn_in, thinning = 10000, 1000, 2
+    distributions = {}
+    for graph_tuple in prior.graph_counts:
+        g = nx.DiGraph()
+        g.add_nodes_from(graph_tuple[0])
+        g.add_edges_from(graph_tuple[1])
+        prior_iter = prior.make_iter(nx.to_numpy_array(g))
+        initial_scm = next(prior_iter)['graph_information']['scm']
+        chain = fancy_mcmc(values, test_sample, prior, initial_scm, steps, burn_in, thinning, generator)
+        y = torch.linspace(-10.0, 10.0, steps)
+        likelihoods_explore = [torch.exp(scm.log_likelihood_batch(values, y.unsqueeze(0)))[0][0] for scm, _, _ in chain]
+        weights = [w for _, _, w in chain]
+        weighted_sum = torch.stack([t * w for t, w in zip(likelihoods_explore, weights)]).sum(dim=0)
+        distributions[graph_tuple] = weighted_sum / sum(weights)
+        style = {'color': 'orange', 'linestyle': '-', 'alpha': 0.1}
+        ax.plot(y, distributions[graph_tuple], **style)
+    style = {'label': 'true graph', 'color': 'orange', 'linestyle': '-', 'alpha': 1.0}
+    ax.plot(y, distributions[true_graph_tuple], **style)
+    weighted_sum = sum(distributions[g] * probs[g] for g in distributions) / sum(probs.values())
+    style = {'label': 'weighted sum', 'color': 'red', 'linestyle': '-', 'alpha': 1.0}
+    ax.plot(y, weighted_sum, **style)
+    eps = 0.01 * weighted_sum.max()
+    mask = weighted_sum > eps
+    indices = torch.where(mask)[0]
+    buffer = 1
+    start_idx = max(0, indices[0] - buffer)
+    end_idx = min(len(y) - 1, indices[-1] + buffer)
+    a = y[start_idx].item()
+    b = y[end_idx].item()
+    ax.set_xlim(a, b)
+        
+    
     prior_iter = prior.make_iter(adj)
     prior_iter_full = iter(prior)
     if include_mcmc:
-        steps, burn_in, thinning = 10000, 1000, 1
         # MCMC with graph prior
         initial_scm = next(prior_iter)['graph_information']['scm']
         chain = fancy_mcmc(values, test_sample, prior, initial_scm, steps, burn_in, thinning, generator, cheap_likelihood, fixed_graph=True)
@@ -474,7 +471,7 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"visualization/output/{datetime_str}"
     
-    seed = 42
+    seed = 43
     generator = torch.Generator()
     generator.manual_seed(seed)
     
@@ -482,4 +479,4 @@ if __name__ == "__main__":
     prior._make_statistics(steps=10000)
     
     for i in range(20):
-        mcmc_suite(prior, generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=False)
+        mcmc_suite(prior, generator, f"{output_dir}/run_{i}", include_mcmc=False, include_pfn=False)

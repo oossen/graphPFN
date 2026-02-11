@@ -154,9 +154,9 @@ class ObservationalDataLoader(DataLoader):
             graph = self.make_graph(prob_adj)
             if not self.is_valid_graph(graph):
                 continue
-            adj = nx.to_numpy_array(graph)
-            sample = tuple(map(tuple, adj.tolist()))
-            graph_counts[sample] += 1
+            # encode graph as pair (nodes, edges)
+            graph_tuple = (tuple(graph.nodes()), tuple(graph.edges()))
+            graph_counts[graph_tuple] += 1
         self.graph_counts = graph_counts
         
     def log_likelihood(self, scm: SCM):
@@ -166,9 +166,8 @@ class ObservationalDataLoader(DataLoader):
         """
         if not hasattr(self, 'graph_counts'):
             self._make_statistics(steps=10000)
-        adj = nx.to_numpy_array(scm.dag)
-        adj_key = tuple(map(tuple, adj.tolist()))
-        graph_count = self.graph_counts.get(adj_key, 1)
+        graph_tuple = (tuple(scm.dag.nodes()), tuple(scm.dag.edges()))
+        graph_count = self.graph_counts.get(graph_tuple, 1)
         graph_ll = math.log(graph_count)
         noise_ll = 0.0
         for v in scm.dag.nodes:
