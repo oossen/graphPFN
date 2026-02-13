@@ -3,7 +3,7 @@ from torch import nn
 import time
 import schedulefree
 import os
-from pfns.bar_distribution import FullSupportBarDistribution
+from graphpfn.interface import init_model_from_state_dict_file
 from tfmplayground.callbacks import Callback
 from priors.observational_dataloader import ObservationalDataLoader
 from graphpfn.base_model import GraphPFNModel
@@ -17,7 +17,8 @@ def train(model: GraphPFNModel,
           lr: float = 1e-4,
           nll: bool = False,
           callbacks: list[Callback] = [], 
-          run_name: str = 'graphPFN'):
+          run_name: str = 'graphPFN',
+          ckpt_path: str | None = None):
     """
     Trains our model on the given prior using the given criterion.
 
@@ -40,18 +41,28 @@ def train(model: GraphPFNModel,
         A list of callback instances to execute at the end of each epoch (e.g. logging, validation).
     run_name : str
         The name of this training run. Used to create a folder saving the trained model.
+    ckpt_path : str | None
+        If not None, the path to a checkpoint to load the model, optimizer, and epoch to resume training.
     """
     work_dir = 'workdir/'+run_name
     os.makedirs(work_dir, exist_ok=True)
     device = get_default_device()
-    model.to(device)
-    optimizer = schedulefree.AdamWScheduleFree(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.0)
     loss_fn = nn.CrossEntropyLoss()
     
+    start_epoch = 1
+    if ckpt_path is not None:
+        model = init_model_from_state_dict_file(ckpt_path)
+        state_dict = torch.load(ckpt_path, map_location=torch.device('cpu'), weights_only=False)
+        start_epoch = state_dict['epoch'] + 1
+    model.to(device)
+    optimizer = schedulefree.AdamWScheduleFree(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.0)
+    if ckpt_path is not None:
+        optimizer.load_state_dict(state_dict['optimizer'])
+        
     bucket_mids = (buckets[:-1] + buckets[1:]) / 2.0
 
     try:
-        for epoch in range(1, epochs + 1):
+        for epoch in range(start_epoch, epochs + 1):
             epoch_start_time = time.time()
             model.train()  # Turn on the train mode
             optimizer.train()

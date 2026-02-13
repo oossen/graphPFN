@@ -1,6 +1,7 @@
 from functools import partial
 from typing import List
 from datetime import datetime
+from pathlib import Path
 
 from graphpfn.callbacks import SanityCheckLoggerCallback
 from graphpfn.train import train
@@ -10,15 +11,22 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from visualization.make_visualization import plot_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.default_configs import prior_config, training_config as args
+from configs.binary_attention_fallback_configs import prior_config, training_config as args
 
 
 device = get_default_device()
+seed = 42
+
+ckpt_path = f"workdir/{args['saveweights']}/latest_checkpoint.pth"
+if Path(ckpt_path).exists():
+    seed += 1 # to ensure different data is sampled if we are continuing from a previous checkpoint
+else:
+    ckpt_path = None
 
 prior = ObservationalDataLoader(num_steps=args["steps"],
                                 batch_size=args["batchsize"],
                                 prior_config=prior_config,
-                                seed=43)
+                                seed=seed)
 
 model = args["model"]
 
@@ -45,4 +53,5 @@ trained_model, loss = train(
     nll=args["nll"],
     callbacks=callbacks,
     run_name=run_name,
+    ckpt_path=ckpt_path,
 )

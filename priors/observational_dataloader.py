@@ -75,15 +75,14 @@ class ObservationalDataLoader(DataLoader):
             
     def sample_prob_adj(self) -> torch.Tensor:
         graph_params = sample_parameters(self.graph_samplers, self.generator)
-        num_nodes = graph_params["num_nodes"]
-        edge_prob = graph_params["edge_prob"]
+        self.num_nodes = graph_params["num_nodes"]
+        self.edge_prob = graph_params["edge_prob"]
         
         np_seed = int(torch.randint(0, 2**31, (1,), generator=self.generator).item())
         self.rng = np.random.default_rng(np_seed)
-        perm = self.rng.permutation(num_nodes)
+        perm = self.rng.permutation(self.num_nodes)
         graph_params = sample_parameters(self.graph_samplers, self.generator)
-        edge_prob = graph_params["edge_prob"]
-        adj = self.sample_edge_prob((num_nodes, num_nodes), edge_prob=edge_prob)
+        adj = self.sample_edge_prob((self.num_nodes, self.num_nodes), edge_prob=self.edge_prob)
         adj = np.triu(adj, k=1)
         adj[perm[:, None], perm] = adj.copy()
         prob_adj = torch.from_numpy(adj).float()
@@ -131,11 +130,19 @@ class ObservationalDataLoader(DataLoader):
         full_data = {}
         adjacency_matrix = nx.to_numpy_array(graph)
         data_type = data['y'].dtype
+        sampled_params = {
+            'num_nodes': self.num_nodes,
+            'edge_prob': self.edge_prob,
+            'number_train_samples_per_dataset': num_train_samples,
+            'root_std': np.mean([scm.noise[v].std() for v in graph.nodes if graph.in_degree(v) == 0]),
+            'non_root_std': np.mean([scm.noise[v].std() for v in graph.nodes if graph.in_degree(v) > 0])
+        }
         full_data['graph_information'] = {
             'adj': torch.from_numpy(adjacency_matrix).to(data_type),
             'prob_adj': prob_adj,
             'graph': graph,
             'scm': scm,
+            'sampled_params': sampled_params
         }
         full_data['x'] = torch.stack([data[v] for v in graph.nodes if v != 'y'], dim=2)
         full_data['y'] = data['y']
@@ -155,7 +162,7 @@ class ObservationalDataLoader(DataLoader):
             if not self.is_valid_graph(graph):
                 continue
             # encode graph as pair (nodes, edges)
-            graph_tuple = (tuple(graph.nodes()), tuple(graph.edges()))
+            graph_tuple = (tuple(graph.nodes()), tuple(sorted(graph.edges())))
             graph_counts[graph_tuple] += 1
         self.graph_counts = graph_counts
         
@@ -166,7 +173,7 @@ class ObservationalDataLoader(DataLoader):
         """
         if not hasattr(self, 'graph_counts'):
             self._make_statistics(steps=10000)
-        graph_tuple = (tuple(scm.dag.nodes()), tuple(scm.dag.edges()))
+        graph_tuple = (tuple(scm.dag.nodes()), tuple(sorted(scm.dag.edges())))
         graph_count = self.graph_counts.get(graph_tuple, 1)
         graph_ll = math.log(graph_count)
         noise_ll = 0.0
