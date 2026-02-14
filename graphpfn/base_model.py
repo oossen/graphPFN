@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import torch
 from torch import nn
 
-from tfmplayground.model import Decoder, TargetEncoder, FeatureEncoder
+from tfmplayground.model import Decoder, TargetEncoder
 
 
 class GraphPFNModel(nn.Module, ABC):
@@ -72,7 +72,7 @@ class GraphPFNModel(nn.Module, ABC):
         if len(y_src.shape) < len(x_src.shape):
             y_src = y_src.unsqueeze(-1)
         # (B, R, C-1) -> (B, R, C-1, E)
-        x_src = self.feature_encoder(x_src, single_eval_pos)
+        x_src = self.feature_encoder(x_src)
         num_rows = x_src.shape[1]
         # (B, single_eval_pos, 1) -> (B, R, 1, E)
         y_src = self.target_encoder(y_src, num_rows)
@@ -89,3 +89,14 @@ class GraphPFNModel(nn.Module, ABC):
     @abstractmethod
     def _make_transformer_encoder(self) -> nn.Module:
         pass
+    
+
+class FeatureEncoder(nn.Module):
+    """Identical to NanoTabPFN's feature encoder, except that there is no normalization."""
+    def __init__(self, embedding_size: int):
+        super().__init__()
+        self.linear_layer = nn.Linear(1, embedding_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.unsqueeze(-1)
+        return self.linear_layer(x)

@@ -125,6 +125,12 @@ class ObservationalDataLoader(DataLoader):
         sample_shape = (self.batch_size, total_samples)
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate()
+        
+        # resample extreme values
+        for v in graph.nodes:
+            low, high = -10, 10
+            if (data[v] < low).any() or (data[v] > high).any():
+                return self.batch_function(graph, prob_adj)
             
         # aggregate data
         full_data = {}

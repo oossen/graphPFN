@@ -1,24 +1,25 @@
 from graphpfn.interface import Regressor
+from priors.observational_dataloader import ObservationalDataLoader
 
 from tfmplayground.callbacks import TensorboardLoggerCallback
-from tfmplayground.utils import get_default_device
 
 from graphpfn.interface import cross_validate
 from torch.utils.tensorboard.writer import SummaryWriter
 
 
-class SanityCheckLoggerCallback(TensorboardLoggerCallback):
+class ValidationCallback(TensorboardLoggerCallback):
     """
     On epoch end, evaluate the model on data from the same prior that it is being trained on.
     To initialize, needs the bar distribution and prior used for training.
     """
-    def __init__(self, log_dir: str, prior_factory, num_steps=500):
+    def __init__(self, log_dir: str, prior_config, num_steps=500, seed=100):
         self.writer = SummaryWriter(log_dir=log_dir)
-        self.prior_factory = prior_factory
+        self.prior_config = prior_config
         self.num_steps = num_steps
+        self.seed = seed
     
     def on_epoch_end(self, epoch: int, epoch_time: float, loss: float, model, **kwargs):
-        test_prior = self.prior_factory(self.num_steps)
+        test_prior = ObservationalDataLoader(self.num_steps, 1, self.prior_config, self.seed)
         regressor = Regressor(model, kwargs['buckets'])
         scores = []
         for data in test_prior:

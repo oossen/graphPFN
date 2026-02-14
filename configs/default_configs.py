@@ -69,13 +69,13 @@ prior_config = {
         # float
         "root_std_dist": {
             "distribution": "shifted_exponential",
-            "distribution_parameters": {"rate": 1 / 1.0, "shift": 0.1}
+            "distribution_parameters": {"rate": 1 / 1.0, "shift": 0.2}
         },
         # the standard deviation of noise sampled at non-root nodes when propagating through the SCM
         # float
         "non_root_std_dist": {
             "distribution": "shifted_exponential",
-            "distribution_parameters": {"rate": 1 / 0.1, "shift": 0.1}
+            "distribution_parameters": {"rate": 1 / 0.4, "shift": 0.2}
         },
     },
     
@@ -105,6 +105,10 @@ training_config = {
     # learning rate
     # float
     "lr": 1e-4,
+    
+    # number of steps to accumulate gradients for
+    # int
+    "accumulate_gradients": 1,
     
     # number of data batches contained in each epoch
     # int

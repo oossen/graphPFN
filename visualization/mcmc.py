@@ -1,4 +1,3 @@
-from itertools import combinations
 import math
 import os
 from typing import Dict, List, Tuple
@@ -335,7 +334,7 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
     os.makedirs(output_dir, exist_ok=True)
     
     # Sample the training data D = (X, y)
-    sample_shape = (1, 5) # 1 batch, 5 samples
+    sample_shape = (1, 2) # 1 batch, 5 samples
     test_sample_shape = (1, 1) # 1 batch, 1 sample
     data = next(iter(prior))
     scm = data['graph_information']['scm']
@@ -372,7 +371,7 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
     ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
     
     if include_mcmc:
-        steps, burn_in, thinning = 1000, 100, 2
+        steps, burn_in, thinning = 5000, 1000, 2
         distributions = {}
         for graph_tuple in prior.graph_counts:
             if probs[graph_tuple] < 1e-2 and graph_tuple != true_graph_tuple:
@@ -389,9 +388,9 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
             weights = [w for _, _, w in chain]
             weighted_sum = torch.stack([t * w for t, w in zip(likelihoods, weights)]).sum(dim=0)
             distributions[graph_tuple] = weighted_sum / sum(weights)
-            style = {'color': 'orange', 'linestyle': '-', 'alpha': 0.1}
-            ax.plot(y, distributions[graph_tuple], **style)
-        style = {'label': 'p(y|x, D, graph) (MCMC)', 'color': 'orange', 'linestyle': '-', 'alpha': 1.0}
+            # style = {'color': 'orange', 'linestyle': '-', 'alpha': 0.1}
+            # ax.plot(y, distributions[graph_tuple], **style)
+        style = {'label': 'p(y|x, D, γ) (MCMC)', 'color': 'orange', 'linestyle': '-', 'alpha': 1.0}
         ax.plot(y, distributions[true_graph_tuple], **style)
         weighted_sum = sum(distributions[graph_tuple] * probs[graph_tuple] for graph_tuple in distributions) / sum(probs.values())
         style = {'label': 'p(y|x, D) (MCMC)', 'color': 'red', 'linestyle': '-', 'alpha': 1.0}
@@ -410,9 +409,9 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v][0] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'][0].cpu().numpy()
-        model_names = ["baseline"]
-        model_colors = {"baseline": "red"}
-        model_labels = {"baseline": "p(y|x, D) (PFN)"}
+        model_names = ["simple_binary_attention_fallback_02_14_22_21","simple_02_14_22_20"]
+        model_colors = {"simple_binary_attention_fallback_02_14_22_21": "orange", "simple_02_14_22_20": "red"}
+        model_labels = {"simple_binary_attention_fallback_02_14_22_21": "p(y|x, D, γ) (PFN)", "simple_02_14_22_20": "p(y|x, D) (PFN)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
@@ -431,11 +430,11 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"visualization/output/{datetime_str}"
     
-    seed = 42
+    seed = 100
     generator = torch.Generator()
     generator.manual_seed(seed)
     
-    prior_config['graph_config']['num_nodes'] = {'value': 4}
+    prior_config['graph_config']['num_nodes'] = {'value': 3}
     prior = ObservationalDataLoader(100, 1, prior_config, seed=seed)
     prior._make_statistics(steps=10000)
     

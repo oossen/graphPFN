@@ -3,7 +3,7 @@ from datetime import datetime
 
 import torch
 
-from configs.default_configs import prior_config, training_config
+from configs.simple_configs import prior_config, training_config
 from priors.observational_dataloader import ObservationalDataLoader
 from visualization.plotting import plot_graph, plot_point_clouds, plot_correlation, plot_adj, plot_likelihoods
 
@@ -27,15 +27,12 @@ def plot_all(prior, output_dir: str):
         # plot likelihoods
         buckets = training_config['buckets']
         bucket_mids = (buckets[:-1] + buckets[1:]) / 2.0
-        y = data['y'][:, :single_eval_pos]
-        y_mean = y.mean(dim=1, keepdim=True)
-        y_std = y.std(dim=1, keepdim=True) + 1e-8
-        scaled_bucket_mids = bucket_mids.unsqueeze(0) * y_std + y_mean
+        bucket_mids = bucket_mids.unsqueeze(0) # add batch dimension
         test_data = {v: data['data'][v][:, single_eval_pos:] for v in data['data']}
         scm = data['graph_information']['scm']
-        log_probs = scm.log_likelihood_batch(test_data, scaled_bucket_mids)
+        log_probs = scm.log_likelihood_batch(test_data, bucket_mids)
         probs = torch.exp(log_probs)
-        plot_likelihoods(scaled_bucket_mids[0], probs[0][0], data['y'][0][single_eval_pos].item(), f"{output_dir}/likelihoods_{i}.png")
+        plot_likelihoods(bucket_mids[0], probs[0][0], data['y'][0][single_eval_pos].item(), f"{output_dir}/likelihoods_{i}.png")
     
     
 if __name__ == "__main__":
