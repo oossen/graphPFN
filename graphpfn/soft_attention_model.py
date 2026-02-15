@@ -115,12 +115,11 @@ class TransformerEncoderLayer(nn.Module):
         return src
     
 class MultiplicativeMultiheadAttention(nn.Module):
+    """
+    An attention layer with *soft multiplicative attention masking*.
+    The attention logits are modulated by the provided attention mask.
+    """
     def __init__(self, embed_dim, num_heads):
-        """
-        Args:
-            embed_dim: Total dimension of the model.
-            num_heads: Number of parallel attention heads.
-        """
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -135,17 +134,6 @@ class MultiplicativeMultiheadAttention(nn.Module):
         self.out_proj = nn.Linear(embed_dim, embed_dim)
 
     def forward(self, query, key, value, attn_mask):
-        """
-        Args:
-            query: (b, f, d)
-            key: (b, f, d)
-            value: (b, f, d)
-            attn_mask: (f, f)
-
-        Returns:
-            attn_output: (b, f, d)
-            attn_weights: (b, #heads, f, f)
-        """
         b, f, d = query.size()
 
         # 1. Project Q, K, V

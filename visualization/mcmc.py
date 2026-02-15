@@ -3,7 +3,9 @@ import os
 from typing import Dict, List, Tuple
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
+from torch.distributions import Categorical
 from datetime import datetime
 from collections import Counter
 from collections import defaultdict
@@ -75,7 +77,8 @@ def perturbate(incumbent_scm: SCM, generator: torch.Generator) -> SCM:
         new_mechanisms = {v: incumbent_scm.mechanisms[v] for v in nodes}
         node_idx = int(torch.randint(0, len(nodes), (1,), generator=generator).item())
         changed_v = nodes[node_idx]
-        new_mech: SimpleMechanism = deepcopy(new_mechanisms[changed_v])
+        new_mech = deepcopy(new_mechanisms[changed_v])
+        assert isinstance(new_mech, SimpleMechanism), "The provided SCM has a non-simple mechanism!"
         # perturb bias
         incumbent = new_mech.bias.item()
         proposal = normal_proposal(incumbent, -1.0, 1.0, 0.5, generator)
@@ -279,13 +282,21 @@ def visualize_chain(chain: List[Tuple[SCM, float, int]], true_scm: SCM, output_d
     # weights
     weights = defaultdict(list)
     biases = defaultdict(list)
-    true_weights = {(u, v): true_scm.mechanisms[u].weights[v].item() for u in nodes for v in nodes}
-    true_biases = {u: true_scm.mechanisms[u].bias.item() for u in nodes}
+    true_weights = {}
+    true_biases = {}
+    for u in nodes:
+        true_mech = true_scm.mechanisms[u]
+        assert isinstance(true_mech, SimpleMechanism), "The provided SCM has a non-simple mechanism!"
+        true_biases[u] = true_mech.bias.item()
+        for v in nodes:
+            true_weights[(u, v)] = true_mech.weights[v].item()
     for scm, _, weight in chain:
         for u in nodes:
-            biases[u].append((scm.mechanisms[u].bias.item(), weight))
+            mech = scm.mechanisms[u]
+            assert isinstance(mech, SimpleMechanism), "The provided SCM has a non-simple mechanism!"
+            biases[u].append((mech.bias.item(), weight))
             for v in nodes:
-                weights[(u, v)].append((scm.mechanisms[u].weights[v].item(), weight))
+                weights[(u, v)].append((mech.weights[v].item(), weight))
                 
     n_plots = len(weights) + len(biases)
     ncols = 3
@@ -330,11 +341,14 @@ def visualize_chain(chain: List[Tuple[SCM, float, int]], true_scm: SCM, output_d
     plt.savefig(f"{output_dir}/noises.png", dpi=300)
     
 
-def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc: bool = True, include_pfn: bool = True):
-    os.makedirs(output_dir, exist_ok=True)
-    
+def mcmc_suite(prior, num_train_samples: int, 
+               generator: torch.Generator, 
+               output_dir: str, 
+               include_mcmc: bool = True, 
+               include_pfn: bool = True,
+               mcmc_parameters: Tuple = (1000, 100, 2)):
     # Sample the training data D = (X, y)
-    sample_shape = (1, 2) # 1 batch, 5 samples
+    sample_shape = (1, num_train_samples) # 1 batch, n samples
     test_sample_shape = (1, 1) # 1 batch, 1 sample
     data = next(iter(prior))
     scm = data['graph_information']['scm']
@@ -344,8 +358,10 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
     scm.sample_noise(test_sample_shape, generator=generator)
     test_sample = scm.propagate()
     
-    plt.figure()
-    plot_graph(graph, f"{output_dir}/graph.png", **DRAWING_STYLE)
+    if include_mcmc or include_pfn:
+        os.makedirs(output_dir, exist_ok=True)
+        plt.figure()
+        plot_graph(graph, f"{output_dir}/graph.png", **DRAWING_STYLE)
     
     true_graph_tuple = (tuple(graph.nodes()), tuple(sorted(graph.edges())))
     print(f"True graph: {true_graph_tuple}")
@@ -364,14 +380,24 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
     shifted_exp = {graph_tuple: math.exp(prob - max_log_posterior) for graph_tuple, prob in graph_posteriors.items()}
     total_sum = sum(shifted_exp.values())
     probs = {graph_tuple: prob / total_sum for graph_tuple, prob in shifted_exp.items()}
-    print(probs.items())
+    # compute entropy
+    entropy = Categorical(logits=torch.tensor(list(graph_posteriors.values()))).entropy().item()
+    print(f"Posterior probabilities: {probs}")
+    print(f"Entropy: {entropy}")
+    # remove run number from filename
+    output_dir_clean = output_dir.split("run")[0]
+    os.makedirs(output_dir_clean, exist_ok=True)
+    entropy_file = f"{output_dir_clean}entropies.csv"
+    df = pd.DataFrame([[num_train_samples, entropy]], columns=['samples', 'entropy'])
+    df.to_csv(entropy_file, mode='a', index=False, header=not os.path.exists(entropy_file)) # only write header if file doesn't exist
     
     # Plotting
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
+    if include_mcmc or include_pfn:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
     
     if include_mcmc:
-        steps, burn_in, thinning = 5000, 1000, 2
+        steps, burn_in, thinning = mcmc_parameters
         distributions = {}
         for graph_tuple in prior.graph_counts:
             if probs[graph_tuple] < 1e-2 and graph_tuple != true_graph_tuple:
@@ -386,13 +412,14 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
             y = torch.linspace(-10.0, 10.0, steps)
             likelihoods = [torch.exp(scm.log_likelihood_batch(test_sample, y.unsqueeze(0)))[0][0] for scm, _, _ in chain]
             weights = [w for _, _, w in chain]
-            weighted_sum = torch.stack([t * w for t, w in zip(likelihoods, weights)]).sum(dim=0)
-            distributions[graph_tuple] = weighted_sum / sum(weights)
+            weighted_sum_g = torch.stack([t * w for t, w in zip(likelihoods, weights)]).sum(dim=0)
+            distributions[graph_tuple] = weighted_sum_g / sum(weights)
             # style = {'color': 'orange', 'linestyle': '-', 'alpha': 0.1}
             # ax.plot(y, distributions[graph_tuple], **style)
         style = {'label': 'p(y|x, D, γ) (MCMC)', 'color': 'orange', 'linestyle': '-', 'alpha': 1.0}
         ax.plot(y, distributions[true_graph_tuple], **style)
-        weighted_sum = sum(distributions[graph_tuple] * probs[graph_tuple] for graph_tuple in distributions) / sum(probs.values())
+        weighted_tensors = [distributions[g] * probs[g] for g in distributions]
+        weighted_sum = torch.stack(weighted_tensors).sum(dim=0) / sum(probs.values())
         style = {'label': 'p(y|x, D) (MCMC)', 'color': 'red', 'linestyle': '-', 'alpha': 1.0}
         ax.plot(y, weighted_sum, **style)
         eps = 0.01 * weighted_sum.max()
@@ -409,20 +436,21 @@ def mcmc_suite(prior, generator: torch.Generator, output_dir: str, include_mcmc:
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v][0] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'][0].cpu().numpy()
-        model_names = ["simple_binary_attention_fallback_02_14_22_21","simple_02_14_22_20"]
-        model_colors = {"simple_binary_attention_fallback_02_14_22_21": "orange", "simple_02_14_22_20": "red"}
-        model_labels = {"simple_binary_attention_fallback_02_14_22_21": "p(y|x, D, γ) (PFN)", "simple_02_14_22_20": "p(y|x, D) (PFN)"}
+        model_names = ["simple_binary_attention_fallback","simple"]
+        model_colors = {"simple_binary_attention_fallback": "orange", "simple": "red"}
+        model_labels = {"simple_binary_attention_fallback": "p(y|x, D, γ) (PFN)", "simple": "p(y|x, D) (PFN)"}
         for model_name in model_names:
             model_path = f"workdir/{model_name}"
             style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
             plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, style=style, **data['graph_information'])
         
-    ax.set_xlabel("y")
-    ax.set_ylabel("p(y)")
-    ax.set_title("PPD Comparison")
-    ax.legend()
-    ax.grid(True)
-    fig.savefig(f"{output_dir}/ppds.png", dpi=300)
+    if include_mcmc or include_pfn:
+        ax.set_xlabel("y")
+        ax.set_ylabel("p(y)")
+        ax.set_title("PPD Comparison")
+        ax.legend()
+        ax.grid(True)
+        fig.savefig(f"{output_dir}/ppds.png", dpi=300)
 
 
 if __name__ == "__main__":
@@ -438,5 +466,7 @@ if __name__ == "__main__":
     prior = ObservationalDataLoader(100, 1, prior_config, seed=seed)
     prior._make_statistics(steps=10000)
     
+    mcmc_parameters = (5000, 1000, 2) # steps, burn-in, thinning
+    
     for i in range(20):
-        mcmc_suite(prior, generator, f"{output_dir}/run_{i}", include_mcmc=True, include_pfn=True)
+        mcmc_suite(prior, 5, generator, f"{output_dir}/run_{i}", include_mcmc=False, include_pfn=False, mcmc_parameters=mcmc_parameters)

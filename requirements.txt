@@ -1,3 +1,4 @@
 tensorboard
+seaborn
 git+ssh://git@github.com/automl/TFM-Playground.git
 git+ssh://git@github.com/oossen/Do-PFN-prior.git
