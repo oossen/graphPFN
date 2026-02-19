@@ -1,6 +1,7 @@
 from typing import List
 from datetime import datetime
 from pathlib import Path
+import torch
 
 from graphpfn.callbacks import ValidationCallback
 from graphpfn.train import train
@@ -10,7 +11,7 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from visualization.make_visualization import plot_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.soft_attention_fallback_configs import prior_config, training_config as args
+from configs.default_configs import prior_config, training_config as args
 
 
 device = get_default_device()
@@ -18,7 +19,8 @@ seed = 42
 
 ckpt_path = f"workdir/{args['saveweights']}/latest_checkpoint.pth"
 if Path(ckpt_path).exists():
-    seed += 1 # to ensure different data is sampled if we are continuing from a previous checkpoint
+    seed = torch.load(ckpt_path, map_location=torch.device('cpu'), weights_only=False).get('seed', seed)
+    seed += 2 # to ensure different data is sampled if we are continuing from a previous checkpoint
 else:
     ckpt_path = None
 

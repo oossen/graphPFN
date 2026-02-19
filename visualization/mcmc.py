@@ -436,7 +436,7 @@ def mcmc_suite(prior, num_train_samples: int,
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v][0] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'][0].cpu().numpy()
-        model_names = ["simple_binary_attention_fallback","simple"]
+        model_names = ["simple_binary_attention_fallback", "simple"]
         model_colors = {"simple_binary_attention_fallback": "orange", "simple": "red"}
         model_labels = {"simple_binary_attention_fallback": "p(y|x, D, γ) (PFN)", "simple": "p(y|x, D) (PFN)"}
         for model_name in model_names:
@@ -447,8 +447,8 @@ def mcmc_suite(prior, num_train_samples: int,
     if include_mcmc or include_pfn:
         ax.set_xlabel("y")
         ax.set_ylabel("p(y)")
-        ax.set_title("PPD Comparison")
-        ax.legend()
+        # ax.set_title("PPD Comparison")
+        # ax.legend()
         ax.grid(True)
         fig.savefig(f"{output_dir}/ppds.png", dpi=300)
 
@@ -458,7 +458,7 @@ if __name__ == "__main__":
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"visualization/output/{datetime_str}"
     
-    seed = 100
+    seed = 42
     generator = torch.Generator()
     generator.manual_seed(seed)
     

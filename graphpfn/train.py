@@ -111,6 +111,7 @@ def train(model: GraphPFNModel,
             optimizer.eval()
 
             training_state = {
+                'seed': prior.seed,
                 'epoch': epoch,
                 'model_class': type(model),
                 'architecture': model.architecture,

@@ -27,7 +27,7 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python -m visualization.mcmc
+python -m visualization.scripts --entropies
 # python -m visualization.make_visualization_probabilistic
 end=`date +%s`
 runtime=$((end-start))
