@@ -14,6 +14,7 @@ from visualization.make_visualization import plot_all
 from priors.observational_dataloader import ObservationalDataLoader
 from configs.default_configs import prior_config, training_config as args
 
+
 # argparse setup
 parser = argparse.ArgumentParser()
 parser.add_argument("--nll", action="store_true", help="Train with negative log-likelihood loss instead of soft labels.")
@@ -21,7 +22,8 @@ parser.add_argument("--prob_adj_mode", choices=["binary", "beta", "uncertain"], 
                     help="Select probabilistic adjacency matrix creation mode from [binary, beta, uncertain].")
 cmd_args = parser.parse_args()
 args["nll"] = cmd_args.nll
-prior_config["graph_config"]["prob_adj_mode"] = {"value": cmd_args.prob_adj_mode}
+prior_config["graph_config"]["prob_adj_mode"] = {"distribution": "categorical",
+                                                "distribution_parameters": {"choices": [cmd_args.prob_adj_mode], "probabilities": [1.0]}}
 if cmd_args.nll:
     args["saveweights"] += "_nll"
 args["saveweights"] += f"_{cmd_args.prob_adj_mode}"
