@@ -9,5 +9,3 @@ prior_config['dataset_config']['number_train_samples_per_dataset'] = {"distribut
 prior_config['graph_config']['num_nodes'] = {"distribution": "discrete_uniform", "distribution_parameters": {"low": 3, "high": 5}}
 
 training_config["saveweights"] = "simple"
-training_config["steps"] = 1000
-training_config["epochs"] = 200

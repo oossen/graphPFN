@@ -27,17 +27,15 @@ class ObservationalDataLoader(DataLoader):
         
         self.prior_config = prior_config
         self.graph_config = prior_config["graph_config"]
-        self.noise_config = prior_config["noise_config"]
+        self.scm_config = prior_config["scm_config"]
         self.dataset_config = prior_config["dataset_config"]
         
         self.graph_samplers = build_samplers(self.graph_config, "graph")
-        self.noise_samplers = build_samplers(self.noise_config, "noise")
+        self.scm_samplers = build_samplers(self.scm_config, "scm")
         self.dataset_samplers = build_samplers(self.dataset_config, "dataset")
         
         self.generator = torch.Generator()
         self.generator.manual_seed(seed)
-        
-        self.activations = prior_config["activations"]
         
     def __len__(self) -> int:
         """Return the number of batches contained in this dataloader."""
@@ -77,24 +75,39 @@ class ObservationalDataLoader(DataLoader):
         graph_params = sample_parameters(self.graph_samplers, self.generator)
         self.num_nodes = graph_params["num_nodes"]
         self.edge_prob = graph_params["edge_prob"]
+        self.prob_adj_mode = graph_params["prob_adj_mode"]
         
         np_seed = int(torch.randint(0, 2**31, (1,), generator=self.generator).item())
-        self.rng = np.random.default_rng(np_seed)
-        perm = self.rng.permutation(self.num_nodes)
-        graph_params = sample_parameters(self.graph_samplers, self.generator)
-        adj = self.sample_edge_prob((self.num_nodes, self.num_nodes), edge_prob=self.edge_prob)
-        adj = np.triu(adj, k=1)
-        adj[perm[:, None], perm] = adj.copy()
-        prob_adj = torch.from_numpy(adj).float()
-        return prob_adj
-            
-    def sample_edge_prob(self, shape, edge_prob) -> np.ndarray:
-        """Sample edge weights from a beta distribution."""
-        # Get numpy generator from torch generator
+        rng = np.random.default_rng(np_seed)
+        if self.prob_adj_mode == "binary":
+            adj = rng.binomial(1, self.edge_prob, size=(self.num_nodes, self.num_nodes))
+            adj = np.triu(adj, k=1)
+            perm = rng.permutation(self.num_nodes)
+            adj[perm[:, None], perm] = adj.copy()
+            return torch.from_numpy(adj).float()
+
         beta = 0.5
-        alpha = (edge_prob * beta) / (1 - edge_prob) # mean of distribution is at edge_prob
-        edge_prob = self.rng.beta(a=alpha, b=beta, size=shape)
-        return edge_prob
+        alpha = (self.edge_prob * beta) / (1 - self.edge_prob) # mean of distribution is at edge_prob
+        edge_prob = rng.beta(a=alpha, b=beta, size=(self.num_nodes, self.num_nodes))
+        adj = np.triu(edge_prob, k=1)
+        # split the probability mass between i -> j and j -> i
+        shares = rng.random(size=(self.num_nodes, self.num_nodes))
+        adj = adj * shares + adj.T * (1 - shares.T)
+        perm = rng.permutation(self.num_nodes)
+        adj[perm[:, None], perm] = adj.copy()
+        
+        if self.prob_adj_mode == "beta":
+            return torch.from_numpy(adj).float()
+        
+        elif self.prob_adj_mode == "uncertain":
+            # mix the beta matrix with a constant matrix at edge_prob, with random mixing weight
+            mix_weight = 0.5 * rng.random()
+            adj = np.where(rng.random(size=adj.shape) < mix_weight, adj, self.edge_prob / 2)
+            np.fill_diagonal(adj, 0)
+            return torch.from_numpy(adj).float()
+        else:
+            raise ValueError(f"Invalid prob_adj_mode: {self.prob_adj_mode}")
+
     
     def make_graph(self, prob_adj: torch.Tensor) -> nx.DiGraph:
         """Sample a graph from the given probabilistic adjacency matrix."""
@@ -102,17 +115,25 @@ class ObservationalDataLoader(DataLoader):
         nodes = [f'x{i}' for i in range(num_nodes - 1)] + ['y']
         graph = nx.DiGraph()
         graph.add_nodes_from(nodes)
-        for i, u in enumerate(nodes):
-            for j, v in enumerate(nodes):
-                if torch.rand((1,), generator=self.generator).item() < prob_adj[i, j]:
+        for i in range(num_nodes):
+            for j in range(i + 1, num_nodes):
+                u, v = nodes[i], nodes[j]
+                p_ij = prob_adj[i, j].item()
+                p_ji = prob_adj[j, i].item()
+                r = torch.rand((1,), generator=self.generator).item()
+                if r < p_ij:
                     graph.add_edge(u, v)
+                elif r < p_ij + p_ji:
+                    graph.add_edge(v, u)
         return graph
     
     def batch_function(self, graph: nx.DiGraph, prob_adj: torch.Tensor):
         # sample SCM
-        activations = self.prior_config["activations"]
-        root_std_dist, non_root_std_dist = self.noise_samplers["root_std_dist"], self.noise_samplers["non_root_std_dist"]
-        scm_builder = SCMBuilder(graph, activations=activations, root_std_dist=root_std_dist, non_root_std_dist=non_root_std_dist)
+        root_std_dist, non_root_std_dist = self.scm_samplers["root_std_dist"], self.scm_samplers["non_root_std_dist"]
+        scm_builder = SCMBuilder(graph, 
+                                 activation_dist=self.scm_samplers["activations"], 
+                                 root_std_dist=root_std_dist, 
+                                 non_root_std_dist=non_root_std_dist)
         scm = scm_builder.sample(self.generator)
             
         # sample dataset parameters
@@ -159,8 +180,7 @@ class ObservationalDataLoader(DataLoader):
         return full_data
     
     def _make_statistics(self, steps):
-        """Sample a large number of SCMs from `self` to estimate densities of DAGs and noise."""
-        print("Computing prior statistics...")
+        """Sample a large number of SCMs from `self` to estimate densities of DAGs."""
         graph_counts = Counter()
         for _ in range(steps):
             prob_adj = self.sample_prob_adj()
@@ -186,7 +206,7 @@ class ObservationalDataLoader(DataLoader):
         for v in scm.dag.nodes:
             std = scm.noise[v].std()
             if scm.dag.in_degree(v) == 0:
-                noise_ll += self.noise_samplers["root_std_dist"].log_prob(torch.tensor(std)).item()
+                noise_ll += self.scm_samplers["root_std_dist"].log_prob(torch.tensor(std)).item()
             else:
-                noise_ll += self.noise_samplers["non_root_std_dist"].log_prob(torch.tensor(std)).item()
+                noise_ll += self.scm_samplers["non_root_std_dist"].log_prob(torch.tensor(std)).item()
         return graph_ll + noise_ll

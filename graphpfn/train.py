@@ -88,7 +88,8 @@ def train(model: GraphPFNModel,
                 else:
                     test_data = {v: full_data['data'][v][:, single_eval_pos:] for v in full_data['data']}
                     scm = full_data['graph_information']['scm']
-                    log_probs = scm.log_likelihood_batch(test_data, bucket_mids.unsqueeze(0))
+                    batch_size = data[0].shape[0]
+                    log_probs = scm.log_likelihood_batch(test_data, bucket_mids.unsqueeze(0).expand(batch_size, -1))
                     probs = torch.exp(log_probs)
                     targets = probs.to(device)
                     # renormalize targets from density values to discrete probabilities

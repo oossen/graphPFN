@@ -16,7 +16,7 @@ from graphpfn.interface import Regressor, init_model_from_state_dict_file
 
 
 def compute_entropies():
-    from configs.simple_configs import prior_config
+    from configs.default_configs import prior_config
     
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
@@ -27,11 +27,11 @@ def compute_entropies():
     generator.manual_seed(seed)
     
     prior_config['graph_config']['num_nodes'] = {'value': 3}
-    prior = ObservationalDataLoader(100, 1, prior_config, seed=seed)
+    prior = ObservationalDataLoader(1000, 1, prior_config, seed=seed)
     prior._make_statistics(steps=10000)
     
     mcmc_parameters = (1, 0, 1) # steps, burn-in, thinning, unused for this experiment
-    n_iterations = 100
+    n_iterations = 10
     num_train_samples_list = list(range(0, 10)) + list(range(10, 20, 2)) + list(range(20, 50, 5)) + list(range(50, 110, 10))
     for i in range(n_iterations):
         for num_train_samples in num_train_samples_list:

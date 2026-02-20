@@ -7,7 +7,7 @@ from tfmplayground.model import TransformerEncoderStack
 from tfmplayground.utils import get_default_device
 
 
-class BinaryGCNModel(GraphPFNModel):
+class GCNModel(GraphPFNModel):
     
     def _make_transformer_encoder(self) -> nn.Module:
         
@@ -18,8 +18,8 @@ class BinaryGCNModel(GraphPFNModel):
                 self.gcn = gcn
 
             def forward(self, x: torch.Tensor, single_eval_pos: int, **kwargs) -> torch.Tensor:
-                adj = kwargs['adj']
-                graph_embeddings = self.gcn(adj)
+                prob_adj = kwargs['prob_adj']
+                graph_embeddings = self.gcn(prob_adj)
                 x += graph_embeddings.unsqueeze(0).unsqueeze(0)
                 return self.transformer(x, single_eval_pos)
         

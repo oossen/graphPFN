@@ -3,7 +3,7 @@ from datetime import datetime
 
 import torch
 
-from configs.simple_configs import prior_config, training_config
+from configs.default_configs import prior_config, training_config
 from priors.observational_dataloader import ObservationalDataLoader
 from visualization.plotting import plot_graph, plot_point_clouds, plot_correlation, plot_adj, plot_likelihoods
 

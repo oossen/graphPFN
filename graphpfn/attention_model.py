@@ -7,7 +7,7 @@ from graphpfn.base_model import GraphPFNModel
 from tfmplayground.utils import get_default_device
 
 
-class BinaryAttentionModel(GraphPFNModel):
+class AttentionModel(GraphPFNModel):
     def __init__(self,
                  embedding_size: int,
                  num_attention_heads: int,
@@ -56,9 +56,9 @@ class TransformerEncoderStack(nn.Module):
                                                                    mlp_hidden_size))
 
     def forward(self, x: torch.Tensor, single_eval_position: int, **kwargs) -> torch.Tensor:
-        adj = kwargs['adj']
+        prob_adj = kwargs['prob_adj']
         for block in self.transformer_blocks:
-            x = block(x, single_eval_position=single_eval_position, adj=adj)
+            x = block(x, single_eval_position=single_eval_position, prob_adj=prob_adj)
         return x
 
 
@@ -69,7 +69,7 @@ class TransformerEncoderLayer(nn.Module):
         self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first)
         # parental heads, child heads, unrestricted heads
         self.n_feature_attn_heads = (nhead_graph // 2, nhead_graph // 2, nhead_feature)
-        self.self_attn_graph = MultiheadAttention(embedding_size, sum(self.n_feature_attn_heads), batch_first=batch_first)
+        self.self_attn_graph = MultiplicativeMultiheadAttention(embedding_size, sum(self.n_feature_attn_heads))
 
         self.linear1 = Linear(embedding_size, mlp_hidden_size)
         self.linear2 = Linear(mlp_hidden_size, embedding_size)
@@ -78,27 +78,22 @@ class TransformerEncoderLayer(nn.Module):
         self.norm2 = LayerNorm(embedding_size, eps=layer_norm_eps)
         self.norm3 = LayerNorm(embedding_size, eps=layer_norm_eps)
 
-    def forward(self, src: torch.Tensor, single_eval_position: int, adj: torch.Tensor) -> torch.Tensor:
+    def forward(self, src: torch.Tensor, single_eval_position: int, prob_adj: torch.Tensor) -> torch.Tensor:
         batch_size, rows_size, col_size, embedding_size = src.shape
 
         # adjacency based attention
         src = src.reshape(batch_size*rows_size, col_size, embedding_size)
         # flip adjacency matrix, except for diagonal entries
-        eye = torch.eye(col_size, dtype=torch.bool).bool()
-        adj = adj.bool()
-        mask_1 = ~((adj | eye).to(get_default_device()))
-        mask_2 = ~((adj.T | eye).to(get_default_device()))
-        f = adj.shape[0]
-        mask_3 = (torch.full((f, f), False)).to(get_default_device())
+        f = prob_adj.shape[0]
+        eye = torch.eye(f, dtype=torch.bool)
+        mask_1 = (prob_adj + eye).to(get_default_device())
+        mask_2 = (prob_adj.T + eye).to(get_default_device())
+        mask_3 = (torch.full((f, f), 1.0)).to(get_default_device())
         mask_1 = mask_1.unsqueeze(0).expand(self.n_feature_attn_heads[0], -1, -1)
         mask_2 = mask_2.unsqueeze(0).expand(self.n_feature_attn_heads[1], -1, -1)
         mask_3 = mask_3.unsqueeze(0).expand(self.n_feature_attn_heads[2], -1, -1)
-        # (2 * nhead_graph, C, C)
-        mask = torch.cat([mask_1, mask_2, mask_3], dim=0)
-        # (B * R, 2 * nhead_graph, C, C)
-        mask = mask.unsqueeze(0).repeat(batch_size * rows_size, 1, 1, 1)
-        # (B * R * 2 * nhead_graph, C, C) - required shape for MultiheadAttention
-        mask = mask.view(batch_size * rows_size * sum(self.n_feature_attn_heads), col_size, col_size)    
+        # mask of shape (num_heads, C, C)
+        mask = torch.cat([mask_1, mask_2, mask_3], dim=0) 
         
         src = self.self_attn_graph(src, src, src, attn_mask=mask)[0] + src
         src = src.reshape(batch_size, rows_size, col_size, embedding_size)
@@ -118,3 +113,56 @@ class TransformerEncoderLayer(nn.Module):
         src = self.linear2(F.gelu(self.linear1(src))) + src
         src = self.norm3(src)
         return src
+    
+class MultiplicativeMultiheadAttention(nn.Module):
+    """
+    An attention layer with *soft multiplicative attention masking*.
+    The attention logits are modulated by the provided attention mask.
+    """
+    def __init__(self, embed_dim, num_heads):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+
+        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+
+        # Linear Projections
+        self.q_proj = nn.Linear(embed_dim, embed_dim)
+        self.k_proj = nn.Linear(embed_dim, embed_dim)
+        self.v_proj = nn.Linear(embed_dim, embed_dim)
+        self.out_proj = nn.Linear(embed_dim, embed_dim)
+
+    def forward(self, query, key, value, attn_mask):
+        b, f, d = query.size()
+
+        # 1. Project Q, K, V
+        q = self.q_proj(query)
+        k = self.k_proj(key)
+        v = self.v_proj(value)
+
+        # 2. Reshape for multi-head attention
+        q = q.view(b, f, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.view(b, f, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.view(b, f, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # 3. Calculate Scaled Dot-Product Attention Scores
+        scaling = float(self.head_dim) ** -0.5
+        attn_scores = (q @ k.transpose(-2, -1)) * scaling
+        
+        # 4. mask in log space
+        log_mask = torch.log(attn_mask + 1e-30) 
+        attn_scores = attn_scores + log_mask
+
+        # 5. Softmax
+        attn_weights = F.softmax(attn_scores, dim=-1)
+        
+        # 6. Value computation
+        attn_output = attn_weights @ v
+
+        # 7. Reshape back and Output Projection
+        attn_output = attn_output.transpose(1, 2).contiguous().view(b, f, self.embed_dim)
+        
+        output = self.out_proj(attn_output)
+
+        return output, attn_weights

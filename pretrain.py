@@ -1,3 +1,4 @@
+import argparse
 from typing import List
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,17 @@ from visualization.make_visualization import plot_all
 from priors.observational_dataloader import ObservationalDataLoader
 from configs.default_configs import prior_config, training_config as args
 
+# argparse setup
+parser = argparse.ArgumentParser()
+parser.add_argument("--nll", action="store_true", help="Train with negative log-likelihood loss instead of soft labels.")
+parser.add_argument("--prob_adj_mode", choices=["binary", "beta", "uncertain"], required=True,
+                    help="Select probabilistic adjacency matrix creation mode from [binary, beta, uncertain].")
+cmd_args = parser.parse_args()
+args["nll"] = cmd_args.nll
+prior_config["graph_config"]["prob_adj_mode"] = {"value": cmd_args.prob_adj_mode}
+if cmd_args.nll:
+    args["saveweights"] += "_nll"
+args["saveweights"] += f"_{cmd_args.prob_adj_mode}"
 
 device = get_default_device()
 seed = 42
@@ -20,7 +32,7 @@ seed = 42
 ckpt_path = f"workdir/{args['saveweights']}/latest_checkpoint.pth"
 if Path(ckpt_path).exists():
     seed = torch.load(ckpt_path, map_location=torch.device('cpu'), weights_only=False).get('seed', seed)
-    seed += 2 # to ensure different data is sampled if we are continuing from a previous checkpoint
+    seed += 1 # to ensure different data is sampled if we are continuing from a previous checkpoint
 else:
     ckpt_path = None
 

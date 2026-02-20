@@ -37,7 +37,7 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 5, "high": 500}
+            "distribution_parameters": {"low": 2, "high": 200}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -54,7 +54,7 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 3, "high": 30}
+            "distribution_parameters": {"low": 3, "high": 25}
         },
         # probability that any two nodes in the causal graph are connected
         # float
@@ -62,9 +62,15 @@ prior_config = {
             "distribution": "logarithmic",
             "distribution_parameters": {"low": 0.1, "high": 0.4}
         },
+        # the mode for creating the probabilistic adjacency matrix
+        # categorical over "binary", "beta", "uncertain"
+        "prob_adj_mode": {
+            "distribution": "categorical",
+            "distribution_parameters": {"choices": ["binary", "beta", "uncertain"], "probabilities": [0.0, 1.0, 0.0]}
+        },
     },
 
-    "noise_config": {    
+    "scm_config": {    
         # the standard deviation of noise sampled at root nodes when propagating through the SCM
         # float
         "root_std_dist": {
@@ -77,9 +83,14 @@ prior_config = {
             "distribution": "shifted_exponential",
             "distribution_parameters": {"rate": 1 / 0.4, "shift": 0.2}
         },
+        # the activation functions to be used in the SCM
+        # categorical distribution over nn.Modules
+        "activations": {
+            "distribution": "categorical",
+            "distribution_parameters": {"choices": activations}
+        }
     },
     
-    "activations": activations,
 }
 
 
@@ -100,7 +111,7 @@ training_config = {
     
     # batch size used during training
     # int
-    "batchsize": 1,
+    "batchsize": 4,
     
     # learning rate
     # float
@@ -116,7 +127,7 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 300,
+    "epochs": 50,
     
     # whether to train with NLL
     # bool
