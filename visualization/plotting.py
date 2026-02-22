@@ -1,11 +1,8 @@
-from typing import Dict
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import itertools
 import networkx as nx
-from sklearn.metrics import r2_score
 
 def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_eval_pos: int = 0, graph=None):
     pairs = list(itertools.combinations(range(X.shape[1]), 2))

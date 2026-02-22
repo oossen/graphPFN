@@ -13,6 +13,7 @@ from priors.observational_dataloader import ObservationalDataLoader
 
 from visualization.full_comparison import compare_all
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
+from tfmplayground.utils import get_default_device
 
 
 def compute_entropies():
@@ -53,22 +54,22 @@ def r2_comparison():
     from configs.default_configs import prior_config, training_config
     seed = 42
     
-    num_steps = 100
+    num_steps = 20000
     prior = ObservationalDataLoader(num_steps=num_steps, batch_size=1, prior_config=prior_config, seed=seed)
     
-    model_paths = {'baseline': 'workdir/baseline_100', "binary_attention": "workdir/binary_attention_02_15_01_28", "soft_attention": "workdir/soft_attention_02_15_01_30"}
+    model_paths = {'baseline': 'workdir/baseline_beta', "attention": "workdir/attention_nll_beta"}
     models = {}
+    buckets = training_config['buckets']
     for name, path in model_paths.items():
         model = init_model_from_state_dict_file(f"{path}/latest_checkpoint.pth")
-        buckets = training_config['buckets']
-        reg = Regressor(model, buckets)
-        models[name] = reg
+        model.to(get_default_device())
+        models[name] = model
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     
     output_dir = f"visualization/output/{datetime_str}"
     os.makedirs(output_dir, exist_ok=True)
-    df = compare_all(prior, models, output_dir)
+    df = compare_all(prior, models, buckets, output_dir)
     
     col_labels = ['num_nodes', 'edge_prob', 'root_std', 'non_root_std', 'number_train_samples_per_dataset']
     col_label_names = ['number of nodes in DAG', 'edge probability in DAG', 'mean noise σ at root nodes', 'mean noise σ at non-root nodes', 'number of training samples']
@@ -302,6 +303,33 @@ def remove_edges():
     plt.ylabel("R²")   
     plt.savefig(f"{output_dir}/perturbed_input_probabilistic.png")
     plt.clf()
+    
+
+def nll_visualization():
+    from configs.default_configs import prior_config
+    
+    now = datetime.now()
+    datetime_str = now.strftime("%m_%d_%H_%M")
+    output_dir = f"visualization/output/{datetime_str}"
+    
+    seed = 42
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    
+    prior = ObservationalDataLoader(10, 1, prior_config, seed=seed)
+    
+    models = [{"name": "baseline_beta", "color": "red", "label": "p(y|x, D) (CEL)"},
+              {"name": "baseline_nll_beta", "color": "blue", "label": "p(y|x, D) (NLL)"}]
+    
+    for i in range(50):
+        num_train_samples = 20
+        mcmc_suite(prior, 
+                   num_train_samples, 
+                   generator, 
+                   f"{output_dir}/run_{i}", 
+                   include_mcmc=False, 
+                   include_entropy=False, 
+                   include_pfns=models)
         
 
 def main():
@@ -314,6 +342,7 @@ def main():
     group.add_argument("--swapped_input_mode", action="store_true")
     group.add_argument("--add_edges", action="store_true")
     group.add_argument("--remove_edges", action="store_true")
+    group.add_argument("--nll", action="store_true")
 
     args = parser.parse_args()
 
@@ -331,6 +360,8 @@ def main():
         add_edges()
     elif args.remove_edges:
         remove_edges()
+    elif args.nll:
+        nll_visualization()
         
         
 if __name__ == "__main__":

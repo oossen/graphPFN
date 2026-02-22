@@ -277,7 +277,10 @@ def visualize_chain(chain: List[Tuple[SCM, float, int]], true_scm: SCM, output_d
         probability = count / num_samples
         average_graph.add_edge(u, v, weight=probability)
     plt.figure()
-    plot_graph(average_graph, f"{output_dir}/average_graph.png", **DRAWING_STYLE)
+    if len(nodes) <= 7:
+        plot_graph(average_graph, f"{output_dir}/average_graph.png", **DRAWING_STYLE)
+    else:
+        plot_graph(average_graph, f"{output_dir}/average_graph.png")
     
     # weights
     weights = defaultdict(list)
@@ -341,11 +344,13 @@ def visualize_chain(chain: List[Tuple[SCM, float, int]], true_scm: SCM, output_d
     plt.savefig(f"{output_dir}/noises.png", dpi=300)
     
 
-def mcmc_suite(prior, num_train_samples: int, 
+def mcmc_suite(prior, 
+               num_train_samples: int, 
                generator: torch.Generator, 
                output_dir: str, 
                include_mcmc: bool = True, 
-               include_pfn: bool = True,
+               include_entropy: bool = True,
+               include_pfns: List = [],
                mcmc_parameters: Tuple = (1000, 100, 2)):
     # Sample the training data D = (X, y)
     sample_shape = (1, num_train_samples) # 1 batch, n samples
@@ -358,41 +363,45 @@ def mcmc_suite(prior, num_train_samples: int,
     scm.sample_noise(test_sample_shape, generator=generator)
     test_sample = scm.propagate()
     
-    if include_mcmc or include_pfn:
+    if include_mcmc or include_pfns is not None:
         os.makedirs(output_dir, exist_ok=True)
         plt.figure()
-        plot_graph(graph, f"{output_dir}/graph.png", **DRAWING_STYLE)
+        if len(graph.nodes()) <= 7:
+            plot_graph(graph, f"{output_dir}/graph.png", **DRAWING_STYLE)
+        else:
+            plot_graph(graph, f"{output_dir}/graph.png")
     
-    true_graph_tuple = (tuple(graph.nodes()), tuple(sorted(graph.edges())))
-    print(f"True graph: {true_graph_tuple}")
-    graph_posteriors = {}
-    for graph_tuple in prior.graph_counts:
-        g = nx.DiGraph()
-        g.add_nodes_from(graph_tuple[0])
-        g.add_edges_from(graph_tuple[1])
-        log_prob = evidence(values, test_sample, g, prior)
-        prior_prob = math.log(prior.graph_counts.get(graph_tuple, 1))
-        print(f"Graph {graph_tuple}:")
-        print(f"Evidence log: {log_prob}, prior prob: {prior_prob}")
-        graph_posteriors[graph_tuple] = log_prob + prior_prob
-    # compute softmax to get actual probabilities
-    max_log_posterior = max(graph_posteriors.values())
-    shifted_exp = {graph_tuple: math.exp(prob - max_log_posterior) for graph_tuple, prob in graph_posteriors.items()}
-    total_sum = sum(shifted_exp.values())
-    probs = {graph_tuple: prob / total_sum for graph_tuple, prob in shifted_exp.items()}
-    # compute entropy
-    entropy = Categorical(logits=torch.tensor(list(graph_posteriors.values()))).entropy().item()
-    print(f"Posterior probabilities: {probs}")
-    print(f"Entropy: {entropy}")
-    # remove run number from filename
-    output_dir_clean = output_dir.split("run")[0]
-    os.makedirs(output_dir_clean, exist_ok=True)
-    entropy_file = f"{output_dir_clean}entropies.csv"
-    df = pd.DataFrame([[num_train_samples, entropy]], columns=['samples', 'entropy'])
-    df.to_csv(entropy_file, mode='a', index=False, header=not os.path.exists(entropy_file)) # only write header if file doesn't exist
+    if include_entropy:
+        true_graph_tuple = (tuple(graph.nodes()), tuple(sorted(graph.edges())))
+        print(f"True graph: {true_graph_tuple}")
+        graph_posteriors = {}
+        for graph_tuple in prior.graph_counts:
+            g = nx.DiGraph()
+            g.add_nodes_from(graph_tuple[0])
+            g.add_edges_from(graph_tuple[1])
+            log_prob = evidence(values, test_sample, g, prior)
+            prior_prob = math.log(prior.graph_counts.get(graph_tuple, 1))
+            print(f"Graph {graph_tuple}:")
+            print(f"Evidence log: {log_prob}, prior prob: {prior_prob}")
+            graph_posteriors[graph_tuple] = log_prob + prior_prob
+        # compute softmax to get actual probabilities
+        max_log_posterior = max(graph_posteriors.values())
+        shifted_exp = {graph_tuple: math.exp(prob - max_log_posterior) for graph_tuple, prob in graph_posteriors.items()}
+        total_sum = sum(shifted_exp.values())
+        probs = {graph_tuple: prob / total_sum for graph_tuple, prob in shifted_exp.items()}
+        # compute entropy
+        entropy = Categorical(logits=torch.tensor(list(graph_posteriors.values()))).entropy().item()
+        print(f"Posterior probabilities: {probs}")
+        print(f"Entropy: {entropy}")
+        # remove run number from filename
+        output_dir_clean = output_dir.split("run")[0]
+        os.makedirs(output_dir_clean, exist_ok=True)
+        entropy_file = f"{output_dir_clean}entropies.csv"
+        df = pd.DataFrame([[num_train_samples, entropy]], columns=['samples', 'entropy'])
+        df.to_csv(entropy_file, mode='a', index=False, header=not os.path.exists(entropy_file)) # only write header if file doesn't exist
     
     # Plotting
-    if include_mcmc or include_pfn:
+    if include_mcmc or include_pfns is not None:
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
     
@@ -432,19 +441,16 @@ def mcmc_suite(prior, num_train_samples: int,
         b = y[end_idx].item()
         ax.set_xlim(a, b)
         
-    if include_pfn:
+    for model_dict in include_pfns:
         nodelist = [v for v in values.keys() if v != 'y']
         X_train = torch.stack([values[v][0] for v in nodelist], dim=-1).cpu().numpy()
         y_train = values['y'][0].cpu().numpy()
-        model_names = ["simple_binary_attention_fallback", "simple"]
-        model_colors = {"simple_binary_attention_fallback": "orange", "simple": "red"}
-        model_labels = {"simple_binary_attention_fallback": "p(y|x, D, γ) (PFN)", "simple": "p(y|x, D) (PFN)"}
-        for model_name in model_names:
-            model_path = f"workdir/{model_name}"
-            style = {'label': model_labels[model_name], 'color': model_colors[model_name], 'linestyle': '--'}
-            plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, style=style, **data['graph_information'])
+        model = model_dict['name']
+        model_path = f"workdir/{model}"
+        style = {'label': model_dict['label'], 'color': model_dict['color'], 'linestyle': '--'}
+        plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, style=style, **data['graph_information'])
         
-    if include_mcmc or include_pfn:
+    if include_mcmc or include_pfns is not None:
         ax.set_xlabel("y")
         ax.set_ylabel("p(y)")
         # ax.set_title("PPD Comparison")
@@ -469,4 +475,4 @@ if __name__ == "__main__":
     mcmc_parameters = (5000, 1000, 2) # steps, burn-in, thinning
     
     for i in range(20):
-        mcmc_suite(prior, 5, generator, f"{output_dir}/run_{i}", include_mcmc=False, include_pfn=False, mcmc_parameters=mcmc_parameters)
+        mcmc_suite(prior, 5, generator, f"{output_dir}/run_{i}", include_mcmc=False, include_entropy=False, include_pfns=[], mcmc_parameters=mcmc_parameters)

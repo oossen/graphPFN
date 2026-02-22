@@ -3,6 +3,7 @@ from typing import List
 from datetime import datetime
 from pathlib import Path
 import torch
+from copy import deepcopy
 
 from graphpfn.callbacks import ValidationCallback
 from graphpfn.train import train
@@ -12,8 +13,11 @@ from tfmplayground.callbacks import Callback, TensorboardLoggerCallback
 from visualization.make_visualization import plot_all
 
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.default_configs import prior_config, training_config as args
+from configs.simple_configs import prior_config, training_config as args
 
+
+prior_config = deepcopy(prior_config)
+args = deepcopy(args)
 
 # argparse setup
 parser = argparse.ArgumentParser()
