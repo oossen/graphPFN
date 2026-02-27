@@ -1,9 +1,7 @@
 .venv/
 .vscode/
 
-visualization/output/
 logs/
-evaluation/output/
 workdir/
 
 *.pyc

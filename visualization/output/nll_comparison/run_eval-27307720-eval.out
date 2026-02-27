@@ -1,0 +1,15 @@
+Workingdir: /work/dlclarge2/osseno-graph-pfn/graphPFN
+Started at Fri Feb 27 01:23:44 AM CET 2026
+Running job run_eval using 8 cpus per node with given JID 27307720 on queue mlhiwidlc_gpu-rtx2080
+Win Rate under r2: 48.09%
+95% CI:   [0.4720, 0.4914]
+Win Rate under mse: 53.08%
+95% CI:   [0.5216, 0.5411]
+Win Rate under nll: 54.11%
+95% CI:   [0.5316, 0.5510]
+Win Rate under cel: 57.11%
+95% CI:   [0.5612, 0.5809]
+Win Rate under smoothness: 92.78%
+95% CI:   [0.9231, 0.9326]
+Job execution complete.
+Runtime: 2609
