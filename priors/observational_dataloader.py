@@ -101,7 +101,7 @@ class ObservationalDataLoader(DataLoader):
         
         elif self.prob_adj_mode == "uncertain":
             # mix the beta matrix with a constant matrix at edge_prob, with random mixing weight
-            mix_weight = 0.5 * rng.random()
+            mix_weight = 0.5
             adj = np.where(rng.random(size=adj.shape) < mix_weight, adj, self.edge_prob / 2)
             np.fill_diagonal(adj, 0)
             return torch.from_numpy(adj).float()

@@ -14,3 +14,4 @@ prior_config['graph_config']['num_nodes'] = {"distribution": "discrete_uniform",
 prior_config['scm_config']['activations'] = {"distribution": "categorical", "distribution_parameters": {"choices": activations}}
 
 training_config["saveweights"] = "simple"
+training_config["epochs"] = 50

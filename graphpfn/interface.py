@@ -123,7 +123,7 @@ class Regressor(NanoTabPFNRegressor):
             self.dist.to(device=self.device)
             # expand logits so that there is one for each input y
             logits = logits.view(1, 1, -1).expand(len(y_test), 1, -1)
-            neg_log_probs = self.dist.forward(logits, y_test_tensor).squeeze(0)
+            neg_log_probs = self.dist.forward(logits, y_test_tensor).squeeze(0).squeeze(-1)
         
         return -neg_log_probs.cpu().numpy()
     

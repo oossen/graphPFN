@@ -127,7 +127,7 @@ training_config = {
     
     # number of epochs to train for
     # int
-    "epochs": 100,
+    "epochs": 150,
     
     # whether to train with NLL
     # bool

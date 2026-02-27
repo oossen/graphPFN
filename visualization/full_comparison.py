@@ -5,13 +5,13 @@ from tfmplayground.utils import get_default_device
 from sklearn.metrics import r2_score, mean_squared_error
 
 
-def compare_all(prior, models: Dict, buckets: torch.Tensor, filename: str, metric: str = "r2", baseline=None, graph_info_trafo=None):
+def compare_all(prior, models: Dict, buckets: torch.Tensor, filename: str, metric: str = "r2", graph_info_trafo=None):
     """
     Make plots of the performance of the given models against various dataset characteristics.
     If `baseline` is given, instead save the improvment over the baseline model.
     If `graph_info_trafo` is given, it must be a function that transforms the graph information before adding it to the data frame.
     
-    Supported metrics: "r2", "mse", "nll", "cel"
+    Supported metrics: "r2", "mse", "nll", "cel", "smoothness"
     """
     rows = []
     for data in prior:
@@ -30,11 +30,6 @@ def compare_all(prior, models: Dict, buckets: torch.Tensor, filename: str, metri
             score = compute_score(model, buckets, data, metric, **graph_info)
             row[name] = score
     df = pd.DataFrame(rows)
-    if baseline is not None:
-        baseline_values = df[baseline].copy()
-        for name in models.keys():
-            df[name] = df[name] - baseline_values
-        df.drop(columns=[baseline], inplace=True)
     df.to_csv(f"{filename}/full_comparison.csv")
     return df
 
@@ -73,6 +68,8 @@ def compute_score(model, buckets, data, metric, **graph_info):
         score = ce_loss(logits, y_target_buckets).item()
     elif metric == "cel":
         score = ce_loss(logits, y_target_dist).item()
+    elif metric == "smoothness":
+        score = torch.mean(torch.sum(torch.diff(probs) ** 2, dim=-1)).item()
     else:
         raise ValueError(f"Unsupported metric {metric}")
     return score

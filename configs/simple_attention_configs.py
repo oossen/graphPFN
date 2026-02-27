@@ -6,7 +6,7 @@ prior_config = deepcopy(defaults.prior_config)
 training_config = deepcopy(defaults.training_config)
 
 
-training_config["saveweights"] = "simple_attention_fallback"
+training_config["saveweights"] = "simple_attention"
 num_outputs = training_config["model"].num_outputs
 training_config["model"] = AttentionModel(
     embedding_size=192,

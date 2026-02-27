@@ -1,6 +1,7 @@
 import math
 import os
 from typing import Dict, List, Tuple
+import uuid
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -231,36 +232,30 @@ def plot_ppd(ax, values: Dict, samples: List, style: Dict, steps: int = 100):
     ax.set_xlim(min(curr_min, a), max(curr_max, b))
     
 
-def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, style: Dict, steps: int = 200, **kwargs):
+def plot_ppd_pfn(ax, values: Dict, X_train, y_train, model_path: str, style: Dict, y, **kwargs):
     # Initialize and fit model
     model = init_model_from_state_dict_file(f"{model_path}/latest_checkpoint.pth")
     buckets = training_config['buckets']
     reg = Regressor(model, buckets)
     reg.fit(X_train, y_train)
-    # Find good range for y
-    y_explore = np.linspace(-10.0, 10.0, steps)
     nodelist = [v for v in values.keys() if v != 'y']
     X_test = np.array([values[v] for v in nodelist])
     X_test = X_test.reshape(1, -1)
-    log_p_explore = reg.log_ppd(X_test, y_explore, **kwargs)
-    p_explore = np.exp(log_p_explore)
-    eps = 0.01 * p_explore.max()
-    mask = p_explore > eps
+    log_p = reg.log_ppd(X_test, y, **kwargs)
+    probs = np.exp(log_p)
+    eps = 0.01 * probs.max()
+    mask = probs > eps
     indices = np.where(mask)[0]
     buffer = 1
     start_idx = max(0, indices[0] - buffer)
-    end_idx = min(len(y_explore) - 1, indices[-1] + buffer)
-    a = y_explore[start_idx]
-    b = y_explore[end_idx]
+    end_idx = min(len(y) - 1, indices[-1] + buffer)
+    a = y[start_idx]
+    b = y[end_idx]
     # Plot and change range
-    y = np.linspace(a, b, steps)
-    log_probs = reg.log_ppd(X_test, y, **kwargs)
-    # pred = reg.predict(X_test, **kwargs)
-    # ax.axvline(x=pred.item(), color=style.get('color', 'black'), linestyle='--')
-    probs = np.exp(log_probs)
     ax.plot(y, probs, **style)
     curr_min, curr_max = ax.get_xlim()
     ax.set_xlim(min(curr_min, a), max(curr_max, b))
+    return probs
     
 
 def visualize_chain(chain: List[Tuple[SCM, float, int]], true_scm: SCM, output_dir: str):
@@ -404,6 +399,11 @@ def mcmc_suite(prior,
     if include_mcmc or include_pfns is not None:
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.axvline(x=test_sample['y'], color='black', linestyle='--', linewidth=1, label="True Value")
+        ax.set_xlim(-0.1, 0.1)
+    
+    y = torch.linspace(-10.0, 10.0, 1000)
+    run_id = uuid.uuid4().hex[:8] 
+    kl_rows = {'run_id': run_id, 'num_train_samples': num_train_samples, 'y': y.detach().cpu().numpy(),}
     
     if include_mcmc:
         steps, burn_in, thinning = mcmc_parameters
@@ -418,7 +418,6 @@ def mcmc_suite(prior,
             initial_scm = next(prior_iter)['graph_information']['scm']
             chain = fancy_mcmc(values, test_sample, prior, initial_scm, steps, burn_in, thinning, generator)
             visualize_chain(chain, scm, f"{output_dir}/mcmc_graph_{graph_tuple}")
-            y = torch.linspace(-10.0, 10.0, steps)
             likelihoods = [torch.exp(scm.log_likelihood_batch(test_sample, y.unsqueeze(0)))[0][0] for scm, _, _ in chain]
             weights = [w for _, _, w in chain]
             weighted_sum_g = torch.stack([t * w for t, w in zip(likelihoods, weights)]).sum(dim=0)
@@ -439,7 +438,11 @@ def mcmc_suite(prior,
         end_idx = min(len(y) - 1, indices[-1] + buffer)
         a = y[start_idx].item()
         b = y[end_idx].item()
-        ax.set_xlim(a, b)
+        curr_min, curr_max = ax.get_xlim()
+        ax.set_xlim(min(curr_min, a), max(curr_max, b))
+        
+        kl_rows['mcmc'] = weighted_sum.detach().cpu().numpy()
+        kl_rows['mcmc_graph'] = distributions[true_graph_tuple].detach().cpu().numpy()
         
     for model_dict in include_pfns:
         nodelist = [v for v in values.keys() if v != 'y']
@@ -448,8 +451,12 @@ def mcmc_suite(prior,
         model = model_dict['name']
         model_path = f"workdir/{model}"
         style = {'label': model_dict['label'], 'color': model_dict['color'], 'linestyle': '--'}
-        plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, style=style, **data['graph_information'])
+        y_np = y.detach().cpu().numpy()
+        probs = plot_ppd_pfn(ax, test_sample, X_train, y_train, model_path, style=style, y=y_np, **data['graph_information'])
         
+        kl_rows[model] = probs
+        
+
     if include_mcmc or include_pfns is not None:
         ax.set_xlabel("y")
         ax.set_ylabel("p(y)")
@@ -457,6 +464,12 @@ def mcmc_suite(prior,
         # ax.legend()
         ax.grid(True)
         fig.savefig(f"{output_dir}/ppds.png", dpi=300)
+        
+    # Save KL divergence data
+    output_dir_clean = output_dir.split("run")[0]
+    kl_file = f"{output_dir_clean}kl.csv"
+    df = pd.DataFrame(kl_rows)
+    df.to_csv(kl_file, mode='a', index=False, header=not os.path.exists(kl_file)) # only write header if file doesn't exist
 
 
 if __name__ == "__main__":
