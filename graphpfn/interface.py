@@ -37,11 +37,14 @@ def get_feature_preprocessor(X: np.ndarray | pd.DataFrame) -> ColumnTransformer:
     num_mask = []
     cat_mask = []
     for col in X:
+        # don't drop constant columns, since it makes trouble with passing adjacency matrices
+        """
         unique_non_nan_entries = X[col].dropna().unique()
         if len(unique_non_nan_entries) <= 1:
             num_mask.append(False)
             cat_mask.append(False)
             continue
+        """
         non_nan_entries = X[col].notna().sum()
         numeric_entries = pd.to_numeric(X[col], errors='coerce').notna().sum() # in case numeric columns are stored as strings
         num_mask.append(non_nan_entries == numeric_entries)

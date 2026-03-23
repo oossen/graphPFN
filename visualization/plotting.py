@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -56,12 +58,13 @@ def plot_correlation(X: torch.Tensor, filename: str):
     plt.close()
     
 
-def plot_adj(prob_adj: torch.Tensor, adj: torch.Tensor, filename: str):
+def plot_adj(prob_adj: torch.Tensor, adj: Optional[torch.Tensor], filename: str):
     plt.imshow(prob_adj.detach().cpu(), cmap='viridis', vmin=0.0, vmax=1.0)
     plt.colorbar(label='Probability')
-    rows, cols = torch.where(adj == 1)
-    plt.scatter(cols.cpu(), rows.cpu(), 
-                marker='x', 
+    if adj is not None:
+        rows, cols = torch.where(adj == 1)
+        plt.scatter(cols.cpu(), rows.cpu(), 
+                    marker='x', 
                 color='red', 
                 s=20,          # Size of the cross
                 linewidths=1)  # Thickness of the cross lines
