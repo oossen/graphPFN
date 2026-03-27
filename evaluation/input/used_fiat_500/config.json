@@ -1,0 +1,18 @@
+{'max_time_per_discovery': 1200, 'discoverers': [{'name': 'PCDiscoverer', 'n_runs': 50, 'n_samples': 1000, 'n_features': 50, 'weight_parameter': None, 'config_space': Configuration space object:
+  Hyperparameters:
+    alpha, Type: UniformFloat, Range: [0.01, 0.1], Default: 0.05
+    indep_test, Type: Categorical, Choices: {fisherz, chisq, gsq}, Default: fisherz
+    show_progress, Type: Constant, Value: False
+}, {'name': 'FCIDiscoverer', 'n_runs': 50, 'n_samples': 1000, 'n_features': 50, 'weight_parameter': None, 'config_space': Configuration space object:
+  Hyperparameters:
+    alpha, Type: UniformFloat, Range: [0.01, 0.1], Default: 0.05
+    indep_test, Type: Categorical, Choices: {fisherz, chisq, gsq}, Default: fisherz
+    show_progress, Type: Constant, Value: False
+    verbose, Type: Constant, Value: False
+}, {'name': 'GESDiscoverer', 'n_runs': 25, 'n_samples': 500, 'n_features': 20, 'weight_parameter': None, 'config_space': Configuration space object:
+  Hyperparameters:
+    score_func, Type: Categorical, Choices: {local_score_BIC, local_score_BDeu}, Default: local_score_BIC
+}, {'name': 'ICALingamDiscoverer', 'n_runs': 50, 'n_samples': 1000, 'n_features': 20, 'weight_parameter': None, 'config_space': Configuration space object:
+  Hyperparameters:
+    max_iter, Type: UniformInteger, Range: [10, 1000], Default: 500
+}], 'start_time': 1774375670.724452, 'end_time': 1774375688.017553, 'time_taken': 17.2931010723114, 'seed': Generator(PCG64) at 0x7ED3E7AD17E0}

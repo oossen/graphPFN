@@ -6,6 +6,7 @@ from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from graphpfn.interface import cross_validate
 from configs.default_configs import buckets
 import openml
+import numpy as np
 
 from visualization.plotting import plot_adj
 
@@ -19,6 +20,8 @@ X, y, _, _ = dataset.get_data(
 X = (X - X.mean(axis=0)) / X.std(axis=0)
 y = (y - y.mean()) / y.std()
 single_eval_positions = [2, 4, 8, 16, 32, 64, 128, 256]
+
+adj = torch.tensor(np.load("evaluation/input/probabilistic_adjacency.npy"), dtype=torch.float32)
 
 model_paths = {'baseline': 'workdir/baseline_beta/latest_checkpoint.pth',
               'attention': 'workdir/attention_beta/latest_checkpoint.pth',}
@@ -56,7 +59,7 @@ for i in range(1000):
     for name, model in [p for p in models.items() if p[0] != 'baseline']:
         y_values = []
         for n in single_eval_positions:
-            score = evaluate(model, n, prob_adj)
+            score = evaluate(model, n, adj)
             y_values.append(score)
         results[name] = y_values
         
