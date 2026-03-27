@@ -1,0 +1,26 @@
+SCM on device=cpu, dtype=torch.float32
+Nodes: ['x0', 'x1', 'y']
+x0
+Parents: []
+Mechanism: Activation: AsinhWrapper(
+  (activation): Square()
+)
+Bias: -0.994023323059082
+Weights: {'x0': -0.5908271074295044, 'x1': -0.8617821931838989, 'y': -0.04995131492614746}
+Noise std: 0.8717113733291626
+x1
+Parents: []
+Mechanism: Activation: AsinhWrapper(
+  (activation): LeakyReLU(negative_slope=0.1)
+)
+Bias: -0.3450261354446411
+Weights: {'x0': 0.3511313199996948, 'x1': -0.5820375680923462, 'y': -0.07143998146057129}
+Noise std: 0.5345211029052734
+y
+Parents: ['x0']
+Mechanism: Activation: AsinhWrapper(
+  (activation): Identity()
+)
+Bias: 0.7566864490509033
+Weights: {'x0': 0.632215142250061, 'x1': -0.7014915943145752, 'y': -0.22405505180358887}
+Noise std: 0.3437337279319763

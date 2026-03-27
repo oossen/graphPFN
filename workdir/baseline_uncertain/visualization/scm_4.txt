@@ -1,0 +1,34 @@
+SCM on device=cpu, dtype=torch.float32
+Nodes: ['x0', 'x1', 'x2', 'y']
+x2
+Parents: []
+Mechanism: Activation: AsinhWrapper(
+  (activation): LeakyReLU(negative_slope=0.1)
+)
+Bias: -0.4954477548599243
+Weights: {'x0': -0.08843278884887695, 'x1': -0.05450129508972168, 'x2': -0.020618319511413574, 'y': 0.7247552871704102}
+Noise std: 0.7902403473854065
+y
+Parents: []
+Mechanism: Activation: AsinhWrapper(
+  (activation): Square()
+)
+Bias: -0.8816061019897461
+Weights: {'x0': 0.7781553268432617, 'x1': -0.048522233963012695, 'x2': 0.18318021297454834, 'y': -0.6951526403427124}
+Noise std: 0.7169008851051331
+x1
+Parents: ['y']
+Mechanism: Activation: AsinhWrapper(
+  (activation): Identity()
+)
+Bias: -0.8779966831207275
+Weights: {'x0': -0.44928431510925293, 'x1': 0.8407329320907593, 'x2': 0.7677547931671143, 'y': 0.849783182144165}
+Noise std: 0.6299362778663635
+x0
+Parents: ['x1', 'x2']
+Mechanism: Activation: AsinhWrapper(
+  (activation): Square()
+)
+Bias: 0.2887641191482544
+Weights: {'x0': 0.7482105493545532, 'x1': -0.9828571081161499, 'x2': 0.07177305221557617, 'y': -0.9731693267822266}
+Noise std: 0.2653103470802307

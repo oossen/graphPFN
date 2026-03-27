@@ -1,0 +1,50 @@
+SCM on device=cpu, dtype=torch.float32
+Nodes: ['x0', 'x1', 'x2', 'x3', 'x4', 'y']
+x0
+Parents: []
+Mechanism: Activation: AsinhWrapper(
+  (activation): Identity()
+)
+Bias: 0.4594520330429077
+Weights: {'x0': -0.5099942684173584, 'x1': -0.13336801528930664, 'x2': -0.06935441493988037, 'x3': 0.6843681335449219, 'x4': 0.5009665489196777, 'y': 0.4549415111541748}
+Noise std: 0.9157560467720032
+x1
+Parents: []
+Mechanism: Activation: AsinhWrapper(
+  (activation): LeakyReLU(negative_slope=0.1)
+)
+Bias: 0.260567307472229
+Weights: {'x0': -0.37700986862182617, 'x1': -0.7086455821990967, 'x2': -0.3474597930908203, 'x3': -0.2515214681625366, 'x4': 0.69754958152771, 'y': 0.0767594575881958}
+Noise std: 0.4103023111820221
+x2
+Parents: []
+Mechanism: Activation: AsinhWrapper(
+  (activation): LeakyReLU(negative_slope=0.1)
+)
+Bias: -0.3403421640396118
+Weights: {'x0': -0.9723893404006958, 'x1': 0.029903650283813477, 'x2': 0.051488280296325684, 'x3': 0.23025476932525635, 'x4': -0.49575555324554443, 'y': -0.5641604661941528}
+Noise std: 0.7792797088623047
+x3
+Parents: ['x1']
+Mechanism: Activation: AsinhWrapper(
+  (activation): LeakyReLU(negative_slope=0.1)
+)
+Bias: 0.7873877286911011
+Weights: {'x0': -0.26128649711608887, 'x1': -0.19409632682800293, 'x2': 0.7960644960403442, 'x3': 0.009475350379943848, 'x4': -0.6103830337524414, 'y': 0.01809549331665039}
+Noise std: 0.6142792105674744
+x4
+Parents: ['x2']
+Mechanism: Activation: AsinhWrapper(
+  (activation): Identity()
+)
+Bias: 0.5099016427993774
+Weights: {'x0': -0.8949201107025146, 'x1': 0.5985020399093628, 'x2': -0.19342279434204102, 'x3': 0.8872525691986084, 'x4': -0.42629408836364746, 'y': -0.3089768886566162}
+Noise std: 0.8560767769813538
+y
+Parents: ['x4']
+Mechanism: Activation: AsinhWrapper(
+  (activation): Identity()
+)
+Bias: 0.14481234550476074
+Weights: {'x0': 0.3953666687011719, 'x1': -0.6443465948104858, 'x2': 0.8582288026809692, 'x3': -0.8741110563278198, 'x4': 0.13324499130249023, 'y': -0.9436596632003784}
+Noise std: 0.5523332953453064
