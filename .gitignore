@@ -6,7 +6,6 @@ workdir/*
 
 *.pyc
 *.h5
-*.pth
 
 !workdir/attention_beta/
 !workdir/attention_binary/
