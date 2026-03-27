@@ -3,7 +3,6 @@
 
 logs/
 workdir/
-evaluation/output/
 
 *.pyc
 *.h5
