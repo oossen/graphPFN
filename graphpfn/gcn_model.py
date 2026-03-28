@@ -2,8 +2,8 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.nn import MultiheadAttention, Linear, LayerNorm
 from graphpfn.base_model import GraphPFNModel
-from tfmplayground.model import TransformerEncoderStack
 from tfmplayground.utils import get_default_device
 
 
@@ -20,8 +20,7 @@ class GCNModel(GraphPFNModel):
             def forward(self, x: torch.Tensor, single_eval_pos: int, **kwargs) -> torch.Tensor:
                 prob_adj = kwargs['prob_adj']
                 graph_embeddings = self.gcn(prob_adj)
-                x += graph_embeddings.unsqueeze(0).unsqueeze(0)
-                return self.transformer(x, single_eval_pos)
+                return self.transformer(x, single_eval_pos, graph_embed=graph_embeddings)
         
         encoder = TransformerEncoderStack(
             self.num_layers,
@@ -32,9 +31,67 @@ class GCNModel(GraphPFNModel):
         graph_encoder = GCN(self.embedding_size, hidden_dim=self.embedding_size)
         
         return TransformerWrapper(encoder, graph_encoder)
+
+
+class TransformerEncoderStack(nn.Module):
+    def __init__(self, 
+                 num_layers: int, 
+                 embedding_size: int, 
+                 num_attention_heads: int,
+                 mlp_hidden_size: int):
+        super().__init__()
+        self.transformer_blocks = nn.ModuleList()
+        for _ in range(num_layers):
+            self.transformer_blocks.append(TransformerEncoderLayer(embedding_size, 
+                                                                   num_attention_heads,
+                                                                   mlp_hidden_size))
+
+    def forward(self, x: torch.Tensor, single_eval_position: int, graph_embed: torch.Tensor) -> torch.Tensor:
+        for block in self.transformer_blocks:
+            x = block(x, single_eval_position=single_eval_position, graph_embed=graph_embed)
+        return x
+
+
+class TransformerEncoderLayer(nn.Module):
+    def __init__(self, embedding_size: int, nhead: int, mlp_hidden_size: int, batch_first: bool = True):
+        super().__init__()
+        self.self_attention_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first)
+        self.self_attention_between_features = MultiheadAttention(embedding_size, nhead, batch_first=batch_first)
+
+        self.linear1 = Linear(embedding_size, mlp_hidden_size)
+        self.linear2 = Linear(mlp_hidden_size, embedding_size)
+
+        self.norm1 = AdaLN(embedding_size)
+        self.norm2 = AdaLN(embedding_size)
+        self.norm3 = AdaLN(embedding_size)
+
+    def forward(self, src: torch.Tensor, single_eval_position: int, graph_embed: torch.Tensor) -> torch.Tensor:
+        batch_size, rows_size, col_size, embedding_size = src.shape
+
+        # adjacency based attention
+        src = src.reshape(batch_size*rows_size, col_size, embedding_size)
+        src = self.self_attention_between_features(src, src, src)[0] + src
+        src = src.reshape(batch_size, rows_size, col_size, embedding_size)
+        src = self.norm1(src, graph_embed)
+        # attention between datapoints
+        src = src.transpose(1, 2)
+        src = src.reshape(batch_size*col_size, rows_size, embedding_size)
+        # training data attends to itself
+        src_left = self.self_attention_between_datapoints(src[:,:single_eval_position], src[:,:single_eval_position], src[:,:single_eval_position])[0]
+        # test data attends to the training data
+        src_right = self.self_attention_between_datapoints(src[:,single_eval_position:], src[:,:single_eval_position], src[:,:single_eval_position])[0]
+        src = torch.cat([src_left, src_right], dim=1) + src
+        src = src.reshape(batch_size, col_size, rows_size, embedding_size)
+        src = src.transpose(2, 1)
+        src = self.norm2(src, graph_embed)
+        # MLP after attention
+        src = self.linear2(F.gelu(self.linear1(src))) + src
+        src = self.norm3(src, graph_embed)
+        return src
     
 
 class GCN(nn.Module):
+    
     def __init__(self, out_dim: int, hidden_dim: int = 64):
         super().__init__()
         self.hidden_dim = hidden_dim
@@ -89,3 +146,19 @@ class GCN(nn.Module):
         x = self.ln2(out_fwd + out_rev)
         
         return x
+    
+
+class AdaLN(nn.Module):
+    
+    def __init__(self, embedding_dim: int):
+        super().__init__()
+        self.ln = nn.LayerNorm(embedding_dim)
+        self.scale = nn.Linear(embedding_dim, embedding_dim)
+        self.shift = nn.Linear(embedding_dim, embedding_dim)
+        
+    def forward(self, x: torch.Tensor, graph_emb: torch.Tensor) -> torch.Tensor:
+        x_norm = self.ln(x) # (b, r, c, d)
+        scale = 1.0 + self.scale(graph_emb).unsqueeze(1) # (b, c, d) -> (b, 1, c, d)
+        shift = self.shift(graph_emb).unsqueeze(1) # (b, c, d) -> (b, 1, c, d)
+        
+        return scale * x_norm + shift

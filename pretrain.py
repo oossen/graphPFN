@@ -21,15 +21,11 @@ args = deepcopy(args)
 
 # argparse setup
 parser = argparse.ArgumentParser()
-parser.add_argument("--nll", action="store_true", help="Train with negative log-likelihood loss instead of soft labels.")
 parser.add_argument("--prob_adj_mode", choices=["binary", "beta", "uncertain"], required=True,
                     help="Select probabilistic adjacency matrix creation mode from [binary, beta, uncertain].")
 cmd_args = parser.parse_args()
-args["nll"] = cmd_args.nll
 prior_config["graph_config"]["prob_adj_mode"] = {"distribution": "categorical",
                                                 "distribution_parameters": {"choices": [cmd_args.prob_adj_mode], "probabilities": [1.0]}}
-if cmd_args.nll:
-    args["saveweights"] += "_nll"
 args["saveweights"] += f"_{cmd_args.prob_adj_mode}"
 
 device = get_default_device()
@@ -68,7 +64,7 @@ trained_model, loss = train(
     epochs=args["epochs"],
     lr=args["lr"],
     accumulate_gradients=args["accumulate_gradients"],
-    nll=args["nll"],
+    nll=True,
     callbacks=callbacks,
     run_name=run_name,
     ckpt_path=ckpt_path,

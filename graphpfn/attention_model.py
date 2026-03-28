@@ -63,8 +63,7 @@ class TransformerEncoderStack(nn.Module):
 
 
 class TransformerEncoderLayer(nn.Module):
-    def __init__(self, embedding_size: int, nhead: int, nhead_feature: int, nhead_graph: int, mlp_hidden_size: int,
-                 layer_norm_eps: float = 1e-5, batch_first: bool = True):
+    def __init__(self, embedding_size: int, nhead: int, nhead_feature: int, nhead_graph: int, mlp_hidden_size: int, batch_first: bool = True):
         super().__init__()
         self.self_attn_between_datapoints = MultiheadAttention(embedding_size, nhead, batch_first=batch_first)
         # parental heads, child heads, unrestricted heads
@@ -74,9 +73,9 @@ class TransformerEncoderLayer(nn.Module):
         self.linear1 = Linear(embedding_size, mlp_hidden_size)
         self.linear2 = Linear(mlp_hidden_size, embedding_size)
 
-        self.norm1 = LayerNorm(embedding_size, eps=layer_norm_eps)
-        self.norm2 = LayerNorm(embedding_size, eps=layer_norm_eps)
-        self.norm3 = LayerNorm(embedding_size, eps=layer_norm_eps)
+        self.norm1 = LayerNorm(embedding_size)
+        self.norm2 = LayerNorm(embedding_size)
+        self.norm3 = LayerNorm(embedding_size)
 
     def forward(self, src: torch.Tensor, single_eval_position: int, prob_adj: torch.Tensor) -> torch.Tensor:
         batch_size, rows_size, col_size, embedding_size = src.shape
