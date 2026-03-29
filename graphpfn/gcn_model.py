@@ -160,7 +160,7 @@ class AdaLN(nn.Module):
         
     def forward(self, x: torch.Tensor, graph_emb: torch.Tensor) -> torch.Tensor:
         x_norm = self.ln(x) # (B, R, C, D)
-        scale = 1.0 + self.scale(graph_emb).unsqueeze(1) # (B, C, D) -> (B, 1, C, D)
-        shift = self.shift(graph_emb).unsqueeze(1) # (B, C, D) -> (B, 1, C, D)
+        scale = 1.0 + self.scale(graph_emb).unsqueeze(0).unsqueeze(0) # (C, D) -> (1, 1, C, D)
+        shift = self.shift(graph_emb).unsqueeze(0).unsqueeze(0) # (C, D) -> (1, 1, C, D)
         
         return scale * x_norm + shift
