@@ -119,7 +119,7 @@ training_config = {
     
     # number of data batches contained in each epoch
     # int
-    "steps": 100,
+    "steps": 10000,
     
     # number of epochs to train for
     # int
