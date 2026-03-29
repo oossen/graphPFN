@@ -52,7 +52,7 @@ class ValidationCallback(TensorboardLoggerCallback):
             y_target_dist = y_target_dist.view(-1, y_target_dist.shape[-1])
             
             try:
-                logits = model((X, y_norm), single_eval_pos=single_eval_pos)
+                logits = model((X, y_norm), single_eval_pos=single_eval_pos, **data['graph_information'])
                 logits = logits.view(-1, logits.shape[-1])
                 probs = torch.softmax(logits, dim=-1)
                 y_pred = probs @ bucket_mids

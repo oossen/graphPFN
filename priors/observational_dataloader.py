@@ -157,6 +157,7 @@ class ObservationalDataLoader(DataLoader):
                 return self.batch_function(graph, prob_adj)
             
         # convert features to categorical
+        cont_data = {v: data[v] for v in graph.nodes}
         categorical_prob_dist = self.scm_samplers["categorical_prob"]
         num_categories_dist = self.scm_samplers["num_categories"]
         for v, tensor in data.items():
@@ -201,9 +202,8 @@ class ObservationalDataLoader(DataLoader):
         }
         full_data['x'] = torch.cat([data[v] for v in data.keys()], dim=2)  # shape (B, N, F)
         full_data['y'] = target_data
-        full_data['values'] = data
         full_data['single_eval_pos'] = num_train_samples
-        full_data['data'] = data
+        full_data['data'] = cont_data # no categorical features here, includes all of y
         
         return full_data
     

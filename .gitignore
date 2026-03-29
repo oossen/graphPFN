@@ -2,15 +2,7 @@
 .vscode/
 
 logs/
-workdir/*
+workdir/
 
 *.pyc
 *.h5
-
-!workdir/attention_beta/
-!workdir/attention_binary/
-!workdir/attention_uncertain/
-!workdir/baseline_beta/
-!workdir/baseline_binary/
-!workdir/baseline_uncertain/
-!workdir/baseline_nll_beta/

@@ -1,9 +1,10 @@
 import os
 from datetime import datetime
-
 import torch
 
-from configs.default_configs import prior_config, training_config
+from pfns.bar_distribution import get_bucket_limits
+
+from configs.default_configs import prior_config
 from priors.observational_dataloader import ObservationalDataLoader
 from visualization.plotting import plot_graph, plot_point_clouds, plot_correlation, plot_adj, plot_likelihoods
 
@@ -25,14 +26,16 @@ def plot_all(prior, output_dir: str):
         with open(f"{output_dir}/scm_{i}.txt", "w") as f:
             f.write(str(data['graph_information']['scm']))
         # plot likelihoods
-        buckets = training_config['buckets']
+        num_outputs = 1000
+        low, high = -10.0, 10.0
+        buckets = get_bucket_limits(num_outputs=num_outputs, full_range=(low, high))
         bucket_mids = (buckets[:-1] + buckets[1:]) / 2.0
-        bucket_mids = bucket_mids.unsqueeze(0) # add batch dimension
+        bucket_mids = bucket_mids
         test_data = {v: data['data'][v][:, single_eval_pos:] for v in data['data']}
         scm = data['graph_information']['scm']
-        log_probs = scm.log_likelihood_batch(test_data, bucket_mids)
+        log_probs = scm.log_likelihood_batch(test_data, buckets.unsqueeze(0))
         probs = torch.exp(log_probs)
-        plot_likelihoods(bucket_mids[0], probs[0][0], data['y'][0][single_eval_pos].item(), f"{output_dir}/likelihoods_{i}.png")
+        plot_likelihoods(bucket_mids, probs[0][0], data['y'][0][single_eval_pos].item(), f"{output_dir}/likelihoods_{i}.png")
     
     
 if __name__ == "__main__":
