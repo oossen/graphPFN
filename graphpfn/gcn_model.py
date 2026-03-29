@@ -1,12 +1,14 @@
+from dataclasses import dataclass
 import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.nn import MultiheadAttention, Linear, LayerNorm
+from torch.nn import MultiheadAttention, Linear
 from graphpfn.base_model import GraphPFNModel
 from tfmplayground.utils import get_default_device
 
 
+@dataclass(eq=False)
 class GCNModel(GraphPFNModel):
     
     def _make_transformer_encoder(self) -> nn.Module:
@@ -157,8 +159,8 @@ class AdaLN(nn.Module):
         self.shift = nn.Linear(embedding_dim, embedding_dim)
         
     def forward(self, x: torch.Tensor, graph_emb: torch.Tensor) -> torch.Tensor:
-        x_norm = self.ln(x) # (b, r, c, d)
-        scale = 1.0 + self.scale(graph_emb).unsqueeze(1) # (b, c, d) -> (b, 1, c, d)
-        shift = self.shift(graph_emb).unsqueeze(1) # (b, c, d) -> (b, 1, c, d)
+        x_norm = self.ln(x) # (B, R, C, D)
+        scale = 1.0 + self.scale(graph_emb).unsqueeze(1) # (B, C, D) -> (B, 1, C, D)
+        shift = self.shift(graph_emb).unsqueeze(1) # (B, C, D) -> (B, 1, C, Dp)
         
         return scale * x_norm + shift

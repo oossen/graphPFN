@@ -1,3 +1,4 @@
+from dataclasses import asdict
 import torch
 from torch import nn
 import time
@@ -16,7 +17,6 @@ def train(model: GraphPFNModel,
           epochs: int,
           lr: float = 1e-4,
           accumulate_gradients: int = 1,
-          nll: bool = False,
           callbacks: list[Callback] = [], 
           run_name: str = 'graphPFN',
           ckpt_path: str | None = None):
@@ -37,9 +37,6 @@ def train(model: GraphPFNModel,
         The learning rate.
     accumulate_gradients : int
         The number of batches to accumulate gradients for before performing an optimizer step.
-    nll : bool
-        Whether to train against just one class label per dataset and test sample (corresponding to the value of `y`).
-        In other words, train using NLL instead of cross-entropy loss with class proabilities.
     callbacks : List[Callback]
         A list of callback instances to execute at the end of each epoch (e.g. logging, validation).
     run_name : str
@@ -61,8 +58,6 @@ def train(model: GraphPFNModel,
     optimizer = schedulefree.AdamWScheduleFree(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.0)
     if ckpt_path is not None:
         optimizer.load_state_dict(state_dict['optimizer'])
-        
-    bucket_mids = (buckets[:-1] + buckets[1:]) / 2.0
 
     try:
         for epoch in range(start_epoch, epochs + 1):
@@ -77,24 +72,21 @@ def train(model: GraphPFNModel,
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
                     continue
                 
+                # z-normalization
+                y_mean = data[1].mean(dim=1, keepdim=True)
+                y_std = data[1].std(dim=1, keepdim=True) + 1e-8
+                y_norm = (data[1] - y_mean) / y_std
+                data = (data[0], y_norm)
+                
                 output = model(data, single_eval_pos=single_eval_pos, **full_data['graph_information'])
                 output = output.view(-1, output.shape[-1])
                 
-                if nll:
-                    y_values = full_data['y'][:, single_eval_pos:].to(device)
-                    y_values = y_values.reshape((-1,))
-                    # if there are 1001 bucket borders (1000 buckets), clamp to [0, 999]
-                    targets = (torch.bucketize(y_values, buckets) - 1).clamp(0, buckets.size(0) - 2)
-                else:
-                    test_data = {v: full_data['data'][v][:, single_eval_pos:] for v in full_data['data']}
-                    scm = full_data['graph_information']['scm']
-                    batch_size = data[0].shape[0]
-                    log_probs = scm.log_likelihood_batch(test_data, bucket_mids.unsqueeze(0).expand(batch_size, -1))
-                    probs = torch.exp(log_probs)
-                    targets = probs.to(device)
-                    # renormalize targets from density values to discrete probabilities
-                    targets = targets / targets.sum(dim=-1, keepdim=True)
-                    targets = targets.view(-1, targets.shape[-1])
+                y_values = full_data['y'][:, single_eval_pos:].to(device)
+                # renormalize
+                y_values = (y_values - y_mean) / y_std
+                y_values = y_values.reshape((-1,))
+                # if there are 1001 bucket borders (1000 buckets), clamp to [0, 999]
+                targets = (torch.bucketize(y_values, buckets) - 1).clamp(0, buckets.size(0) - 2)
 
                 losses = loss_fn(output, targets)
                 loss = losses.mean() / accumulate_gradients
@@ -115,7 +107,7 @@ def train(model: GraphPFNModel,
                 'seed': prior.seed,
                 'epoch': epoch,
                 'model_class': type(model),
-                'architecture': model.architecture,
+                'architecture': asdict(model),
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict()
             }

@@ -131,7 +131,7 @@ class ObservationalDataLoader(DataLoader):
         # sample SCM
         root_std_dist, non_root_std_dist = self.scm_samplers["root_std_dist"], self.scm_samplers["non_root_std_dist"]
         scm_builder = SCMBuilder(graph, 
-                                 activation_dist=self.scm_samplers["activations"], 
+                                 activation_dist=self.scm_samplers["activation_dist"], 
                                  root_std_dist=root_std_dist, 
                                  non_root_std_dist=non_root_std_dist)
         scm = scm_builder.sample(self.generator)
@@ -147,11 +147,39 @@ class ObservationalDataLoader(DataLoader):
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate()
         
-        # resample extreme values
+        # resample in case of extreme values after z-normalization
         for v in graph.nodes:
-            low, high = -10, 10
-            if (data[v] < low).any() or (data[v] > high).any():
+            train_data = data[v][:, :num_train_samples]
+            mean = train_data.mean(dim=1, keepdim=True)
+            std = train_data.std(dim=1, keepdim=True)
+            z_scores = (data[v] - mean) / (std + 1e-8)
+            if (z_scores.abs() > 5).any():
                 return self.batch_function(graph, prob_adj)
+            
+        # convert features to categorical
+        categorical_prob_dist = self.scm_samplers["categorical_prob"]
+        num_categories_dist = self.scm_samplers["num_categories"]
+        for v, tensor in data.items():
+            if v == 'y': continue
+            
+            categorical_prob = categorical_prob_dist.sample(generator=self.generator)
+            num_categories = num_categories_dist.sample(generator=self.generator)
+
+            if torch.rand((1,), generator=self.generator).item() < categorical_prob:
+                b, r, d = tensor.shape 
+                flat_tensor = tensor.permute(0, 2, 1).reshape(-1, r) # (b*d, r)
+                q = torch.linspace(0, 1, steps=num_categories + 1, device=tensor.device)[1:-1]
+                # thresholds shape: (num_categories-1, b*d) -> transposed to (b*d, num_categories-1)
+                thresholds = torch.quantile(flat_tensor, q, dim=1).transpose(0, 1)
+                buckets = torch.searchsorted(thresholds, flat_tensor.contiguous()) # both inputs of leading dim b*d
+                # shuffle
+                label_map = torch.randperm(num_categories, device='cpu', generator=self.generator).to(tensor.device)
+                shuffled_buckets = label_map[buckets] # (b*d, r)
+                data[v] = shuffled_buckets.reshape(b, d, r).permute(0, 2, 1).float() # (b*d, r) -> (b, d, r) -> (b, r, d)
+        
+        # target data
+        target_data = data['y'][:, :, 0].unsqueeze(-1) # shape (B, N, 1)
+        data['y'] = data['y'][:, :, 1:]
             
         # aggregate data
         full_data = {}
@@ -171,8 +199,8 @@ class ObservationalDataLoader(DataLoader):
             'scm': scm,
             'sampled_params': sampled_params
         }
-        full_data['x'] = torch.stack([data[v] for v in graph.nodes if v != 'y'], dim=2)
-        full_data['y'] = data['y']
+        full_data['x'] = torch.cat([data[v] for v in data.keys()], dim=2)  # shape (B, N, F)
+        full_data['y'] = target_data
         full_data['values'] = data
         full_data['single_eval_pos'] = num_train_samples
         full_data['data'] = data

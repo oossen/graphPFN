@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -7,24 +8,10 @@ from graphpfn.base_model import GraphPFNModel
 from tfmplayground.utils import get_default_device
 
 
+@dataclass(eq=False)
 class AttentionModel(GraphPFNModel):
-    def __init__(self,
-                 embedding_size: int,
-                 num_attention_heads: int,
-                 num_feature_attention_heads: int,
-                 num_graph_attention_heads: int,
-                 mlp_hidden_size: int,
-                 num_layers: int,
-                 num_outputs: int):
-        self.num_feature_attention_heads = num_feature_attention_heads
-        self.num_graph_attention_heads = num_graph_attention_heads
-        super().__init__(embedding_size,
-                         num_attention_heads,
-                         mlp_hidden_size,
-                         num_layers,
-                         num_outputs)
-        self.architecture['num_feature_attention_heads'] = num_feature_attention_heads
-        self.architecture['num_graph_attention_heads'] = num_graph_attention_heads
+    num_feature_attention_heads: int
+    num_graph_attention_heads: int
 
     def _make_transformer_encoder(self) -> nn.Module:
         encoder = TransformerEncoderStack(

@@ -1,37 +1,27 @@
 from typing import Tuple
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import torch
 from torch import nn
 
-from tfmplayground.model import Decoder, TargetEncoder
+from tfmplayground.model import Decoder, TargetEncoder, FeatureEncoder
 
 
+@dataclass(eq=False)
 class GraphPFNModel(nn.Module, ABC):
-    def __init__(self,
-                 embedding_size: int,
-                 num_attention_heads: int,
-                 mlp_hidden_size: int,
-                 num_layers: int,
-                 num_outputs: int):
+    embedding_size: int
+    num_attention_heads: int
+    mlp_hidden_size: int
+    num_layers: int
+    num_outputs: int
+    
+    def __post_init__(self):
         super().__init__()
-        self.embedding_size = embedding_size
-        self.num_attention_heads = num_attention_heads
-        self.mlp_hidden_size = mlp_hidden_size
-        self.num_layers = num_layers
-        self.num_outputs = num_outputs
-        self.feature_encoder = FeatureEncoder(embedding_size)
-        self.target_encoder = TargetEncoder(embedding_size)
+        self.feature_encoder = FeatureEncoder(self.embedding_size)
+        self.target_encoder = TargetEncoder(self.embedding_size)
         self.transformer_encoder = self._make_transformer_encoder()
-        self.decoder = Decoder(embedding_size, mlp_hidden_size, num_outputs)
-        
-        # save architecture info for checkpointing
-        self.architecture = {
-                    'num_layers': num_layers,
-                    'embedding_size': embedding_size,
-                    'num_attention_heads': num_attention_heads,
-                    'mlp_hidden_size': mlp_hidden_size,
-                    'num_outputs': num_outputs}
+        self.decoder = Decoder(self.embedding_size, self.mlp_hidden_size, self.num_outputs)
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
         """
@@ -72,7 +62,7 @@ class GraphPFNModel(nn.Module, ABC):
         if len(y_src.shape) < len(x_src.shape):
             y_src = y_src.unsqueeze(-1)
         # (B, R, C-1) -> (B, R, C-1, E)
-        x_src = self.feature_encoder(x_src)
+        x_src = self.feature_encoder(x_src, single_eval_pos)
         num_rows = x_src.shape[1]
         # (B, single_eval_pos, 1) -> (B, R, 1, E)
         y_src = self.target_encoder(y_src, num_rows)
@@ -89,14 +79,3 @@ class GraphPFNModel(nn.Module, ABC):
     @abstractmethod
     def _make_transformer_encoder(self) -> nn.Module:
         pass
-    
-
-class FeatureEncoder(nn.Module):
-    """Identical to NanoTabPFN's feature encoder, except that there is no normalization."""
-    def __init__(self, embedding_size: int):
-        super().__init__()
-        self.linear_layer = nn.Linear(1, embedding_size)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x.unsqueeze(-1)
-        return self.linear_layer(x)

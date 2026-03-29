@@ -1,32 +1,11 @@
 from graphpfn.baseline_model import BaselineModel
 from pfns.bar_distribution import get_bucket_limits
 
-import torch
-import torch.nn as nn
-
-
-# activation functions
-class AsinhWrapper(nn.Module):
-    def __init__(self, activation: nn.Module, swap_sign=False):
-        super().__init__()
-        self.activation = activation
-        self.swap_sign = swap_sign
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.activation(x)
-        if self.swap_sign:
-            x = -x
-        return torch.asinh(x)
-    
-class Square(nn.Module):
-    def forward(self, x):
-        return torch.square(x)
-    
-non_linearities = [nn.Identity(), nn.LeakyReLU(negative_slope=0.1), Square()]
-activations = [AsinhWrapper(activation) for activation in non_linearities] + [AsinhWrapper(activation, swap_sign=True) for activation in non_linearities]
+from configs.tabicl_activations import get_activations
     
 
 num_outputs = 1000
-low, high = -10.0, 10.0
+low, high = -5.0, 5.0
 buckets = get_bucket_limits(num_outputs=num_outputs, full_range=(low, high))
 
 
@@ -37,7 +16,7 @@ prior_config = {
         # int
         "number_train_samples_per_dataset": {
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 2, "high": 200}
+            "distribution_parameters": {"low": 2, "high": 256}
         },
         # number of test samples per dataset
         # can be fixed because architecture is agnostic to the number of test samples
@@ -54,13 +33,18 @@ prior_config = {
         # int
         "num_nodes": { 
             "distribution": "discrete_uniform",
-            "distribution_parameters": {"low": 3, "high": 25}
+            "distribution_parameters": {"low": 3, "high": 30}
         },
         # probability that any two nodes in the causal graph are connected
         # float
         "edge_prob": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.1, "high": 0.4}
+            "distribution_parameters": {"low": 0.2, "high": 0.5}
+        },
+        # the number of features contained in each node
+        # int
+        "features_per_node": {
+            "value": 1,
         },
         # the mode for creating the probabilistic adjacency matrix
         # categorical over "binary", "beta", "uncertain"
@@ -81,14 +65,26 @@ prior_config = {
         # float
         "non_root_std_dist": {
             "distribution": "shifted_exponential",
-            "distribution_parameters": {"rate": 1 / 0.4, "shift": 0.2}
+            "distribution_parameters": {"rate": 1 / 0.1, "shift": 0.1}
         },
         # the activation functions to be used in the SCM
         # categorical distribution over nn.Modules
-        "activations": {
+        "activation_dist": {
             "distribution": "categorical",
-            "distribution_parameters": {"choices": activations}
-        }
+            "distribution_parameters": {"choices": get_activations()}
+        },
+        # the probability that a given feature becomes categorical
+        # float
+        "categorical_prob": {
+            "distribution": "uniform",
+            "distribution_parameters": {"low": 0.0, "high": 0.3},
+        },
+        # the number of categories to use for a given categorical feature
+        # int
+        "num_categories": {
+            "distribution": "discrete_uniform",
+            "distribution_parameters": {"low": 2, "high": 10},
+        },
     },
     
 }
@@ -123,7 +119,7 @@ training_config = {
     
     # number of data batches contained in each epoch
     # int
-    "steps": 10000,
+    "steps": 100,
     
     # number of epochs to train for
     # int

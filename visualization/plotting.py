@@ -25,8 +25,8 @@ def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_ev
             main_color = 'orange'
         else:
             main_color = 'red'
-        axes[i].scatter(X[:single_eval_pos, p].numpy(), X[:single_eval_pos, q].numpy(), s=5, c=main_color)
-        axes[i].scatter(X[single_eval_pos:, p].numpy(), X[single_eval_pos:, q].numpy(), s=5, c='gray')
+        axes[i].scatter(X[:single_eval_pos, p].cpu().numpy(), X[:single_eval_pos, q].cpu().numpy(), s=5, c=main_color)
+        axes[i].scatter(X[single_eval_pos:, p].cpu().numpy(), X[single_eval_pos:, q].cpu().numpy(), s=5, c='gray')
         axes[i].set_xlabel(labels[p])
         axes[i].set_ylabel(labels[q])
     for i in range(X.shape[1]):
@@ -34,8 +34,8 @@ def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_ev
             main_color = 'cyan'
         else:
             main_color = 'blue'
-        axes[i + n_pairs].scatter(X[:single_eval_pos, i].numpy(), y[:single_eval_pos].numpy(), s=5, c=main_color)
-        axes[i + n_pairs].scatter(X[single_eval_pos:, i].numpy(), y[single_eval_pos:].numpy(), s=5, c='gray')
+        axes[i + n_pairs].scatter(X[:single_eval_pos, i].cpu().numpy(), y[:single_eval_pos].cpu().numpy(), s=5, c=main_color)
+        axes[i + n_pairs].scatter(X[single_eval_pos:, i].cpu().numpy(), y[single_eval_pos:].cpu().numpy(), s=5, c='gray')
         axes[i + n_pairs].set_xlabel(labels[i])
         axes[i + n_pairs].set_ylabel('y')
 
@@ -48,7 +48,7 @@ def plot_point_clouds(X: torch.Tensor, y: torch.Tensor, filename: str, single_ev
     
     
 def plot_correlation(X: torch.Tensor, filename: str):
-    corr = torch.corrcoef(X.T)
+    corr = torch.corrcoef(X.T).cpu()
     plt.imshow(corr.abs() ** 0.5, cmap='viridis', vmin=0.0, vmax=1.0)
     plt.colorbar(label='Correlation')
     plt.title('Feature Correlation Matrix')

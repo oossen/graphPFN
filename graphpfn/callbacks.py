@@ -35,29 +35,40 @@ class ValidationCallback(TensorboardLoggerCallback):
             y = data['y'].to(device)
             single_eval_pos = data['single_eval_pos']
             y_train = y[:, :single_eval_pos]
+            y_mean = y_train.mean(dim=1, keepdim=True)
+            y_std = y_train.std(dim=1, keepdim=True) + 1e-8
+            y_norm = (y_train - y_mean) / y_std
             y_target = y[:, single_eval_pos:]
+            y_target = (y_target - y_mean) / y_std
             y_target = y_target.reshape((-1,))
             y_target_buckets = (torch.bucketize(y_target, buckets) - 1).clamp(0, buckets.size(0) - 2)
             
             test_data = {v: data['data'][v][:, single_eval_pos:] for v in data['data']}
             scm = data['graph_information']['scm']
-            log_probs = scm.log_likelihood_batch(test_data, bucket_mids.unsqueeze(0))
+            buckets_rescaled = buckets.unsqueeze(0) * y_std.squeeze(-1) + y_mean.squeeze(-1)
+            log_probs = scm.log_likelihood_batch(test_data, buckets_rescaled)
             probs = torch.exp(log_probs).to(device)
             y_target_dist = probs / probs.sum(dim=-1, keepdim=True)
             y_target_dist = y_target_dist.view(-1, y_target_dist.shape[-1])
             
-            logits = model((X, y_train), single_eval_pos=single_eval_pos, **data['graph_information'])
-            logits = logits.view(-1, logits.shape[-1])
-            probs = torch.softmax(logits, dim=-1)
-            y_pred = probs @ bucket_mids
+            try:
+                logits = model((X, y_norm), single_eval_pos=single_eval_pos)
+                logits = logits.view(-1, logits.shape[-1])
+                probs = torch.softmax(logits, dim=-1)
+                y_pred = probs @ bucket_mids
+                
+                ce_loss = torch.nn.CrossEntropyLoss()
+                nll = ce_loss(logits, y_target_buckets).item()
+                cel = ce_loss(logits, y_target_dist).item()
+                
+                r2 = r2_score(y_target.cpu().numpy(), y_pred.cpu().numpy())
+                mse = mean_squared_error(y_target.cpu().numpy(), y_pred.cpu().numpy())
             
-            ce_loss = torch.nn.CrossEntropyLoss()
-            nll = ce_loss(logits, y_target_buckets).item()
-            cel = ce_loss(logits, y_target_dist).item()
-            
-            r2 = r2_score(y_target.cpu().numpy(), y_pred.cpu().numpy())
-            mse = mean_squared_error(y_target.cpu().numpy(), y_pred.cpu().numpy())
-            
+            except Exception as e:
+                print(f"Error occurred during validation: {e}")
+                print(f"Model logits: {logits}")
+                continue
+
             r2_scores.append(r2)
             mse_scores.append(mse)
             nll_scores.append(nll)

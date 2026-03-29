@@ -64,7 +64,6 @@ trained_model, loss = train(
     epochs=args["epochs"],
     lr=args["lr"],
     accumulate_gradients=args["accumulate_gradients"],
-    nll=True,
     callbacks=callbacks,
     run_name=run_name,
     ckpt_path=ckpt_path,

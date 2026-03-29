@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 import torch
 from torch import nn
 from graphpfn.base_model import GraphPFNModel
 from tfmplayground.model import TransformerEncoderStack
 
 
+@dataclass(eq=False)
 class BaselineModel(GraphPFNModel):
     
     def _make_transformer_encoder(self) -> nn.Module:
