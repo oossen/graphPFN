@@ -23,8 +23,8 @@ tasks = ["fish_toxicity",
             "physiochemical_protein",
             "diamonds",]
 
-model_paths = {'baseline': 'workdir/baseline_beta/latest_checkpoint.pth',
-                'attention': 'workdir/attention_beta/latest_checkpoint.pth',}
+model_paths = {'baseline': 'workdir/baseline_beta_03_30_19_12/latest_checkpoint.pth',
+                'attention': 'workdir/attention_beta_03_30_19_13/latest_checkpoint.pth',}
 models = {}
 for name, path in model_paths.items():
     model = init_model_from_state_dict_file(path)
@@ -44,9 +44,6 @@ generator = torch.Generator().manual_seed(1234)
 for task in tasks:
     df = pd.read_csv(f'evaluation/input/{task}/data.csv')
     df = df.sample(n=min(len(df), 500), random_state=seed)
-    # z-normalization
-    numeric_cols = df.select_dtypes(include=['number']).columns
-    df[numeric_cols] = (df[numeric_cols] - df[numeric_cols].mean()) / df[numeric_cols].std()
     X = df.iloc[:, :-1].values
     y = df.iloc[:, -1].values
     n_nodes = X.shape[1] + 1
@@ -82,7 +79,7 @@ for task in tasks:
         y_values.append(score)
     results['arbitrary'] = y_values
 
-    for i in range(200):
+    for i in range(10):
         adj_perturbation = 0.2 * (torch.rand((n_nodes, n_nodes), generator=generator) - 0.5)
         prob_adj = incumbent_adj + adj_perturbation
         prob_adj = prob_adj.clamp(0, 1)  # Ensure probabilities are valid
