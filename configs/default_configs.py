@@ -39,7 +39,7 @@ prior_config = {
         # float
         "edge_prob": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.2, "high": 0.5}
+            "distribution_parameters": {"low": 0.05, "high": 0.5}
         },
         # the number of features contained in each node
         # int

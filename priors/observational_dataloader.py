@@ -200,7 +200,7 @@ class ObservationalDataLoader(DataLoader):
             'scm': scm,
             'sampled_params': sampled_params
         }
-        full_data['x'] = torch.cat([data[v] for v in data.keys()], dim=2)  # shape (B, N, F)
+        full_data['x'] = torch.cat([data[v] for v in graph.nodes], dim=2)  # shape (B, N, F)
         full_data['y'] = target_data
         full_data['single_eval_pos'] = num_train_samples
         full_data['data'] = cont_data # no categorical features here, includes all of y
