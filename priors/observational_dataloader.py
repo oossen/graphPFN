@@ -147,13 +147,12 @@ class ObservationalDataLoader(DataLoader):
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate()
         
-        # resample in case of extreme values after z-normalization
+        # z-normalize train and test data jointly
         for v in graph.nodes:
-            train_data = data[v][:, :num_train_samples]
-            mean = train_data.mean(dim=1, keepdim=True)
-            std = train_data.std(dim=1, keepdim=True)
-            z_scores = (data[v] - mean) / (std + 1e-8)
-            if (z_scores.abs() > 5).any():
+            mean = data[v].mean(dim=1, keepdim=True)
+            std = data[v].std(dim=1, keepdim=True)
+            data[v] = (data[v] - mean) / (std + 1e-8)
+            if (data[v].abs() > 10).any():
                 return self.batch_function(graph, prob_adj)
             
         # convert features to categorical

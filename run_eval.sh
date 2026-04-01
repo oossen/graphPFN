@@ -27,8 +27,7 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python -m evaluation.fish_toxicity
-# python -m visualization.make_visualization_probabilistic
+python -m evaluation.causal_discovery_eval
 end=`date +%s`
 runtime=$((end-start))
 

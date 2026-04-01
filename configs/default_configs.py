@@ -4,8 +4,8 @@ from pfns.bar_distribution import get_bucket_limits
 from configs.tabicl_activations import get_activations
     
 
-num_outputs = 1000
-low, high = -5.0, 5.0
+num_outputs = 2000
+low, high = -10.0, 10.0
 buckets = get_bucket_limits(num_outputs=num_outputs, full_range=(low, high))
 
 

@@ -23,8 +23,8 @@ tasks = ["fish_toxicity",
             "physiochemical_protein",
             "diamonds",]
 
-model_paths = {'baseline': 'workdir/baseline_beta_03_30_19_12/latest_checkpoint.pth',
-                'attention': 'workdir/attention_beta_03_30_19_13/latest_checkpoint.pth',}
+model_paths = {'baseline': 'workdir/baseline_beta/latest_checkpoint.pth',
+                'attention': 'workdir/attention_beta/latest_checkpoint.pth',}
 models = {}
 for name, path in model_paths.items():
     model = init_model_from_state_dict_file(path)
@@ -79,7 +79,7 @@ for task in tasks:
         y_values.append(score)
     results['arbitrary'] = y_values
 
-    for i in range(10):
+    for i in range(200):
         adj_perturbation = 0.2 * (torch.rand((n_nodes, n_nodes), generator=generator) - 0.5)
         prob_adj = incumbent_adj + adj_perturbation
         prob_adj = prob_adj.clamp(0, 1)  # Ensure probabilities are valid
