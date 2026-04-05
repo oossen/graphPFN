@@ -6,3 +6,5 @@ workdir/
 
 *.pyc
 *.h5
+
+evaluation/output/

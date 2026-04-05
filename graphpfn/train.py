@@ -72,18 +72,10 @@ def train(model: GraphPFNModel,
                 if (torch.isnan(data[0]).any() or torch.isnan(data[1]).any()):
                     continue
                 
-                # z-normalization
-                y_mean = data[1].mean(dim=1, keepdim=True)
-                y_std = data[1].std(dim=1, keepdim=True) + 1e-8
-                y_norm = (data[1] - y_mean) / y_std
-                data = (data[0], y_norm)
-                
                 output = model(data, single_eval_pos=single_eval_pos, **full_data['graph_information'])
                 output = output.view(-1, output.shape[-1])
                 
                 y_values = full_data['y'][:, single_eval_pos:].to(device)
-                # renormalize
-                y_values = (y_values - y_mean) / y_std
                 y_values = y_values.reshape((-1,))
                 # if there are 1001 bucket borders (1000 buckets), clamp to [0, 999]
                 targets = (torch.bucketize(y_values, buckets) - 1).clamp(0, buckets.size(0) - 2)

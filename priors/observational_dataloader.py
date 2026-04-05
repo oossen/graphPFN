@@ -147,14 +147,17 @@ class ObservationalDataLoader(DataLoader):
         scm.sample_noise(sample_shape, generator=self.generator)
         data = scm.propagate()
         
-        # z-normalize train and test data jointly
+        # global z-normalization
         for v in graph.nodes:
             mean = data[v].mean(dim=1, keepdim=True)
-            std = data[v].std(dim=1, keepdim=True)
-            data[v] = (data[v] - mean) / (std + 1e-8)
+            std = data[v].std(dim=1, keepdim=True) + 1e-6
+            data[v] = (data[v] - mean) / std
+        
+        # resample data if any feature has extreme outliers
+        for v in graph.nodes:
             if (data[v].abs() > 10).any():
                 return self.batch_function(graph, prob_adj)
-            
+                    
         # convert features to categorical
         cont_data = {v: data[v] for v in graph.nodes}
         categorical_prob_dist = self.scm_samplers["categorical_prob"]

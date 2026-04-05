@@ -87,9 +87,6 @@ class Regressor(NanoTabPFNRegressor):
         self.feature_preprocessor = get_feature_preprocessor(X_train)
         self.X_train = self.feature_preprocessor.fit_transform(X_train)
         self.y_train = y_train
-        self.y_train_mean = np.mean(self.y_train)
-        self.y_train_std = np.std(self.y_train, ddof=1) + 1e-8
-        self.y_train_n = (self.y_train - self.y_train_mean) / self.y_train_std
 
     def predict(self, X_test: np.ndarray, **kwargs):
         """
@@ -99,15 +96,14 @@ class Regressor(NanoTabPFNRegressor):
         X_test_transformed = self.feature_preprocessor.transform(X_test)
         assert isinstance(X_test_transformed, np.ndarray) and isinstance(self.X_train, np.ndarray), "Preprocessing did not produce numpy arrays!"
         X = np.concatenate((self.X_train, X_test_transformed))
-        y = self.y_train_n
+        y = self.y_train
 
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32, device=self.device).unsqueeze(0)
             y_tensor = torch.tensor(y, dtype=torch.float32, device=self.device).unsqueeze(0)
 
             logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs).squeeze(0)
-            preds_n = self.dist.mean(logits)
-            preds = preds_n * torch.tensor(np.std(self.y_train, ddof=1) + 1e-8, dtype=torch.float32, device=self.device) + torch.tensor(np.mean(self.y_train), dtype=torch.float32, device=self.device)
+            preds = self.dist.mean(logits)
             preds = preds.cpu().numpy()
 
         return preds
@@ -119,21 +115,18 @@ class Regressor(NanoTabPFNRegressor):
         X_test_transformed = self.feature_preprocessor.transform(X_test)
         assert isinstance(X_test_transformed, np.ndarray) and isinstance(self.X_train, np.ndarray), "Preprocessing did not produce numpy arrays!"
         X = np.concatenate((self.X_train, X_test_transformed))
-        y = self.y_train_n
+        y = self.y_train
         
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32, device=self.device).unsqueeze(0)
             y_tensor = torch.tensor(y, dtype=torch.float32, device=self.device).unsqueeze(0)
 
             logits = self.model((X_tensor, y_tensor), single_eval_pos=len(self.X_train), **kwargs)
-            y_test_n = (y_test - self.y_train_mean) / self.y_train_std
-            y_test_tensor = torch.tensor(y_test_n, dtype=torch.float32, device=self.device)
+            y_test_tensor = torch.tensor(y_test, dtype=torch.float32, device=self.device)
             self.dist.to(device=self.device)
             # expand logits so that there is one for each input y
             logits = logits.view(1, 1, -1).expand(len(y_test), 1, -1)
             neg_log_probs = self.dist.forward(logits, y_test_tensor).squeeze(0).squeeze(-1)
-            # divide by std to account for change of variables in normalization
-            neg_log_probs += torch.log(torch.tensor(self.y_train_std, dtype=torch.float32, device=self.device))
         
         return -neg_log_probs.cpu().numpy()
     

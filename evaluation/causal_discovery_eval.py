@@ -23,8 +23,8 @@ tasks = ["fish_toxicity",
             "physiochemical_protein",
             "diamonds",]
 
-model_paths = {'baseline': 'workdir/baseline_beta/latest_checkpoint.pth',
-                'attention': 'workdir/attention_beta/latest_checkpoint.pth',}
+model_paths = {'baseline': 'workdir/baseline_beta_04_04_09_01/latest_checkpoint.pth',
+                'attention': 'workdir/attention_beta_04_04_09_03/latest_checkpoint.pth',}
 models = {}
 for name, path in model_paths.items():
     model = init_model_from_state_dict_file(path)
@@ -44,6 +44,8 @@ generator = torch.Generator().manual_seed(1234)
 for task in tasks:
     df = pd.read_csv(f'evaluation/input/{task}/data.csv')
     df = df.sample(n=min(len(df), 500), random_state=seed)
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    df[numeric_cols] = (df[numeric_cols] - df[numeric_cols].mean()) / df[numeric_cols].std()
     X = df.iloc[:, :-1].values
     y = df.iloc[:, -1].values
     n_nodes = X.shape[1] + 1

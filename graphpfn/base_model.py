@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
-from tfmplayground.model import Decoder, TargetEncoder, FeatureEncoder
+from tfmplayground.model import Decoder, TargetEncoder
 
 
 @dataclass(eq=False)
@@ -79,3 +79,15 @@ class GraphPFNModel(nn.Module, ABC):
     @abstractmethod
     def _make_transformer_encoder(self) -> nn.Module:
         pass
+    
+
+class FeatureEncoder(nn.Module):
+    """Like NanoTabPFN feature encode, but without z-normalization."""
+    def __init__(self, embedding_size: int):
+        """ Creates the linear layer that we will use to embed our features. """
+        super().__init__()
+        self.linear_layer = nn.Linear(1, embedding_size)
+
+    def forward(self, x: torch.Tensor, single_eval_pos: int) -> torch.Tensor:
+        x = x.unsqueeze(-1)
+        return self.linear_layer(x)
