@@ -131,13 +131,13 @@ class Regressor(NanoTabPFNRegressor):
         return -neg_log_probs.cpu().numpy()
     
     
-def cross_validate(reg: NanoTabPFNRegressor, X: np.ndarray, y: np.ndarray, single_eval_pos: int, n_folds: int = 5, **kwargs):
+def cross_validate(reg, X: np.ndarray, y: np.ndarray, single_eval_pos: int, n_folds: int = 5, **kwargs):
     """
     Perform `n_fold`-fold cross validation using the model `reg` on the provided data.
     
     Parameters
     ----------
-    reg : NanoTabPFNRegressor
+    reg : a model with fit and predict methods, such as Regressor or TabPFNRegressor
         the model to evaluate
     X : np.ndarray (n_samples, n_features)
         the features (train and test split) of the input data

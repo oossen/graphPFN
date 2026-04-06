@@ -7,6 +7,7 @@ from graphpfn.interface import cross_validate
 from configs.default_configs import buckets
 import pandas as pd
 import numpy as np
+from tabpfn import TabPFNRegressor
 
 from visualization.plotting import plot_adj
 
@@ -23,13 +24,16 @@ tasks = ["fish_toxicity",
             "physiochemical_protein",
             "diamonds",]
 
-model_paths = {'baseline': 'workdir/baseline_beta_04_04_09_01/latest_checkpoint.pth',
-                'attention': 'workdir/attention_beta_04_04_09_03/latest_checkpoint.pth',}
+model_paths = {'baseline': 'workdir/baseline_beta/latest_checkpoint.pth',
+                'attention': 'workdir/attention_beta/latest_checkpoint.pth',}
 models = {}
 for name, path in model_paths.items():
     model = init_model_from_state_dict_file(path)
     reg = Regressor(model, buckets)
     models[name] = reg
+    
+tabpfn_model = TabPFNRegressor()
+models['tabpfn'] = tabpfn_model
     
 single_eval_positions = [2, 4, 8, 16, 32, 64, 128, 256]
 
@@ -50,8 +54,11 @@ for task in tasks:
     y = df.iloc[:, -1].values
     n_nodes = X.shape[1] + 1
     
-    def evaluate(model, single_eval_pos, prob_adj):
-        return cross_validate(model, X, y, single_eval_pos, 50, prob_adj=prob_adj)
+    def evaluate(model, single_eval_pos, n_evals=5, **kwargs):
+        if isinstance(model, TabPFNRegressor):
+            return cross_validate(model, X, y, single_eval_pos, n_evals)
+        elif isinstance(model, Regressor):
+            return cross_validate(model, X, y, single_eval_pos, n, **kwargs)
 
     causal_discovery_adj = torch.tensor(np.load(f"evaluation/input/{task}/probabilistic_adjacency.npy"), dtype=torch.float32)
     arbitrary_adj = (torch.ones((n_nodes, n_nodes)) - torch.eye(n_nodes)) / 3
@@ -63,43 +70,49 @@ for task in tasks:
     results = {}
     y_values = []
     for n in single_eval_positions:
-        score = evaluate(models['baseline'], n, incumbent_adj)
+        score = evaluate(models['baseline'], n)
         y_values.append(score)
     results['baseline'] = y_values
+    
+    # tabpfn scores
+    y_values = []
+    for n in single_eval_positions:
+        score = evaluate(models['tabpfn'], n)
+        y_values.append(score)
+    results['tabpfn'] = y_values
     
     # causal discovery scores
     y_values = []
     for n in single_eval_positions:
-        score = evaluate(models['attention'], n, causal_discovery_adj)
+        score = evaluate(models['attention'], n, prob_adj=causal_discovery_adj)
         y_values.append(score)
     results['causal_discovery'] = y_values
     
     # arbitrary graph
     y_values = []
     for n in single_eval_positions:
-        score = evaluate(models['attention'], n, arbitrary_adj)
+        score = evaluate(models['attention'], n, prob_adj=arbitrary_adj)
         y_values.append(score)
     results['arbitrary'] = y_values
 
-    for i in range(200):
+    for i in range(5):
         adj_perturbation = 0.2 * (torch.rand((n_nodes, n_nodes), generator=generator) - 0.5)
         prob_adj = incumbent_adj + adj_perturbation
         prob_adj = prob_adj.clamp(0, 1)  # Ensure probabilities are valid
 
-        for name, model in [p for p in models.items() if p[0] != 'baseline']:
-            y_values = []
-            for n in single_eval_positions:
-                score = evaluate(model, n, prob_adj)
-                y_values.append(score)
-            results[f"{name}_evolutionary"] = y_values
-            
-            new_incumbent = False
-            rel_improvements = [(score - incumbent_score) / (abs(incumbent_score) + 1e-8) for score, incumbent_score in zip(results[f"{name}_evolutionary"], incumbent_scores)]
-            avg_rel_improvement = sum(rel_improvements) / len(rel_improvements)
-            if avg_rel_improvement > 0:
-                new_incumbent = True
-                incumbent_scores = results[f"{name}_evolutionary"]
-                incumbent_adj = prob_adj
+        y_values = []
+        for n in single_eval_positions:
+            score = evaluate(models['attention'], n, prob_adj=prob_adj)
+            y_values.append(score)
+        results[f"{name}_evolutionary"] = y_values
+        
+        new_incumbent = False
+        rel_improvements = [(score - incumbent_score) / (abs(incumbent_score) + 1e-8) for score, incumbent_score in zip(results[f"{name}_evolutionary"], incumbent_scores)]
+        avg_rel_improvement = sum(rel_improvements) / len(rel_improvements)
+        if avg_rel_improvement > 0:
+            new_incumbent = True
+            incumbent_scores = results[f"{name}_evolutionary"]
+            incumbent_adj = prob_adj
 
     plt.figure(figsize=(10, 6))  # Set the figure size
     for model_name, y_vals in results.items():
