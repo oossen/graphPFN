@@ -16,7 +16,7 @@ from tfmplayground.utils import get_default_device
     
 
 def ppd_plots():
-    from configs.simple_configs import prior_config
+    from configs.default_configs import prior_config
     
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
@@ -235,7 +235,7 @@ def swapped_input_mode():
     from configs.default_configs import prior_config, training_config
     seed = 42
     
-    num_steps = 3000
+    num_steps = 1000
     buckets = training_config['buckets']
     
     now = datetime.now()
@@ -243,13 +243,13 @@ def swapped_input_mode():
     output_dir = f"visualization/output/{datetime_str}"
     os.makedirs(output_dir, exist_ok=True)
     
-    modes = ['binary', 'beta', 'uncertain']
+    modes = ['binary', 'beta', 'uniform']
     model_paths = {'baseline_binary': 'workdir/baseline_binary', 
                        'attention_binary': 'workdir/attention_binary', 
                        'baseline_beta': 'workdir/baseline_beta', 
                        'attention_beta': 'workdir/attention_beta',
-                       'baseline_uncertain': 'workdir/baseline_uncertain',
-                       'attention_uncertain': 'workdir/attention_uncertain',}
+                       'baseline_uniform': 'workdir/baseline_uniform',
+                       'attention_uniform': 'workdir/attention_uniform',}
     models = {name: init_model_from_state_dict_file(f"{path}/latest_checkpoint.pth").to(get_default_device()) for name, path in model_paths.items()}
     results = {}
     for mode in modes:

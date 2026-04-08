@@ -16,7 +16,6 @@ from dopfnprior.scm.scm import SCM
 from dopfnprior.scm.simple_mechanism import SimpleMechanism
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from priors.observational_dataloader import ObservationalDataLoader
-from configs.simple_configs import prior_config, training_config
 from visualization.plotting import plot_graph
 import torch.distributions as dist
 from dopfnprior.utils.sampling import TorchDistributionSampler

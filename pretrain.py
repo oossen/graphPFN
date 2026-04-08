@@ -21,8 +21,8 @@ args = deepcopy(args)
 
 # argparse setup
 parser = argparse.ArgumentParser()
-parser.add_argument("--prob_adj_mode", choices=["binary", "beta", "uncertain"], required=True,
-                    help="Select probabilistic adjacency matrix creation mode from [binary, beta, uncertain].")
+parser.add_argument("--prob_adj_mode", choices=["binary", "beta", "uniform"], required=True,
+                    help="Select probabilistic adjacency matrix creation mode from [binary, beta, uniform].")
 cmd_args = parser.parse_args()
 prior_config["graph_config"]["prob_adj_mode"] = {"distribution": "categorical",
                                                 "distribution_parameters": {"choices": [cmd_args.prob_adj_mode], "probabilities": [1.0]}}

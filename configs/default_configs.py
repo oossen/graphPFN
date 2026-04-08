@@ -39,7 +39,7 @@ prior_config = {
         # float
         "edge_prob": {
             "distribution": "logarithmic",
-            "distribution_parameters": {"low": 0.05, "high": 0.5}
+            "distribution_parameters": {"low": 0.05, "high": 0.5} # should never be higher than 0.5!
         },
         # the number of features contained in each node
         # int
@@ -47,10 +47,10 @@ prior_config = {
             "value": 1,
         },
         # the mode for creating the probabilistic adjacency matrix
-        # categorical over "binary", "beta", "uncertain"
+        # categorical over "binary", "beta", "uniform"
         "prob_adj_mode": {
             "distribution": "categorical",
-            "distribution_parameters": {"choices": ["binary", "beta", "uncertain"], "probabilities": [0.0, 1.0, 0.0]}
+            "distribution_parameters": {"choices": ["binary", "beta", "uniform"], "probabilities": [0.0, 1.0, 0.0]}
         },
     },
 

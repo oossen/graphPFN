@@ -6,7 +6,6 @@ import torch
 from torch.utils.data import DataLoader
 import networkx as nx
 from dopfnprior.scm.scm_builder import SCMBuilder
-from dopfnprior.scm.scm import SCM
 from dopfnprior.utils.sampling import build_samplers, sample_parameters
 
 
@@ -79,31 +78,31 @@ class ObservationalDataLoader(DataLoader):
         
         np_seed = int(torch.randint(0, 2**31, (1,), generator=self.generator).item())
         rng = np.random.default_rng(np_seed)
+        
         if self.prob_adj_mode == "binary":
             adj = rng.binomial(1, self.edge_prob, size=(self.num_nodes, self.num_nodes))
             adj = np.triu(adj, k=1)
-            perm = rng.permutation(self.num_nodes)
-            adj[perm[:, None], perm] = adj.copy()
+            # split the probability mass between i -> j and j -> i
+            shares = rng.binomial(1, 0.5, size=(self.num_nodes, self.num_nodes))
+            adj = adj * shares + adj.T * (1 - shares.T)
             return torch.from_numpy(adj).float()
 
-        beta = 0.5
-        alpha = (self.edge_prob * beta) / (1 - self.edge_prob) # mean of distribution is at edge_prob
-        edge_prob = rng.beta(a=alpha, b=beta, size=(self.num_nodes, self.num_nodes))
-        adj = np.triu(edge_prob, k=1)
-        # split the probability mass between i -> j and j -> i
-        shares = rng.random(size=(self.num_nodes, self.num_nodes))
-        adj = adj * shares + adj.T * (1 - shares.T)
-        perm = rng.permutation(self.num_nodes)
-        adj[perm[:, None], perm] = adj.copy()
-        
-        if self.prob_adj_mode == "beta":
+        elif self.prob_adj_mode == "beta":
+            beta = 0.5
+            alpha = (self.edge_prob * beta) / (1 - self.edge_prob) # mean of distribution is at self.edge_prob
+            adj = rng.beta(a=alpha, b=beta, size=(self.num_nodes, self.num_nodes))
+            adj = np.triu(adj, k=1)
+            # split the probability mass between i -> j and j -> i
+            shares = rng.random(size=(self.num_nodes, self.num_nodes))
+            adj = adj * shares + adj.T * (1 - shares.T)
             return torch.from_numpy(adj).float()
         
-        elif self.prob_adj_mode == "uncertain":
-            # mix the beta matrix with a constant matrix at edge_prob, with random mixing weight
-            mix_weight = 0.5
-            adj = np.where(rng.random(size=adj.shape) < mix_weight, adj, self.edge_prob / 2)
-            np.fill_diagonal(adj, 0)
+        elif self.prob_adj_mode == "uniform":
+            adj = rng.uniform(0, 2 * self.edge_prob, size=(self.num_nodes, self.num_nodes))
+            adj = np.triu(adj, k=1)
+            # split the probability mass between i -> j and j -> i
+            shares = rng.random(size=(self.num_nodes, self.num_nodes))
+            adj = adj * shares + adj.T * (1 - shares.T)
             return torch.from_numpy(adj).float()
         else:
             raise ValueError(f"Invalid prob_adj_mode: {self.prob_adj_mode}")
@@ -221,22 +220,4 @@ class ObservationalDataLoader(DataLoader):
             graph_tuple = (tuple(graph.nodes()), tuple(sorted(graph.edges())))
             graph_counts[graph_tuple] += 1
         self.graph_counts = graph_counts
-        
-    def log_likelihood(self, scm: SCM):
-        """
-        Return the log likelihood of the given SCM under this prior, up to an additive constant.
-        Since each mechanism is equally likely, this only takes into account DAG and noise.
-        """
-        if not hasattr(self, 'graph_counts'):
-            self._make_statistics(steps=10000)
-        graph_tuple = (tuple(scm.dag.nodes()), tuple(sorted(scm.dag.edges())))
-        graph_count = self.graph_counts.get(graph_tuple, 1)
-        graph_ll = math.log(graph_count)
-        noise_ll = 0.0
-        for v in scm.dag.nodes:
-            std = scm.noise[v].std()
-            if scm.dag.in_degree(v) == 0:
-                noise_ll += self.scm_samplers["root_std_dist"].log_prob(torch.tensor(std)).item()
-            else:
-                noise_ll += self.scm_samplers["non_root_std_dist"].log_prob(torch.tensor(std)).item()
-        return graph_ll + noise_ll
+        return graph_counts
