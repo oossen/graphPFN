@@ -8,3 +8,4 @@ workdir/
 *.h5
 
 evaluation/output/
+icml_plots/output
