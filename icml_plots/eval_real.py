@@ -2,6 +2,17 @@ import pandas as pd
 import numpy as np
 import os
 from datetime import datetime
+import torch
+from typing import Any
+
+from tabpfn import TabPFNRegressor
+from sklearn.dummy import DummyRegressor
+from sklearn.metrics import r2_score, mean_squared_error
+
+from graphpfn.interface import Regressor, init_model_from_state_dict_file
+from configs.default_configs import training_config
+from icml_plots.models import PFNWrapper
+
 
 def evaluate_regression_models(
     regs: dict,
@@ -59,7 +70,7 @@ def evaluate_regression_models(
                 
                 # Apply all metrics
                 for metric_name, metric_fn in metrics.items():
-                    score = metric_fn(preds, y_test.values)
+                    score = metric_fn(y_test.values, preds)
                     
                     results.append({
                         "model": model_name,
@@ -80,13 +91,22 @@ def evaluate_regression_models(
     
 
 if __name__ == "__main__":
-    from sklearn.dummy import DummyRegressor
-    from sklearn.metrics import r2_score, mean_squared_error
-    dataset_path = "icml_plots/input/fish_toxicity/data.csv"
-    regs = {'dummy': DummyRegressor(strategy='mean')}
+    
+    task = "fish_toxicity"
+    
+    dataset_path = f"icml_plots/input/{task}/data.csv"
+    regs: dict[str, Any] = {'dummy': DummyRegressor(strategy='mean'),
+                            'tabpfn': TabPFNRegressor()}
+    att_reg = Regressor(init_model_from_state_dict_file("workdir/attention_beta/latest_checkpoint.pth"), training_config['buckets'])
+    prob_adjs = {'causal_discovery': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_causal_discovery/probabilistic_adjacency.npy"), dtype=torch.float32),
+                 'evolution': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_evolutionary/best_matrix.npy"), dtype=torch.float32)}
+    for name, prob_adj in prob_adjs.items():
+        regs[f'att_{name}'] = PFNWrapper(att_reg, prob_adj)
+    baseline_reg = Regressor(init_model_from_state_dict_file("workdir/baseline_beta/latest_checkpoint.pth"), training_config['buckets'])
+    regs['baseline'] = PFNWrapper(baseline_reg)
     metrics = {'r2': r2_score, 'mse': mean_squared_error}
     context_sizes = [2, 4, 8, 16, 32, 64]
-    n_evals = 5
+    n_evals = 100
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     output_dir = f"icml_plots/output/{datetime_str}"
