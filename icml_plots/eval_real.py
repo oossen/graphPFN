@@ -35,6 +35,8 @@ def evaluate_regression_models(
     """
     # Load dataset
     df = pd.read_csv(dataset)
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    df[numeric_cols] = (df[numeric_cols] - df[numeric_cols].mean()) / df[numeric_cols].std()
     X_full = df.iloc[:, :-1]
     y_full = df.iloc[:, -1]
     
@@ -95,7 +97,8 @@ if __name__ == "__main__":
     task = "fish_toxicity"
     
     dataset_path = f"icml_plots/input/{task}/data.csv"
-    regs: dict[str, Any] = {'dummy': DummyRegressor(strategy='mean'),
+    regs: dict[str, Any] = {'train_mean': DummyRegressor(strategy='mean'),
+                            'zero': DummyRegressor(strategy='constant', constant=0.0),
                             'tabpfn': TabPFNRegressor()}
     att_reg = Regressor(init_model_from_state_dict_file("workdir/attention_beta/latest_checkpoint.pth"), training_config['buckets'])
     prob_adjs = {'causal_discovery': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_causal_discovery/probabilistic_adjacency.npy"), dtype=torch.float32),
