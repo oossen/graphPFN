@@ -40,8 +40,20 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
 
 
 if __name__ == "__main__":
+    tasks = ["fish_toxicity",
+            "concrete_compressive_strength",
+            "healthcare_insurance_expenses",
+            "airfoil_self_noise",
+            "used_fiat_500",
+            "wine_quality",
+            "miami_housing",
+            "houses",
+            "food_delivery_time",
+            "physiochemical_protein",
+            "diamonds",]
+    
     my_models = {
-        'dummy': {
+        'train_mean': {
             'label': 'Baseline (Mean)', 
             'color': "#777777", 
             'ls': '--', 
@@ -73,10 +85,12 @@ if __name__ == "__main__":
         }
     }
 
-    input_dir = "icml_plots/output/04_14_19_57/results.csv"
+    input_dir = "icml_plots/output/04_19_16_21"
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
-    output_dir = f"icml_plots/output/{datetime_str}"
-    os.makedirs(output_dir, exist_ok=True)
-    plot_regressor_performance('r2', my_models, input_dir, f"{output_dir}/plot_real_r2.png")
-    plot_regressor_performance('mse', my_models, input_dir, f"{output_dir}/plot_real_mse.png")
+    for task in tasks:
+        result_file = f"{input_dir}/{task}/results.csv"
+        output_dir = f"icml_plots/output/{datetime_str}/{task}"
+        os.makedirs(output_dir, exist_ok=True)
+        plot_regressor_performance('r2', my_models, result_file, f"{output_dir}/plot_real_r2.png")
+        plot_regressor_performance('mse', my_models, result_file, f"{output_dir}/plot_real_mse.png")

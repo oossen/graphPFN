@@ -44,7 +44,7 @@ for task in tasks:
         train_mean = train_df[numeric_cols].mean()
         train_std = train_df[numeric_cols].std()
         # clip std to avoid division by zero
-        train_std = np.maximum(train_std, 0.5)
+        train_std = np.maximum(train_std, 1)
         train_df[numeric_cols] = (train_df[numeric_cols] - train_mean) / train_std
         test_df[numeric_cols] = (test_df[numeric_cols] - train_mean) / train_std
         
