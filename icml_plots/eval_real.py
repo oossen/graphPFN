@@ -19,6 +19,7 @@ def evaluate_regression_models(
     dataset: str,
     metrics: dict,
     context_sizes: list[int],
+    n_query_samples: int,
     n_evals: int,
     path: str,
     seed: int = 42
@@ -31,6 +32,7 @@ def evaluate_regression_models(
         dataset: Path to the CSV dataset.
         metrics: Dictionary of metric names to callables (y_pred, y_true) -> float.
         context_sizes: List of integers representing training set sizes.
+        n_query_samples: Number of query samples to use for each evaluation.
         n_evals: Number of random samples to run per context size.
         path: Path to save/append the results CSV.
         seed: Random seed for reproducibility.
@@ -54,10 +56,10 @@ def evaluate_regression_models(
 
     for n in context_sizes:
         for _ in range(n_evals):
-            # Sample context + 100 test samples
-            total_needed = n + 100
+            # Sample context + test samples
+            total_needed = n + n_query_samples
             if total_needed > len(df):
-                raise ValueError(f"Dataset too small for context size {n} + 100 test samples.")
+                raise ValueError(f"Dataset too small for context size {n} + {n_query_samples} test samples.")
             
             # Get random indices for this specific evaluation instance
             indices = rng.choice(df.index, size=total_needed, replace=False)
@@ -117,16 +119,20 @@ if __name__ == "__main__":
                                 'tabpfn': TabPFNRegressor()}
         att_reg = Regressor(init_model_from_state_dict_file("workdir/attention_beta/latest_checkpoint.pth"), training_config['buckets'])
         prob_adjs = {'causal_discovery': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_causal_discovery/probabilistic_adjacency.npy"), dtype=torch.float32),
-                    'evolution': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_evolutionary/best_matrix.npy"), dtype=torch.float32)}
+                    'evolution': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_evolutionary/best_matrix.npy"), dtype=torch.float32),}
+        prob_adjs['arbitrary'] = (torch.ones_like(prob_adjs['causal_discovery']) - torch.eye(prob_adjs['causal_discovery'].shape[0])) / 3
         for name, prob_adj in prob_adjs.items():
             regs[f'att_{name}'] = PFNWrapper(att_reg, prob_adj)
         baseline_reg = Regressor(init_model_from_state_dict_file("workdir/baseline_beta/latest_checkpoint.pth"), training_config['buckets'])
         regs['baseline'] = PFNWrapper(baseline_reg)
+        regs['llm'] = LLMRegressor()
+        regs['llm_causal'] = LLMRegressor(prob_adj=prob_adjs['causal_discovery'])
         
         metrics = {'r2': r2_score, 'mse': mean_squared_error}
         context_sizes = [2, 4, 8, 16, 32, 64]
+        n_query_samples = 100
         n_evals = 100
         output_dir = f"icml_plots/output/{datetime_str}/{task}"
         os.makedirs(output_dir, exist_ok=True)
-        evaluate_regression_models(regs, dataset_path, metrics, context_sizes, n_evals, f"{output_dir}/results.csv")
+        evaluate_regression_models(regs, dataset_path, metrics, context_sizes, n_query_samples, n_evals, f"{output_dir}/results.csv")
     

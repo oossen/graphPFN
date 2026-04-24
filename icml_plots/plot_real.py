@@ -27,12 +27,9 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
             n_boot=100
         )
     
-    # 4. Formatting
     plt.title(f'Performance Comparison: {metric.upper()}', fontsize=14, pad=15)
     plt.xlabel('Context Size', fontsize=12)
     plt.ylabel(f'Value ({metric})', fontsize=12)
-    
-    # Improve legend placement
     plt.legend(title='Models', bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.tight_layout()
     

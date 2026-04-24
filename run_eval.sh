@@ -27,7 +27,7 @@ conda activate graph-pfn-causal-discovery
 # Running the job
 start=`date +%s`
 
-python -m icml_plots.plot_real
+python -m icml_plots.eval_real
 end=`date +%s`
 runtime=$((end-start))
 
