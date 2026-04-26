@@ -4,6 +4,11 @@ import os
 from google import genai
 from dotenv import load_dotenv
 import time
+from pathlib import Path
+import torch
+
+from causal_discovery.causal_explorer import CausalExplorer
+from causal_discovery.config import get_default_config
 
 
 class PFNWrapper:
@@ -39,6 +44,23 @@ class PFNWrapper:
         preds_final = (preds_scaled * self.train_std_y) + self.train_mean_y
         
         return preds_final
+    
+
+class CausalExplorerRegressor(PFNWrapper):
+    def __init__(self, reg, output_dir, seed=42):
+        self.seed = seed
+        self.output_dir = output_dir
+        self.reg = reg
+    
+    def fit(self, X_train, y_train):
+        train_df = pd.DataFrame(X_train)
+        train_df['target'] = y_train
+        rng = np.random.default_rng(self.seed)
+        explorer = CausalExplorer(get_default_config(), self.output_dir, rng)
+        results = explorer.discover_causal_structures(train_df)
+        prob_adj = results.probabilistic_adjacency # type: ignore
+        self.prob_adj = torch.tensor(prob_adj, dtype=torch.float32)
+        super().fit(X_train, y_train)
     
     
 class LLMRegressor:

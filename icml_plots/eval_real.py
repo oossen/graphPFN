@@ -11,7 +11,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 from graphpfn.interface import Regressor, init_model_from_state_dict_file
 from configs.default_configs import training_config
-from icml_plots.models import PFNWrapper, LLMRegressor
+from icml_plots.models import PFNWrapper, LLMRegressor, CausalExplorerRegressor
 
 
 def evaluate_regression_models(
@@ -113,9 +113,13 @@ if __name__ == "__main__":
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     for task in tasks:
+        output_dir = f"icml_plots/output/{datetime_str}/{task}"
+        os.makedirs(output_dir, exist_ok=True)
         dataset_path = f"icml_plots/input/{task}/data.csv"
         # create models
+        dataset_mean = pd.read_csv(dataset_path).iloc[:, -1].mean()
         regs: dict[str, Any] = {'train_mean': DummyRegressor(strategy='mean'),
+                                'global_mean': DummyRegressor(strategy='constant', constant=dataset_mean),
                                 'tabpfn': TabPFNRegressor()}
         att_reg = Regressor(init_model_from_state_dict_file("workdir/attention_beta/latest_checkpoint.pth"), training_config['buckets'])
         prob_adjs = {'causal_discovery': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_causal_discovery/probabilistic_adjacency.npy"), dtype=torch.float32),
@@ -125,14 +129,13 @@ if __name__ == "__main__":
             regs[f'att_{name}'] = PFNWrapper(att_reg, prob_adj)
         baseline_reg = Regressor(init_model_from_state_dict_file("workdir/baseline_beta/latest_checkpoint.pth"), training_config['buckets'])
         regs['baseline'] = PFNWrapper(baseline_reg)
-        regs['llm'] = LLMRegressor()
-        regs['llm_causal'] = LLMRegressor(prob_adj=prob_adjs['causal_discovery'])
+        # regs['llm'] = LLMRegressor()
+        # regs['llm_causal'] = LLMRegressor(prob_adj=prob_adjs['causal_discovery'])
+        regs['causal'] = CausalExplorerRegressor(att_reg, f"{output_dir}/causal_explorer_workdir")
         
         metrics = {'r2': r2_score, 'mse': mean_squared_error}
-        context_sizes = [2, 4, 8, 16, 32, 64]
+        context_sizes = [4, 8, 16, 32, 64]
         n_query_samples = 100
         n_evals = 100
-        output_dir = f"icml_plots/output/{datetime_str}/{task}"
-        os.makedirs(output_dir, exist_ok=True)
         evaluate_regression_models(regs, dataset_path, metrics, context_sizes, n_query_samples, n_evals, f"{output_dir}/results.csv")
     

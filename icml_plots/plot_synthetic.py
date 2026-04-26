@@ -9,13 +9,14 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
     """Plots model performance with bootstrapped confidence intervals."""
     df = pd.read_csv(csv_path)
     metric_df = df[df['metric'] == metric].copy()
-    x_axes = [
-        'num_nodes', 
-        'edge_prob', 
-        'number_train_samples_per_dataset', 
-        'root_std', 
-        'non_root_std'
-    ]
+
+    fancy_names = {'edge_prob': 'Edge probability',
+                    'non_root_std': 'Average noise standard deviation at non-root nodes',
+                    'root_std': 'Average noise standard deviation at root nodes',
+                    'num_nodes': 'Number of features',
+                    'number_train_samples_per_dataset': 'Context size'}
+    metric_df.rename(columns=fancy_names, inplace=True)
+    metric_df['Number of features'] = metric_df['Number of features'] - 1 # target is included in count
     
     if baseline_model in models:
         base_df = metric_df[metric_df['model'] == baseline_model][['ds_id', 'metric', 'value']].copy()
@@ -34,8 +35,9 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
         metric_df['value'] = metric_df.apply(calc_abs_improvement, axis=1)
     
     sns.set_style("whitegrid")
-    for x_var in x_axes:
+    for x_var in fancy_names.values():
         plt.figure(figsize=(8, 5))
+        sns.set_context("paper", font_scale=1.5)
         # bucketize
         metric_df['bucket'] = pd.qcut(metric_df[x_var], q=num_buckets, duplicates='drop')
         bucket_means = metric_df.groupby('bucket', observed=True)[x_var].mean().to_dict()
@@ -58,9 +60,10 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
                     linewidth=2
                 )
         
-        plt.title(f'Model Performance: {metric.upper()} vs {x_var.replace("_", " ").title()}')
-        plt.xlabel(x_var.replace("_", " ").title())
-        plt.ylabel(metric.upper())
+        plt.xlabel(x_var)
+        addition = " (improvement over baseline)" if baseline_model else ""
+        fancy_metric_names = {'r2': f'R²{addition}', 'nrmse': f'NRMSE{addition}', 'nll': f'NLL{addition}'}
+        plt.ylabel(fancy_metric_names[metric])
         plt.legend(title="Models", bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
 
