@@ -36,8 +36,8 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
     
     sns.set_style("whitegrid")
     for x_var in fancy_names.values():
-        plt.figure(figsize=(8, 5))
-        sns.set_context("paper", font_scale=1.5)
+        plt.figure(figsize=(8, 6))
+        sns.set_context("paper", font_scale=2.0)
         # bucketize
         metric_df['bucket'] = pd.qcut(metric_df[x_var], q=num_buckets, duplicates='drop')
         bucket_means = metric_df.groupby('bucket', observed=True)[x_var].mean().to_dict()
@@ -56,15 +56,23 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
                     linestyle=style['ls'],
                     marker=style['marker'],
                     errorbar=('ci', 95),
+                    err_style='bars',
+                    err_kws={'capsize': 5},
                     markersize=7,
                     linewidth=2
                 )
         
         plt.xlabel(x_var)
         addition = " (improvement over baseline)" if baseline_model else ""
-        fancy_metric_names = {'r2': f'R²{addition}', 'nrmse': f'NRMSE{addition}', 'nll': f'NLL{addition}'}
+        fancy_metric_names = {'r2': f'$R^2${addition}', 'nrmse': f'NRMSE{addition}', 'nll': f'NLL{addition}'}
         plt.ylabel(fancy_metric_names[metric])
-        plt.legend(title="Models", bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.2),
+            ncol=3,
+            title=None,
+            frameon=True
+        )
         plt.tight_layout()
 
         filename = f"{metric}_vs_{x_var}_{'rel' if baseline_model else 'abs'}.png"
@@ -73,20 +81,28 @@ def plot_regressor_performance(metric: str, models: Dict, csv_path: str, output_
 
 if __name__ == "__main__":
     
+    uncertainty_level = 'beta'
+    
     my_models = {
-        'attention_beta': {
+        f'attention_{uncertainty_level}': {
             'label': 'Attention', 
-            'color': "#e74c3c", 
+            'color': "#ffc400", 
             'ls': '-', 
             'marker': 'o'
         },
-        'gcn_beta': {
+        f'gcn_{uncertainty_level}': {
             'label': 'GCN', 
-            'color': '#3498db', 
+            'color': "#960000", 
             'ls': '-', 
             'marker': 'o'
         },
-        'baseline_beta': {
+        f'attention_gcn_{uncertainty_level}': {
+            'label': 'Attention + GCN', 
+            'color': "#F471F8", 
+            'ls': '-', 
+            'marker': 'o'
+        },
+        f'baseline_beta': {
             'label': 'Baseline',
             'color': "#808080",
             'ls': '-',
@@ -94,12 +110,12 @@ if __name__ == "__main__":
         }
     }
 
-    input_dir = "icml_plots/output/04_22_00_39"
+    input_dir = f"icml_plots/output/synthetic/{uncertainty_level}"
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     result_file = f"{input_dir}/results.csv"
-    output_dir = f"icml_plots/output/{datetime_str}"
+    output_dir = f"icml_plots/output/synthetic/{uncertainty_level}"
     os.makedirs(output_dir, exist_ok=True)
-    for metric in ['r2', 'nrmse', 'nll']:
+    for metric in ['r2']:
         plot_regressor_performance(metric, my_models, result_file, output_dir)
-        plot_regressor_performance(metric, my_models, result_file, output_dir, baseline_model='baseline_beta')
+        plot_regressor_performance(metric, my_models, result_file, output_dir, baseline_model=f'baseline_beta')

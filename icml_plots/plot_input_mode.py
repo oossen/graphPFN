@@ -4,17 +4,17 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 
-input_dir = "icml_plots/output/04_24_20_02"
+input_dir = "icml_plots/output/input_mode"
 metric = "r2"
 models = ["attention_binary", "attention_beta", "attention_uniform"]
-model_names = {"attention_binary": "Model trained with binary\n type graph information",
-               "attention_beta": "Model trained with beta\n type graph information",
-               "attention_uniform": "Model trained with uniform\n type graph information"}
+model_names = {"attention_binary": "Models trained\n with binary type\n graph information",
+               "attention_beta": "Models trained\n with beta type\n graph information",
+               "attention_uniform": "Models trained\n with uniform type\n graph information"}
 baseline_model = "baseline_beta"
 
 now = datetime.now()
 datetime_str = now.strftime("%m_%d_%H_%M")
-output_dir = f"icml_plots/output/{datetime_str}"
+output_dir = f"icml_plots/output/input_mode"
 os.makedirs(output_dir, exist_ok=True)
 file_map = {
     'binary': f"{input_dir}/results_binary.csv",
@@ -38,13 +38,13 @@ for eval_label, file_path in file_map.items():
 final_df = pd.concat(all_processed_data)
 final_df['model'] = final_df['model'].map(model_names)
 
-plt.figure(figsize=(10, 6))
-sns.set_style("white")
-sns.set_context("paper", font_scale=1.5)
+plt.figure(figsize=(10, 7))
+sns.set_style("whitegrid")
+sns.set_context("paper", font_scale=2.0)
 custom_palette = {
-    'binary': '#e394e3',    # Purple
-    'beta': '#e69f22',      # Orange
-    'uniform': '#ede324'   # Yellow
+    'binary': "#052afa",    # Purple
+    'beta': "#f50303",      # Orange
+    'uniform': "#00c42a"   # Yellow
 }
 
 ax = sns.barplot(
@@ -56,14 +56,24 @@ ax = sns.barplot(
     order=[model_names[m] for m in models],
     palette=custom_palette,
     capsize=.05,
-    errwidth=1.5
+    err_kws={'linewidth': 1.5},
 )
 
 plt.axhline(0, color='black', linewidth=0.8)
-plt.ylabel('$R^2$ improvement over baseline')
+plt.ylabel('$R^2$ (improvement over baseline)')
 plt.xlabel(None)
-plt.legend(title='Type of evaluated\n graph information', loc='lower right')
-sns.despine()
+handles, _ = ax.get_legend_handles_labels()
+new_labels = ['Evaluation on binary graph info', 'Evaluation on beta type graph info', 'Evaluation on uniform type graph info']
+
+ax.legend(
+    handles=handles, 
+    labels=new_labels,
+    loc='upper center',
+    bbox_to_anchor=(0.5, -0.22),
+    ncol=1,
+    title=None,
+    frameon=True
+)
 
 plt.tight_layout()
 plt.savefig(f"{output_dir}/improvement_by_input_mode.png")

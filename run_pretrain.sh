@@ -27,7 +27,7 @@ conda activate graph-pfn
 # Running the job
 start=`date +%s`
 
-python pretrain.py --prob_adj_mode "uniform"
+python pretrain.py --prob_adj_mode "binary"
 
 end=`date +%s`
 runtime=$((end-start))

@@ -113,7 +113,7 @@ if __name__ == "__main__":
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
     for task in tasks:
-        output_dir = f"icml_plots/output/{datetime_str}/{task}"
+        output_dir = f"icml_plots/output/real/{task}"
         os.makedirs(output_dir, exist_ok=True)
         dataset_path = f"icml_plots/input/{task}/data.csv"
         # create models
@@ -121,17 +121,21 @@ if __name__ == "__main__":
         regs: dict[str, Any] = {'train_mean': DummyRegressor(strategy='mean'),
                                 'global_mean': DummyRegressor(strategy='constant', constant=dataset_mean),
                                 'tabpfn': TabPFNRegressor()}
-        att_reg = Regressor(init_model_from_state_dict_file("workdir/attention_beta/latest_checkpoint.pth"), training_config['buckets'])
+        att_beta_reg = Regressor(init_model_from_state_dict_file("workdir/attention_beta/latest_checkpoint.pth"), training_config['buckets'])
+        att_binary_reg = Regressor(init_model_from_state_dict_file("workdir/attention_binary/latest_checkpoint.pth"), training_config['buckets'])
+        att_uniform_reg = Regressor(init_model_from_state_dict_file("workdir/attention_uniform/latest_checkpoint.pth"), training_config['buckets'])
+        att_regs = {'beta': att_beta_reg, 'binary': att_binary_reg, 'uniform': att_uniform_reg}
         prob_adjs = {'causal_discovery': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_causal_discovery/probabilistic_adjacency.npy"), dtype=torch.float32),
                     'evolution': torch.tensor(np.load(f"icml_plots/input/{task}/oracle_evolutionary/best_matrix.npy"), dtype=torch.float32),}
         prob_adjs['arbitrary'] = (torch.ones_like(prob_adjs['causal_discovery']) - torch.eye(prob_adjs['causal_discovery'].shape[0])) / 3
         for name, prob_adj in prob_adjs.items():
-            regs[f'att_{name}'] = PFNWrapper(att_reg, prob_adj)
+            for uncertainty_level in ['beta', 'binary', 'uniform']:
+                regs[f'att_{uncertainty_level}_{name}'] = PFNWrapper(att_regs[uncertainty_level], prob_adj)
         baseline_reg = Regressor(init_model_from_state_dict_file("workdir/baseline_beta/latest_checkpoint.pth"), training_config['buckets'])
         regs['baseline'] = PFNWrapper(baseline_reg)
         # regs['llm'] = LLMRegressor()
         # regs['llm_causal'] = LLMRegressor(prob_adj=prob_adjs['causal_discovery'])
-        regs['causal'] = CausalExplorerRegressor(att_reg, f"{output_dir}/causal_explorer_workdir")
+        regs['causal'] = CausalExplorerRegressor(att_beta_reg, f"{output_dir}/causal_explorer_workdir")
         
         metrics = {'r2': r2_score, 'mse': mean_squared_error}
         context_sizes = [4, 8, 16, 32, 64]

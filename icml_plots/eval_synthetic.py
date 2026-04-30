@@ -51,8 +51,12 @@ def evaluate_on_prior(models, prior, metrics, path):
             logits = logits.reshape(-1, logits.shape[-1])
 
             for metric_name, metric_fn in metrics.items():
-                value = metric_fn(logits, y_target)
-                
+                try:
+                    value = metric_fn(logits, y_target)
+                except Exception as e:
+                    print(f"Error occurred while computing {metric_name} for model {model_name}: {e}")
+                    continue
+
                 row = {
                     "ds_id": ds_id,
                     "model": model_name,
@@ -112,14 +116,19 @@ def nll_metric(logits, y_target):
 
 
 if __name__ == "__main__":
-    model_names = ["attention_beta", "gcn_beta", "attention_gcn_beta", "baseline_beta"]
+    uncertainty_level = 'uniform'
+    model_architectures = ["attention", "gcn", "attention_gcn"]
+    model_names = [f"{arch}_{uncertainty_level}" for arch in model_architectures]
+    model_names.append("baseline_beta") # all baseline models should behave the same, but to be extra sure we fix one
     model_paths = {name: f"workdir/{name}/latest_checkpoint.pth" for name in model_names}
     models = {name: init_model_from_state_dict_file(path) for name, path in model_paths.items()}
     metrics = {"r2": metric_r2, "nrmse": metric_nrmse, "nll": nll_metric}
-    prior = ObservationalDataLoader(100000, 1, prior_config, seed=42)
+    prior_config["graph_config"]["prob_adj_mode"] = {"distribution": "categorical",
+                                            "distribution_parameters": {"choices": [uncertainty_level], "probabilities": [1.0]}}
+    prior = ObservationalDataLoader(100000, 1, prior_config, seed=100)    
     now = datetime.now()
     datetime_str = now.strftime("%m_%d_%H_%M")
-    output_dir = f"icml_plots/output/{datetime_str}"
+    output_dir = f"icml_plots/output/synthetic/{uncertainty_level}"
     os.makedirs(output_dir, exist_ok=True)
     evaluate_on_prior(models, prior, metrics, f"{output_dir}/results.csv")
     

@@ -1,5 +1,8 @@
 import openml
 import os
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+import pandas as pd
 
 task_ids = [("fish_toxicity", 363698),
             ("concrete_compressive_strength", 363625),
@@ -28,3 +31,15 @@ for name, id in task_ids:
     out_dir = f"icml_plots/input/{name}"
     os.makedirs(out_dir, exist_ok=True)
     df.to_csv(f"icml_plots/input/{name}/data.csv", index=False)
+    
+    # Preprocessed version for causal discovery
+    df_transformed = df.copy()
+    scaler = StandardScaler()
+    encoder = OrdinalEncoder()
+    for col in df_transformed.columns:
+        # Check if column is numerical
+        if not pd.api.types.is_numeric_dtype(df_transformed[col]):
+            df_transformed[[col]] = encoder.fit_transform(df_transformed[[col]])
+        df_transformed[[col]] = scaler.fit_transform(df_transformed[[col]])
+            
+    df_transformed.to_csv(f"icml_plots/input/{name}/data_preprocessed.csv", index=False)

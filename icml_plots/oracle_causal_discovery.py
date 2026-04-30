@@ -20,7 +20,7 @@ tasks = ["fish_toxicity",
             "physiochemical_protein",
             "diamonds",]
 for task in tasks:
-    df = pd.read_csv(f"icml_plots/input/{task}/data.csv")
+    df = pd.read_csv(f"icml_plots/input/{task}/data_preprocessed.csv")
     df = df.sample(n=min(len(df), 500), random_state=seed)
     config = get_default_config()
     rng = np.random.default_rng(seed)
