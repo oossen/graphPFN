@@ -4,8 +4,9 @@ import os
 from google import genai
 from dotenv import load_dotenv
 import time
-from pathlib import Path
 import torch
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+from pathlib import Path
 
 from causal_discovery.causal_explorer import CausalExplorer
 from causal_discovery.config import get_default_config
@@ -56,8 +57,22 @@ class CausalExplorerRegressor(PFNWrapper):
         train_df = pd.DataFrame(X_train)
         train_df['target'] = y_train
         rng = np.random.default_rng(self.seed)
-        explorer = CausalExplorer(get_default_config(), self.output_dir, rng)
-        results = explorer.discover_causal_structures(train_df)
+        scaler = StandardScaler()
+        encoder = OrdinalEncoder()
+        for col in train_df.columns:
+            # Check if column is numerical
+            if not pd.api.types.is_numeric_dtype(train_df[col]):
+                train_df[[col]] = encoder.fit_transform(train_df[[col]])
+            train_df[[col]] = scaler.fit_transform(train_df[[col]])
+        
+        # If an adjacency matrix is already present (from another model run on the same data), that will be loaded
+        results = CausalExplorer.load_causal_results(
+            results_path=Path("results/my_dataset"),
+            data_df=train_df,
+            causal_discovery_config=get_default_config(),
+            num_workers=0,
+            rng=rng,
+        )
         prob_adj = results.probabilistic_adjacency # type: ignore
         self.prob_adj = torch.tensor(prob_adj, dtype=torch.float32)
         super().fit(X_train, y_train)
